@@ -1,0 +1,1271 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pet Care Planner</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: #667eea;
+      --accent-color-2: #764ba2;
+      --success-color: #48bb78;
+      --bg-light: #f0f4ff;
+      --text-primary: #2d3748;
+      --text-secondary: #718096;
+      --border-color: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Karla', Arial, sans-serif; background-color: var(--bg-light); color: var(--text-primary); }
+    .font-heading { font-family: 'Montserrat', sans-serif; }
+    .font-body { font-family: 'Karla', Arial, sans-serif; }
+    .text-primary { color: var(--text-primary); }
+    .text-secondary { color: var(--text-secondary); }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid var(--border-color); }
+    .btn-primary { background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); color: white; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-weight: 600; border-radius: 8px; padding: 8px 16px; transition: opacity 0.2s; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; cursor: pointer; font-family: 'Karla', sans-serif; font-weight: 500; border-radius: 8px; padding: 8px 16px; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    input, select, textarea { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-family: 'Karla', sans-serif; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; background: white; color: var(--text-primary); }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(102,126,234,0.12); }
+    .sidebar-item { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 500; color: #64748b; padding: 11px 16px; transition: all 0.15s; }
+    .sidebar-item:hover { background: rgba(102,126,234,0.08); color: var(--accent-color); }
+    .sidebar-item.active { background: rgba(102,126,234,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
+    .tab-content { display: none; }
+    .tab-content.active-tab { display: block; }
+    .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
+    .delete-x { background: none; border: none; color: #667eea; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
+
+    /* Mobile */
+    .mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: white; border-bottom: 1px solid #e2e8f0; align-items: center; padding: 0 16px; z-index: 1000; gap: 12px; }
+    .mobile-topbar h1 { font-size: 14px; font-weight: 700; color: #667eea; flex: 1; margin: 0; font-family: 'Montserrat', sans-serif; }
+    #hamburger-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #667eea; }
+    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+    #sidebar-overlay.open { display: block; }
+
+    @media (max-width: 768px) {
+      .mobile-topbar { display: flex; }
+      #main-app { flex-direction: column !important; }
+      aside { position: fixed !important; left: -280px; top: 0; bottom: 0; width: 260px !important; z-index: 1001; transition: left 0.25s ease; overflow-y: scroll !important; -webkit-overflow-scrolling: touch; max-height: 100dvh; height: 100%; }
+      aside.open { left: 0 !important; }
+      aside .p-4 { padding: 10px 12px !important; }
+      aside .sidebar-item { padding: 10px 16px !important; font-size: 13px !important; }
+      main { padding: 68px 12px 32px !important; width: 100% !important; }
+      [style*="grid-template-columns:1fr 1fr"], [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:repeat(2"], [style*="grid-template-columns:repeat(3"], [style*="display:grid"] { grid-template-columns: 1fr !important; }
+      .card { padding: 14px !important; }
+    }
+
+    /* Dark mode */
+    [data-theme="dark"] { --bg-light: #15202b; --text-primary: #e8e6f0; --text-secondary: #9b98b0; --border-color: rgba(139,124,248,0.15); }
+    [data-theme="dark"] body { background: #15202b !important; color: #e8e6f0; }
+    [data-theme="dark"] .card { background: #1e2732 !important; border-color: rgba(139,124,248,0.15) !important; border-top: 2px solid rgba(139,124,248,0.2) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; }
+    [data-theme="dark"] .card[style*="background:linear-gradient"], [data-theme="dark"] .card[style*="background: linear-gradient"] { border-top: none !important; }
+    [data-theme="dark"] aside, [data-theme="dark"] aside.bg-white { background: #131c26 !important; border-right: 1px solid rgba(139,124,248,0.2) !important; }
+    [data-theme="dark"] .mobile-topbar { background: #131c26 !important; border-color: rgba(139,124,248,0.2) !important; }
+    [data-theme="dark"] .mobile-topbar h1 { color: #c4b5fd; }
+    [data-theme="dark"] #hamburger-btn { color: #c4b5fd; }
+    [data-theme="dark"] .sidebar-item { color: #9b98b0; }
+    [data-theme="dark"] .sidebar-item:hover { background: rgba(139,124,248,0.1); color: #e8e6f0; }
+    [data-theme="dark"] .sidebar-item.active { background: rgba(139,124,248,0.15) !important; color: #c4b5fd; border-right: 3px solid #8b7cf8; }
+    [data-theme="dark"] .text-primary { color: #e8e6f0 !important; }
+    [data-theme="dark"] .text-secondary { color: #9b98b0 !important; }
+    [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: rgba(30,26,50,0.8) !important; color: #e8e6f0 !important; border-color: rgba(139,124,248,0.3) !important; }
+    [data-theme="dark"] input::placeholder, [data-theme="dark"] textarea::placeholder { color: #6b6885 !important; }
+    [data-theme="dark"] .btn-secondary { background: rgba(60,54,95,0.8); color: #c4b5fd; border-color: rgba(139,124,248,0.3); }
+    [data-theme="dark"] .border-t, [data-theme="dark"] .border-gray-200, [data-theme="dark"] .border-b { border-color: rgba(139,124,248,0.15) !important; }
+    [data-theme="dark"] .bg-gray-50 { background: rgba(30,26,50,0.6) !important; }
+    [data-theme="dark"] main { background: transparent !important; }
+    [data-theme="dark"] .progress-bar { background: rgba(139,124,248,0.15); }
+  </style>
+ </head>
+ <body class="h-full">
+
+  <!-- Mobile overlay -->
+  <div id="sidebar-overlay"></div>
+
+  <!-- Mobile top bar -->
+  <div class="mobile-topbar">
+   <button id="hamburger-btn" aria-label="Open menu">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+   </button>
+   <h1>Pet Care Planner</h1>
+  </div>
+
+  <div id="main-app" class="flex min-h-screen" style="opacity:0;transition:opacity 0.2s ease;">
+
+   <!-- Sidebar -->
+   <aside class="w-64 bg-white shadow-lg flex-shrink-0 overflow-y-auto sticky top-0 h-screen">
+    <div class="p-4 border-b border-gray-200">
+     <h1 class="font-heading text-lg font-bold text-primary" style="color:var(--accent-color);">🐾 Pet Care Planner</h1>
+     <p class="font-body text-xs text-secondary mt-1">Your complete pet health companion</p>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
+      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
+      <label style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+     </div>
+     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
+     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+      <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="dark-mode-label">Dark Mode</span>
+     </button>
+    </div>
+    <nav class="py-2">
+     <button class="sidebar-item active" data-tab="overview">Overview</button>
+     <button class="sidebar-item" data-tab="pet-profiles">Pet Profiles</button>
+     <button class="sidebar-item" data-tab="vet-visits">Vet Visits</button>
+     <button class="sidebar-item" data-tab="vaccinations">Vaccinations</button>
+     <button class="sidebar-item" data-tab="medications">Medications</button>
+     <button class="sidebar-item" data-tab="weight-tracker">Weight Tracker</button>
+     <button class="sidebar-item" data-tab="expenses">Expense Tracker</button>
+     <button class="sidebar-item" data-tab="pet-sitter">Pet Sitter Info</button>
+     <button class="sidebar-item" data-tab="document-vault">Document Vault</button>
+    </nav>
+   </aside>
+
+   <!-- Main content -->
+   <main class="flex-1 p-5" style="background:var(--bg-light);">
+
+    <!-- OVERVIEW TAB -->
+    <section id="tab-overview" class="tab-content active-tab">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Overview</h2>
+
+     <!-- Pet summary cards -->
+     <div id="overview-pets" class="mb-5"></div>
+
+     <!-- Upcoming reminders -->
+     <div class="card p-5 mb-5" style="border-left:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-3">Upcoming Reminders</h3>
+      <div id="overview-reminders">
+       <p class="font-body text-sm text-secondary italic">Add vaccinations and medications to see upcoming reminders here.</p>
+      </div>
+     </div>
+
+     <!-- Quick stats -->
+     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+      <div class="card p-4 text-center">
+       <p class="font-body text-xs text-secondary uppercase tracking-wide mb-1">Pets</p>
+       <p class="font-heading text-3xl font-bold" style="color:var(--accent-color);" id="stat-pets">0</p>
+      </div>
+      <div class="card p-4 text-center">
+       <p class="font-body text-xs text-secondary uppercase tracking-wide mb-1">Vet Visits</p>
+       <p class="font-heading text-3xl font-bold" style="color:var(--accent-color);" id="stat-visits">0</p>
+      </div>
+      <div class="card p-4 text-center">
+       <p class="font-body text-xs text-secondary uppercase tracking-wide mb-1">Total Spent</p>
+       <p class="font-heading text-3xl font-bold" style="color:var(--accent-color);" id="stat-spent">$0</p>
+      </div>
+     </div>
+    </section>
+
+    <!-- PET PROFILES TAB -->
+    <section id="tab-pet-profiles" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Pet Profiles</h2>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Add a Pet</h3>
+      <form id="pet-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet Name *</label>
+         <input type="text" id="pet-name" placeholder="e.g., Bella" required>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Species *</label>
+         <select id="pet-species" required>
+          <option value="">Select...</option>
+          <option value="Dog">Dog</option>
+          <option value="Cat">Cat</option>
+          <option value="Other">Other</option>
+         </select>
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Breed</label>
+         <input type="text" id="pet-breed" placeholder="e.g., Golden Retriever">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date of Birth</label>
+         <input type="date" id="pet-dob">
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Color / Markings</label>
+         <input type="text" id="pet-color" placeholder="e.g., Golden with white chest">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Sex</label>
+         <select id="pet-sex">
+          <option value="">Select...</option>
+          <option value="Male (Intact)">Male (Intact)</option>
+          <option value="Male (Neutered)">Male (Neutered)</option>
+          <option value="Female (Intact)">Female (Intact)</option>
+          <option value="Female (Spayed)">Female (Spayed)</option>
+         </select>
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Microchip Number</label>
+         <input type="text" id="pet-microchip" placeholder="15-digit number">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Insurance Provider</label>
+         <input type="text" id="pet-insurance" placeholder="e.g., Trupanion">
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Insurance Policy #</label>
+         <input type="text" id="pet-policy" placeholder="Policy number">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Primary Vet</label>
+         <input type="text" id="pet-vet" placeholder="e.g., Dr. Johnson">
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Known Allergies</label>
+        <input type="text" id="pet-allergies" placeholder="e.g., chicken, bee stings">
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Notes</label>
+        <textarea id="pet-notes" rows="2" placeholder="Any other important information..."></textarea>
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Save Pet Profile</button>
+      </form>
+     </div>
+     <div id="pet-profiles-list" class="space-y-4"></div>
+    </section>
+
+    <!-- VET VISITS TAB -->
+    <section id="tab-vet-visits" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Vet Visits</h2>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Log a Vet Visit</h3>
+      <form id="vet-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
+         <select id="vet-pet" required><option value="">Select pet...</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date *</label>
+         <input type="date" id="vet-date" required>
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Vet / Clinic Name</label>
+         <input type="text" id="vet-name" placeholder="e.g., Happy Paws Clinic">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Visit Type</label>
+         <select id="vet-type">
+          <option value="Wellness Exam">Wellness Exam</option>
+          <option value="Sick Visit">Sick Visit</option>
+          <option value="Follow-up">Follow-up</option>
+          <option value="Emergency">Emergency</option>
+          <option value="Surgery">Surgery</option>
+          <option value="Dental">Dental</option>
+          <option value="Vaccination">Vaccination</option>
+          <option value="Other">Other</option>
+         </select>
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Reason for Visit</label>
+        <input type="text" id="vet-reason" placeholder="e.g., Annual checkup, limping on right leg">
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Diagnosis / Notes</label>
+        <textarea id="vet-diagnosis" rows="2" placeholder="What the vet found and recommended..."></textarea>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Weight at Visit (lbs)</label>
+         <input type="number" id="vet-weight" placeholder="0.0" step="0.1" min="0">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Cost ($)</label>
+         <input type="number" id="vet-cost" placeholder="0.00" step="0.01" min="0">
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Next Appointment Date</label>
+        <input type="date" id="vet-next">
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Save Visit</button>
+      </form>
+     </div>
+     <div id="vet-visits-list" class="space-y-3"></div>
+    </section>
+
+    <!-- VACCINATIONS TAB -->
+    <section id="tab-vaccinations" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Vaccinations</h2>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Log a Vaccination</h3>
+      <form id="vacc-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
+         <select id="vacc-pet" required><option value="">Select pet...</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Vaccine *</label>
+         <select id="vacc-name" required onchange="handleVaccOther(this)">
+          <option value="">Select vaccine...</option>
+          <optgroup label="Dogs">
+           <option value="Rabies">Rabies</option>
+           <option value="DHPP (Distemper/Parvo)">DHPP (Distemper/Parvo)</option>
+           <option value="Bordetella (Kennel Cough)">Bordetella (Kennel Cough)</option>
+           <option value="Leptospirosis">Leptospirosis</option>
+           <option value="Lyme Disease">Lyme Disease</option>
+           <option value="Canine Influenza">Canine Influenza</option>
+          </optgroup>
+          <optgroup label="Cats">
+           <option value="Rabies">Rabies</option>
+           <option value="FVRCP (Distemper)">FVRCP (Distemper)</option>
+           <option value="FeLV (Feline Leukemia)">FeLV (Feline Leukemia)</option>
+           <option value="FIV">FIV</option>
+          </optgroup>
+          <option value="Other">Other (enter below)</option>
+         </select>
+        </div>
+       </div>
+       <div id="vacc-other-container" style="display:none;">
+        <label class="block font-body text-sm text-secondary mb-1">Vaccine Name</label>
+        <input type="text" id="vacc-other" placeholder="Enter vaccine name">
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date Given *</label>
+         <input type="date" id="vacc-date" required>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Next Due Date</label>
+         <input type="date" id="vacc-next">
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Administered By</label>
+         <input type="text" id="vacc-vet" placeholder="Vet / clinic name">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Lot Number</label>
+         <input type="text" id="vacc-lot" placeholder="Optional">
+        </div>
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Save Vaccination</button>
+      </form>
+     </div>
+     <div id="vaccinations-list" class="space-y-3"></div>
+    </section>
+
+    <!-- MEDICATIONS TAB -->
+    <section id="tab-medications" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Medications</h2>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Add a Medication</h3>
+      <form id="med-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
+         <select id="med-pet" required><option value="">Select pet...</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Medication *</label>
+         <select id="med-name" required onchange="handleMedOther(this)">
+          <option value="">Select medication...</option>
+          <optgroup label="Flea, Tick & Heartworm">
+           <option value="Heartgard Plus">Heartgard Plus</option>
+           <option value="NexGard">NexGard</option>
+           <option value="Bravecto">Bravecto</option>
+           <option value="Frontline Plus">Frontline Plus</option>
+           <option value="Simparica Trio">Simparica Trio</option>
+           <option value="Revolution Plus">Revolution Plus</option>
+           <option value="Sentinel Spectrum">Sentinel Spectrum</option>
+           <option value="Interceptor Plus">Interceptor Plus</option>
+          </optgroup>
+          <optgroup label="Allergy / Skin">
+           <option value="Apoquel">Apoquel</option>
+           <option value="Cytopoint">Cytopoint</option>
+           <option value="Atopica">Atopica</option>
+           <option value="Prednisone">Prednisone</option>
+          </optgroup>
+          <optgroup label="Joint / Pain">
+           <option value="Carprofen (Rimadyl)">Carprofen (Rimadyl)</option>
+           <option value="Meloxicam">Meloxicam</option>
+           <option value="Galliprant">Galliprant</option>
+           <option value="Librela (injection)">Librela (injection)</option>
+          </optgroup>
+          <optgroup label="Anxiety / Behavior">
+           <option value="Trazodone">Trazodone</option>
+           <option value="Fluoxetine">Fluoxetine</option>
+           <option value="Clomipramine">Clomipramine</option>
+           <option value="Sileo">Sileo</option>
+          </optgroup>
+          <optgroup label="Digestive">
+           <option value="Metronidazole">Metronidazole</option>
+           <option value="Omeprazole">Omeprazole</option>
+           <option value="Cerenia">Cerenia</option>
+           <option value="Fortiflora (Probiotic)">Fortiflora (Probiotic)</option>
+          </optgroup>
+          <optgroup label="Antibiotics">
+           <option value="Amoxicillin">Amoxicillin</option>
+           <option value="Cephalexin">Cephalexin</option>
+           <option value="Doxycycline">Doxycycline</option>
+           <option value="Clindamycin">Clindamycin</option>
+          </optgroup>
+          <optgroup label="Thyroid / Hormonal">
+           <option value="Methimazole">Methimazole</option>
+           <option value="Levothyroxine">Levothyroxine</option>
+          </optgroup>
+          <option value="Other">Other (enter below)</option>
+         </select>
+        </div>
+       </div>
+       <div id="med-other-container" style="display:none;">
+        <label class="block font-body text-sm text-secondary mb-1">Medication Name</label>
+        <input type="text" id="med-other" placeholder="Enter medication name">
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Dosage</label>
+         <input type="text" id="med-dosage" placeholder="e.g., 10mg">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Frequency</label>
+         <select id="med-frequency">
+          <option value="Once daily">Once daily</option>
+          <option value="Twice daily">Twice daily</option>
+          <option value="Every 8 hours">Every 8 hours</option>
+          <option value="Weekly">Weekly</option>
+          <option value="Monthly">Monthly</option>
+          <option value="Every 3 months">Every 3 months</option>
+          <option value="As needed">As needed</option>
+          <option value="Other">Other</option>
+         </select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Start Date</label>
+         <input type="date" id="med-start">
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Refill Date</label>
+         <input type="date" id="med-refill">
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Prescribing Vet</label>
+         <input type="text" id="med-vet" placeholder="Vet name">
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Notes</label>
+        <input type="text" id="med-notes" placeholder="e.g., give with food, refrigerate">
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Save Medication</button>
+      </form>
+     </div>
+     <div id="medications-list" class="space-y-3"></div>
+    </section>
+
+    <!-- WEIGHT TRACKER TAB -->
+    <section id="tab-weight-tracker" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Weight Tracker</h2>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Log Weight</h3>
+      <form id="weight-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
+         <select id="weight-pet" required><option value="">Select pet...</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Weight (lbs) *</label>
+         <input type="number" id="weight-lbs" placeholder="0.0" step="0.1" min="0" required>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date *</label>
+         <input type="date" id="weight-date" required>
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Notes</label>
+        <input type="text" id="weight-notes" placeholder="e.g., after vet visit, before diet change">
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Log Weight</button>
+      </form>
+     </div>
+     <div id="weight-list" class="space-y-3"></div>
+    </section>
+
+    <!-- EXPENSE TRACKER TAB -->
+    <section id="tab-expenses" class="tab-content">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;">
+      <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Expense Tracker</h2>
+      <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Track all pet-related costs in one place</p>
+      <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">
+       <div style="text-align:center;"><p class="font-body text-xs uppercase mb-1" style="color:rgba(255,255,255,0.7);">Total Spent</p><p class="font-heading text-2xl font-bold" style="color:white;" id="expense-total">$0.00</p></div>
+       <div style="text-align:center;"><p class="font-body text-xs uppercase mb-1" style="color:rgba(255,255,255,0.7);">This Month</p><p class="font-heading text-2xl font-bold" style="color:white;" id="expense-month">$0.00</p></div>
+      </div>
+     </div>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Add Expense</h3>
+      <form id="expense-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet</label>
+         <select id="expense-pet"><option value="">All pets / General</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Category *</label>
+         <select id="expense-category" required>
+          <option value="Vet Visit">Vet Visit</option>
+          <option value="Medications">Medications</option>
+          <option value="Food & Treats">Food & Treats</option>
+          <option value="Grooming">Grooming</option>
+          <option value="Boarding / Sitting">Boarding / Sitting</option>
+          <option value="Supplies & Toys">Supplies & Toys</option>
+          <option value="Insurance">Insurance</option>
+          <option value="Training">Training</option>
+          <option value="Emergency">Emergency</option>
+          <option value="Other">Other</option>
+         </select>
+        </div>
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Amount ($) *</label>
+         <input type="number" id="expense-amount" placeholder="0.00" step="0.01" min="0" required>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date *</label>
+         <input type="date" id="expense-date" required>
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Description</label>
+        <input type="text" id="expense-desc" placeholder="e.g., Annual wellness exam, NexGard 3-pack">
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Add Expense</button>
+      </form>
+     </div>
+     <div id="expenses-list" class="space-y-3"></div>
+    </section>
+
+    <!-- PET SITTER INFO TAB -->
+    <section id="tab-pet-sitter" class="tab-content">
+     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 class="font-heading text-2xl font-bold text-primary">Pet Sitter Info</h2>
+      <button id="print-sitter-btn" class="btn-primary px-4 py-2 text-sm">Print / Export</button>
+     </div>
+     <p class="font-body text-sm text-secondary mb-4">Everything your pet sitter needs to know — fill this out once and print it before any trip.</p>
+     <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-sm font-bold text-primary mb-3">Owner Contact Info</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+       <div><label class="block font-body text-xs text-secondary mb-1">Owner Name</label><input type="text" id="sitter-owner-name" placeholder="Your name"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Phone</label><input type="text" id="sitter-owner-phone" placeholder="Your phone number"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Email</label><input type="text" id="sitter-owner-email" placeholder="Your email"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Away Dates</label><input type="text" id="sitter-away-dates" placeholder="e.g., Apr 10–15"></div>
+      </div>
+     </div>
+     <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-sm font-bold text-primary mb-3">Emergency Contacts</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+       <div><label class="block font-body text-xs text-secondary mb-1">Emergency Contact Name</label><input type="text" id="sitter-emerg-name" placeholder="Name"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Emergency Contact Phone</label><input type="text" id="sitter-emerg-phone" placeholder="Phone"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Vet Name & Phone</label><input type="text" id="sitter-vet" placeholder="Dr. Smith — (555) 123-4567"></div>
+       <div><label class="block font-body text-xs text-secondary mb-1">Emergency Vet (24hr)</label><input type="text" id="sitter-emerg-vet" placeholder="VCA Animal Hospital — (555) 999-0000"></div>
+      </div>
+     </div>
+     <div id="sitter-pets-section"></div>
+     <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-sm font-bold text-primary mb-3">Additional Instructions</h3>
+      <textarea id="sitter-instructions" rows="4" placeholder="Any other important notes for the sitter — home access codes, special behaviors, routines, items to avoid..."></textarea>
+     </div>
+     <button id="save-sitter-btn" class="btn-primary px-6 py-2">Save All Sitter Info</button>
+    </section>
+
+    <!-- DOCUMENT VAULT TAB -->
+    <section id="tab-document-vault" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-4">Document Vault</h2>
+     <p class="font-body text-sm text-secondary mb-4">Store links or notes for important pet documents — adoption papers, insurance policies, vet records, registration.</p>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-4">Add Document</h3>
+      <form id="doc-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet</label>
+         <select id="doc-pet"><option value="">All pets / General</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Document Type *</label>
+         <select id="doc-type" required>
+          <option value="Adoption / Purchase Papers">Adoption / Purchase Papers</option>
+          <option value="Insurance Policy">Insurance Policy</option>
+          <option value="Vaccination Records">Vaccination Records</option>
+          <option value="Vet Records">Vet Records</option>
+          <option value="Microchip Registration">Microchip Registration</option>
+          <option value="License / Registration">License / Registration</option>
+          <option value="Prescription">Prescription</option>
+          <option value="Other">Other</option>
+         </select>
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Document Name *</label>
+        <input type="text" id="doc-name" placeholder="e.g., Bella's rabies certificate 2026" required>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Link (Google Drive, Dropbox, etc.)</label>
+        <input type="url" id="doc-link" placeholder="https://...">
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Notes</label>
+        <input type="text" id="doc-notes" placeholder="e.g., expires Dec 2027, policy #12345">
+       </div>
+       <button type="submit" class="btn-primary px-4 py-2">Save Document</button>
+      </form>
+     </div>
+     <div id="documents-list" class="space-y-3"></div>
+    </section>
+
+   </main>
+  </div>
+
+  <script>
+  // ============ DATA STORE ============
+  const STORE_KEY = 'petPlannerData_v1';
+
+  function loadData() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { return {}; }
+  }
+  function saveData(data) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  }
+  function getList(type) {
+    return loadData()[type] || [];
+  }
+  function saveList(type, list) {
+    const data = loadData();
+    data[type] = list;
+    saveData(data);
+  }
+  function addItem(type, item) {
+    item.__id = Date.now() + Math.random();
+    const list = getList(type);
+    list.push(item);
+    saveList(type, list);
+    return item;
+  }
+  function deleteItem(type, id) {
+    const list = getList(type).filter(i => i.__id !== id);
+    saveList(type, list);
+  }
+
+  const fmt = n => '$' + (parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const fmtDate = d => { if(!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
+  const today = () => new Date().toISOString().slice(0,10);
+
+  // ============ TAB NAVIGATION ============
+  document.querySelectorAll('.sidebar-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active-tab'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active-tab');
+      refreshAll();
+    });
+  });
+
+  // ============ PET DROPDOWNS ============
+  function refreshPetDropdowns() {
+    const pets = getList('pets');
+    const opts = pets.map(p => `<option value="${p.__id}">${p.name} (${p.species})</option>`).join('');
+    const optsWithAll = `<option value="">All pets / General</option>` + opts;
+    ['vet-pet','vacc-pet','med-pet','weight-pet'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.innerHTML = `<option value="">Select pet...</option>` + opts;
+    });
+    ['expense-pet','doc-pet'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.innerHTML = optsWithAll;
+    });
+  }
+
+  // ============ PET PROFILES ============
+  document.getElementById('pet-form').addEventListener('submit', e => {
+    e.preventDefault();
+    addItem('pets', {
+      name: document.getElementById('pet-name').value.trim(),
+      species: document.getElementById('pet-species').value,
+      breed: document.getElementById('pet-breed').value,
+      dob: document.getElementById('pet-dob').value,
+      color: document.getElementById('pet-color').value,
+      sex: document.getElementById('pet-sex').value,
+      microchip: document.getElementById('pet-microchip').value,
+      insurance: document.getElementById('pet-insurance').value,
+      policy: document.getElementById('pet-policy').value,
+      vet: document.getElementById('pet-vet').value,
+      allergies: document.getElementById('pet-allergies').value,
+      notes: document.getElementById('pet-notes').value,
+    });
+    e.target.reset();
+    refreshAll();
+  });
+
+  function renderPets() {
+    const pets = getList('pets');
+    const container = document.getElementById('pet-profiles-list');
+    if(!pets.length) { container.innerHTML = '<p class="font-body text-sm text-secondary italic">No pets added yet.</p>'; return; }
+    container.innerHTML = pets.map(p => {
+      const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
+      return `<div class="card p-5" style="border-left:4px solid var(--accent-color);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <h3 class="font-heading text-lg font-bold text-primary">${p.name} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${p.species}${p.breed ? ' — ' + p.breed : ''}</span></h3>
+            ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${p.sex || ''}</p>` : ''}
+          </div>
+          <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">X</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+          ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${p.microchip}</p></div>` : ''}
+          ${p.insurance ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Insurance</p><p class="font-body text-sm">${p.insurance}</p></div>` : ''}
+          ${p.vet ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm">${p.vet}</p></div>` : ''}
+          ${p.allergies ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Allergies</p><p class="font-body text-sm" style="color:#e53e3e;">${p.allergies}</p></div>` : ''}
+          ${p.color ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Color</p><p class="font-body text-sm">${p.color}</p></div>` : ''}
+        </div>
+        ${p.notes ? `<p class="font-body text-sm text-secondary mt-3" style="border-top:1px solid var(--border-color);padding-top:8px;">${p.notes}</p>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  window.deletePet = id => { if(confirm('Delete this pet profile?')) { deleteItem('pets', id); refreshAll(); } };
+
+  // ============ VET VISITS ============
+  document.getElementById('vet-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = parseFloat(document.getElementById('vet-pet').value);
+    const pets = getList('pets');
+    const pet = pets.find(p => p.__id === petId);
+    addItem('vet-visits', {
+      petId, petName: pet ? pet.name : '',
+      date: document.getElementById('vet-date').value,
+      vet: document.getElementById('vet-name').value,
+      type: document.getElementById('vet-type').value,
+      reason: document.getElementById('vet-reason').value,
+      diagnosis: document.getElementById('vet-diagnosis').value,
+      weight: document.getElementById('vet-weight').value,
+      cost: parseFloat(document.getElementById('vet-cost').value) || 0,
+      next: document.getElementById('vet-next').value,
+    });
+    // Auto-add to expenses
+    const cost = parseFloat(document.getElementById('vet-cost').value) || 0;
+    if(cost > 0) addItem('expenses', { petId, petName: pet ? pet.name : '', category: 'Vet Visit', amount: cost, date: document.getElementById('vet-date').value, desc: document.getElementById('vet-reason').value });
+    e.target.reset();
+    refreshAll();
+  });
+
+  function renderVetVisits() {
+    const visits = getList('vet-visits').sort((a,b) => b.date.localeCompare(a.date));
+    const el = document.getElementById('vet-visits-list');
+    if(!visits.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>'; return; }
+    el.innerHTML = visits.map(v => `
+      <div class="card p-4">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span class="font-heading font-bold text-primary">${v.petName}</span>
+              <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type}</span>
+            </div>
+            <p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.vet ? ' · ' + v.vet : ''}</p>
+            ${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}
+            ${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}
+            ${v.next ? `<p class="font-body text-sm mt-1" style="color:#667eea;">Next appointment: ${fmtDate(v.next)}</p>` : ''}
+          </div>
+          <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            ${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}
+            ${v.weight ? `<span class="font-body text-xs text-secondary">${v.weight} lbs</span>` : ''}
+            <button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">X</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  window.deleteVisit = id => { if(confirm('Delete this visit?')) { deleteItem('vet-visits', id); refreshAll(); } };
+
+  // ============ VACCINATIONS ============
+  window.handleVaccOther = sel => {
+    document.getElementById('vacc-other-container').style.display = sel.value === 'Other' ? '' : 'none';
+  };
+
+  document.getElementById('vacc-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = parseFloat(document.getElementById('vacc-pet').value);
+    const pet = getList('pets').find(p => p.__id === petId);
+    let name = document.getElementById('vacc-name').value;
+    if(name === 'Other') name = document.getElementById('vacc-other').value.trim();
+    addItem('vaccinations', {
+      petId, petName: pet ? pet.name : '',
+      name, date: document.getElementById('vacc-date').value,
+      next: document.getElementById('vacc-next').value,
+      vet: document.getElementById('vacc-vet').value,
+      lot: document.getElementById('vacc-lot').value,
+    });
+    e.target.reset();
+    document.getElementById('vacc-other-container').style.display = 'none';
+    refreshAll();
+  });
+
+  function renderVaccinations() {
+    const vaccs = getList('vaccinations').sort((a,b) => b.date.localeCompare(a.date));
+    const el = document.getElementById('vaccinations-list');
+    if(!vaccs.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No vaccinations logged yet.</p>'; return; }
+    el.innerHTML = vaccs.map(v => {
+      const daysUntil = v.next ? Math.ceil((new Date(v.next) - new Date()) / 86400000) : null;
+      const urgency = daysUntil !== null ? (daysUntil < 0 ? 'color:#e53e3e;' : daysUntil < 30 ? 'color:#f6a623;' : 'color:#48bb78;') : '';
+      return `<div class="card p-4" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <p class="font-heading font-bold text-primary">${v.name}</p>
+          <p class="font-body text-sm text-secondary">${v.petName} · Given: ${fmtDate(v.date)}${v.vet ? ' · ' + v.vet : ''}</p>
+          ${v.next ? `<p class="font-body text-sm mt-1" style="${urgency}">Due: ${fmtDate(v.next)}${daysUntil !== null ? (daysUntil < 0 ? ' (overdue)' : ` (${daysUntil} days)`) : ''}</p>` : ''}
+        </div>
+        <button class="delete-x" onclick="deleteVacc(${v.__id})" title="Delete">X</button>
+      </div>`;
+    }).join('');
+  }
+
+  window.deleteVacc = id => { if(confirm('Delete this vaccination record?')) { deleteItem('vaccinations', id); refreshAll(); } };
+
+  // ============ MEDICATIONS ============
+  window.handleMedOther = sel => {
+    document.getElementById('med-other-container').style.display = sel.value === 'Other' ? '' : 'none';
+  };
+
+  document.getElementById('med-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = parseFloat(document.getElementById('med-pet').value);
+    const pet = getList('pets').find(p => p.__id === petId);
+    let name = document.getElementById('med-name').value;
+    if(name === 'Other') name = document.getElementById('med-other').value.trim();
+    addItem('medications', {
+      petId, petName: pet ? pet.name : '',
+      name, dosage: document.getElementById('med-dosage').value,
+      frequency: document.getElementById('med-frequency').value,
+      start: document.getElementById('med-start').value,
+      refill: document.getElementById('med-refill').value,
+      vet: document.getElementById('med-vet').value,
+      notes: document.getElementById('med-notes').value,
+    });
+    e.target.reset();
+    document.getElementById('med-other-container').style.display = 'none';
+    refreshAll();
+  });
+
+  function renderMedications() {
+    const meds = getList('medications');
+    const el = document.getElementById('medications-list');
+    if(!meds.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No medications added yet.</p>'; return; }
+    el.innerHTML = meds.map(m => {
+      const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
+      const refillUrgency = daysToRefill !== null ? (daysToRefill < 0 ? 'color:#e53e3e;' : daysToRefill < 7 ? 'color:#f6a623;' : '') : '';
+      return `<div class="card p-4">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <p class="font-heading font-bold text-primary">${m.name}</p>
+            <p class="font-body text-sm text-secondary">${m.petName}${m.dosage ? ' · ' + m.dosage : ''}${m.frequency ? ' · ' + m.frequency : ''}</p>
+            ${m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${m.vet}</p>` : ''}
+            ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">Refill: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
+            ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${m.notes}</p>` : ''}
+          </div>
+          <button class="delete-x" onclick="deleteMed(${m.__id})" title="Delete">X</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.deleteMed = id => { if(confirm('Delete this medication?')) { deleteItem('medications', id); refreshAll(); } };
+
+  // ============ WEIGHT TRACKER ============
+  document.getElementById('weight-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = parseFloat(document.getElementById('weight-pet').value);
+    const pet = getList('pets').find(p => p.__id === petId);
+    addItem('weights', {
+      petId, petName: pet ? pet.name : '',
+      lbs: parseFloat(document.getElementById('weight-lbs').value),
+      date: document.getElementById('weight-date').value,
+      notes: document.getElementById('weight-notes').value,
+    });
+    e.target.reset();
+    refreshAll();
+  });
+
+  function renderWeights() {
+    const weights = getList('weights').sort((a,b) => b.date.localeCompare(a.date));
+    const el = document.getElementById('weight-list');
+    if(!weights.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No weights logged yet.</p>'; return; }
+    // Group by pet
+    const byPet = {};
+    weights.forEach(w => { if(!byPet[w.petName]) byPet[w.petName] = []; byPet[w.petName].push(w); });
+    el.innerHTML = Object.entries(byPet).map(([petName, entries]) => {
+      const latest = entries[0];
+      const prev = entries[1];
+      const diff = prev ? (latest.lbs - prev.lbs).toFixed(1) : null;
+      return `<div class="card p-4" style="border-left:4px solid var(--accent-color);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h4 class="font-heading font-bold text-primary">${petName}</h4>
+          <div style="text-align:right;">
+            <span class="font-heading text-2xl font-bold" style="color:var(--accent-color);">${latest.lbs} lbs</span>
+            ${diff !== null ? `<span class="font-body text-xs ml-2" style="color:${parseFloat(diff)>0?'#e53e3e':'#48bb78'};">${parseFloat(diff)>0?'+':''}${diff} lbs</span>` : ''}
+          </div>
+        </div>
+        <div class="space-y-1">
+          ${entries.map(w => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
+            <span class="font-body text-sm text-secondary">${fmtDate(w.date)}${w.notes ? ' · ' + w.notes : ''}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="font-body text-sm font-medium text-primary">${w.lbs} lbs</span>
+              <button class="delete-x" onclick="deleteWeight(${w.__id})" title="Delete">X</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.deleteWeight = id => { deleteItem('weights', id); refreshAll(); };
+
+  // ============ EXPENSES ============
+  document.getElementById('expense-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = document.getElementById('expense-pet').value ? parseFloat(document.getElementById('expense-pet').value) : null;
+    const pet = petId ? getList('pets').find(p => p.__id === petId) : null;
+    addItem('expenses', {
+      petId, petName: pet ? pet.name : 'General',
+      category: document.getElementById('expense-category').value,
+      amount: parseFloat(document.getElementById('expense-amount').value) || 0,
+      date: document.getElementById('expense-date').value,
+      desc: document.getElementById('expense-desc').value,
+    });
+    e.target.reset();
+    refreshAll();
+  });
+
+  function renderExpenses() {
+    const expenses = getList('expenses').sort((a,b) => b.date.localeCompare(a.date));
+    const total = expenses.reduce((s,e) => s + (e.amount||0), 0);
+    const thisMonth = expenses.filter(e => e.date && e.date.slice(0,7) === today().slice(0,7)).reduce((s,e) => s + (e.amount||0), 0);
+    document.getElementById('expense-total').textContent = fmt(total);
+    document.getElementById('expense-month').textContent = fmt(thisMonth);
+    document.getElementById('stat-spent').textContent = fmt(total);
+    const el = document.getElementById('expenses-list');
+    if(!expenses.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No expenses logged yet.</p>'; return; }
+    el.innerHTML = expenses.map(e => `
+      <div class="card p-4" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="font-heading font-bold text-primary">${fmt(e.amount)}</span>
+            <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;padding:2px 8px;border-radius:12px;">${e.category}</span>
+          </div>
+          <p class="font-body text-sm text-secondary">${e.petName} · ${fmtDate(e.date)}${e.desc ? ' · ' + e.desc : ''}</p>
+        </div>
+        <button class="delete-x" onclick="deleteExpense(${e.__id})" title="Delete">X</button>
+      </div>`).join('');
+  }
+
+  window.deleteExpense = id => { deleteItem('expenses', id); refreshAll(); };
+
+  // ============ PET SITTER INFO ============
+  function renderSitterPets() {
+    const pets = getList('pets');
+    const section = document.getElementById('sitter-pets-section');
+    if(!pets.length) { section.innerHTML = '<p class="font-body text-sm text-secondary italic mb-4">Add pets in Pet Profiles first to see per-pet sitter sections.</p>'; return; }
+    const sitterData = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    section.innerHTML = pets.map(p => `
+      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color-2);">
+        <h3 class="font-heading text-sm font-bold text-primary mb-3">${p.name} (${p.species})</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Schedule</label><input type="text" id="sitter-feed-${p.__id}" value="${(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">Food Brand</label><input type="text" id="sitter-food-${p.__id}" value="${(sitterData['sitter-food-'+p.__id]||'')}" placeholder="e.g., Royal Canin Adult"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">Medications (if any)</label><input type="text" id="sitter-meds-${p.__id}" value="${(sitterData['sitter-meds-'+p.__id]||'')}" placeholder="e.g., 1 Apoquel tablet with breakfast"></div>
+        </div>
+        <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Behavioral Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
+      </div>`).join('');
+    // Restore values
+    setTimeout(() => {
+      pets.forEach(p => {
+        ['sitter-feed-','sitter-food-','sitter-walk-','sitter-meds-','sitter-behavior-'].forEach(prefix => {
+          const el = document.getElementById(prefix + p.__id);
+          if(el && sitterData[prefix + p.__id]) el.value = sitterData[prefix + p.__id];
+        });
+      });
+    }, 50);
+  }
+
+  document.getElementById('save-sitter-btn').addEventListener('click', () => {
+    const pets = getList('pets');
+    const data = {
+      'sitter-owner-name': document.getElementById('sitter-owner-name').value,
+      'sitter-owner-phone': document.getElementById('sitter-owner-phone').value,
+      'sitter-owner-email': document.getElementById('sitter-owner-email').value,
+      'sitter-away-dates': document.getElementById('sitter-away-dates').value,
+      'sitter-emerg-name': document.getElementById('sitter-emerg-name').value,
+      'sitter-emerg-phone': document.getElementById('sitter-emerg-phone').value,
+      'sitter-vet': document.getElementById('sitter-vet').value,
+      'sitter-emerg-vet': document.getElementById('sitter-emerg-vet').value,
+      'sitter-instructions': document.getElementById('sitter-instructions').value,
+    };
+    pets.forEach(p => {
+      ['sitter-feed-','sitter-food-','sitter-walk-','sitter-meds-','sitter-behavior-'].forEach(prefix => {
+        const el = document.getElementById(prefix + p.__id);
+        if(el) data[prefix + p.__id] = el.value;
+      });
+    });
+    localStorage.setItem('petSitterInfo', JSON.stringify(data));
+    alert('Sitter info saved!');
+  });
+
+  // Restore sitter owner fields on load
+  function restoreSitterOwnerFields() {
+    const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-away-dates',
+     'sitter-emerg-name','sitter-emerg-phone','sitter-vet','sitter-emerg-vet','sitter-instructions'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el && data[id]) el.value = data[id];
+    });
+  }
+
+  // Print pet sitter info
+  document.getElementById('print-sitter-btn').addEventListener('click', () => {
+    const pets = getList('pets');
+    const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>Pet Sitter Instructions</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #2d3748; }
+      h1 { background: linear-gradient(135deg,#667eea,#764ba2); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
+      h2 { font-size: 15px; font-weight: 700; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 6px; margin-top: 20px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .field { margin-bottom: 8px; }
+      .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+      .value { font-size: 13px; font-weight: 600; }
+      .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
+      @media print { body { padding: 0; } h1 { margin: 0 0 20px; } }
+    </style></head><body>
+    <h1>Pet Sitter Instructions</h1>
+    <h2>Owner Info</h2>
+    <div class="grid">
+      <div class="field"><div class="label">Owner</div><div class="value">${data['sitter-owner-name']||''}</div></div>
+      <div class="field"><div class="label">Phone</div><div class="value">${data['sitter-owner-phone']||''}</div></div>
+      <div class="field"><div class="label">Email</div><div class="value">${data['sitter-owner-email']||''}</div></div>
+      <div class="field"><div class="label">Away Dates</div><div class="value">${data['sitter-away-dates']||''}</div></div>
+    </div>
+    <h2>Emergency Contacts</h2>
+    <div class="grid">
+      <div class="field"><div class="label">Emergency Contact</div><div class="value">${data['sitter-emerg-name']||''} — ${data['sitter-emerg-phone']||''}</div></div>
+      <div class="field"><div class="label">Vet</div><div class="value">${data['sitter-vet']||''}</div></div>
+      <div class="field"><div class="label">Emergency Vet (24hr)</div><div class="value">${data['sitter-emerg-vet']||''}</div></div>
+    </div>
+    ${pets.map(p => `
+    <h2>${p.name} (${p.species}${p.breed ? ' — ' + p.breed : ''})</h2>
+    <div class="pet-section">
+      ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${p.allergies}</p>` : ''}
+      <div class="grid">
+        <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
+        <div class="field"><div class="label">Food Brand</div><div class="value">${data['sitter-food-'+p.__id]||''}</div></div>
+        <div class="field"><div class="label">Walk Schedule</div><div class="value">${data['sitter-walk-'+p.__id]||''}</div></div>
+        <div class="field"><div class="label">Medications</div><div class="value">${data['sitter-meds-'+p.__id]||''}</div></div>
+      </div>
+      ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Behavioral Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
+    </div>`).join('')}
+    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${data['sitter-instructions']}</p>` : ''}
+    </body></html>`);
+    win.document.close();
+    win.print();
+  });
+
+  // ============ DOCUMENT VAULT ============
+  document.getElementById('doc-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const petId = document.getElementById('doc-pet').value ? parseFloat(document.getElementById('doc-pet').value) : null;
+    const pet = petId ? getList('pets').find(p => p.__id === petId) : null;
+    addItem('documents', {
+      petId, petName: pet ? pet.name : 'General',
+      type: document.getElementById('doc-type').value,
+      name: document.getElementById('doc-name').value,
+      link: document.getElementById('doc-link').value,
+      notes: document.getElementById('doc-notes').value,
+    });
+    e.target.reset();
+    refreshAll();
+  });
+
+  function renderDocuments() {
+    const docs = getList('documents');
+    const el = document.getElementById('documents-list');
+    if(!docs.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No documents added yet.</p>'; return; }
+    el.innerHTML = docs.map(d => `
+      <div class="card p-4" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+            <span class="font-heading font-bold text-primary">${d.name}</span>
+            <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;padding:2px 8px;border-radius:12px;">${d.type}</span>
+          </div>
+          <p class="font-body text-sm text-secondary">${d.petName}${d.notes ? ' · ' + d.notes : ''}</p>
+          ${d.link ? `<a href="${d.link}" target="_blank" class="font-body text-sm" style="color:var(--accent-color);">View Document &rarr;</a>` : ''}
+        </div>
+        <button class="delete-x" onclick="deleteDoc(${d.__id})" title="Delete">X</button>
+      </div>`).join('');
+  }
+
+  window.deleteDoc = id => { deleteItem('documents', id); refreshAll(); };
+
+  // ============ OVERVIEW ============
+  function renderOverview() {
+    const pets = getList('pets');
+    const visits = getList('vet-visits');
+    document.getElementById('stat-pets').textContent = pets.length;
+    document.getElementById('stat-visits').textContent = visits.length;
+
+    // Pet summary cards
+    const overviewPets = document.getElementById('overview-pets');
+    if(!pets.length) {
+      overviewPets.innerHTML = `<div class="card p-6 text-center" style="border-left:4px solid var(--accent-color);">
+        <p class="font-heading text-lg font-bold text-primary mb-2">Welcome to Pet Care Planner</p>
+        <p class="font-body text-sm text-secondary">Start by adding your pet's profile using the <strong>Pet Profiles</strong> tab.</p>
+      </div>`;
+    } else {
+      overviewPets.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:20px;">
+        ${pets.map(p => {
+          const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
+          const latestWeight = getList('weights').filter(w => w.petId === p.__id).sort((a,b) => b.date.localeCompare(a.date))[0];
+          return `<div class="card p-4" style="border-top:4px solid var(--accent-color);">
+            <h3 class="font-heading text-lg font-bold" style="color:var(--accent-color);">${p.name}</h3>
+            <p class="font-body text-sm text-secondary">${p.species}${p.breed ? ' · ' + p.breed : ''}${age !== null ? ' · ' + age + ' yr' + (age!==1?'s':'') : ''}</p>
+            ${latestWeight ? `<p class="font-body text-sm mt-1 text-primary"><strong>${latestWeight.lbs} lbs</strong> as of ${fmtDate(latestWeight.date)}</p>` : ''}
+            ${p.allergies ? `<p class="font-body text-xs mt-1" style="color:#e53e3e;">⚠ ${p.allergies}</p>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Reminders
+    const remindersEl = document.getElementById('overview-reminders');
+    const reminders = [];
+    const now = new Date();
+    getList('vaccinations').filter(v => v.next).forEach(v => {
+      const days = Math.ceil((new Date(v.next) - now) / 86400000);
+      if(days <= 60) reminders.push({ type: 'Vaccination', name: v.name, pet: v.petName, days, date: v.next });
+    });
+    getList('medications').filter(m => m.refill).forEach(m => {
+      const days = Math.ceil((new Date(m.refill) - now) / 86400000);
+      if(days <= 30) reminders.push({ type: 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
+    });
+    getList('vet-visits').filter(v => v.next).forEach(v => {
+      const days = Math.ceil((new Date(v.next) - now) / 86400000);
+      if(days <= 60) reminders.push({ type: 'Vet Appointment', name: v.reason || 'Follow-up', pet: v.petName, days, date: v.next });
+    });
+    reminders.sort((a,b) => a.days - b.days);
+    if(!reminders.length) {
+      remindersEl.innerHTML = '<p class="font-body text-sm text-secondary italic">No upcoming reminders. Add vaccinations and medications to track due dates.</p>';
+    } else {
+      remindersEl.innerHTML = reminders.map(r => {
+        const color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
+        const label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : `${r.days} days`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);">
+          <div>
+            <p class="font-body text-sm font-medium text-primary">${r.pet} — ${r.name}</p>
+            <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)}</p>
+          </div>
+          <span style="background:${color};color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;">${label}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ============ REFRESH ALL ============
+  function refreshAll() {
+    refreshPetDropdowns();
+    renderPets();
+    renderVetVisits();
+    renderVaccinations();
+    renderMedications();
+    renderWeights();
+    renderExpenses();
+    renderDocuments();
+    renderOverview();
+    renderSitterPets();
+    restoreSitterOwnerFields();
+  }
+
+  // ============ EXPORT / IMPORT ============
+  document.getElementById('export-data-btn').addEventListener('click', () => {
+    const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme'];
+    const data = {};
+    keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pet-planner-backup-' + today() + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('import-data-input').addEventListener('change', e => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+        alert('Data imported! The page will reload.');
+        window.location.reload();
+      } catch(err) { alert('Invalid backup file.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ============ HAMBURGER MENU ============
+  (function() {
+    const hamburger = document.getElementById('hamburger-btn');
+    const overlay = document.getElementById('sidebar-overlay');
+    const aside = document.querySelector('aside');
+    function openMenu() { aside.classList.add('open'); overlay.classList.add('open'); }
+    function closeMenu() { aside.classList.remove('open'); overlay.classList.remove('open'); }
+    if(hamburger) hamburger.addEventListener('click', openMenu);
+    if(overlay) overlay.addEventListener('click', closeMenu);
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+      btn.addEventListener('click', () => { if(window.innerWidth <= 768) closeMenu(); });
+    });
+  })();
+
+  // ============ DARK MODE ============
+  (function() {
+    const btn = document.getElementById('dark-mode-btn');
+    const icon = document.getElementById('dark-mode-icon');
+    const label = document.getElementById('dark-mode-label');
+    const sun = '<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="5"/>';
+    const moon = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    function applyTheme(dark) {
+      if(dark) { document.documentElement.setAttribute('data-theme','dark'); icon.innerHTML = sun; label.textContent = 'Light Mode'; localStorage.setItem('petPlannerTheme','dark'); }
+      else { document.documentElement.removeAttribute('data-theme'); icon.innerHTML = moon; label.textContent = 'Dark Mode'; localStorage.setItem('petPlannerTheme','light'); }
+    }
+    applyTheme(localStorage.getItem('petPlannerTheme') === 'dark');
+    btn.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
+  })();
+
+  // ============ INIT ============
+  refreshAll();
+  document.getElementById('main-app').style.opacity = '1';
+  </script>
+ </body>
+</html>
