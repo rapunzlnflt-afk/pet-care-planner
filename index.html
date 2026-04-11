@@ -80,6 +80,10 @@
     [data-theme="dark"] .progress-bar { background: rgba(139,124,248,0.15); }
     .pet-avatar { width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0; }
     .pet-avatar-placeholder { width:56px;height:56px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2); }
+    .link-card { display:block;padding:14px;border-radius:10px;border:1px solid var(--border-color);background:white;text-decoration:none;transition:all 0.15s; }
+    .link-card:hover { border-color:var(--accent-color);box-shadow:0 2px 12px rgba(102,126,234,0.15);transform:translateY(-1px); }
+    [data-theme="dark"] .link-card { background:#1e2732 !important;border-color:rgba(139,124,248,0.15); }
+    [data-theme="dark"] .link-card:hover { border-color:#8b7cf8;box-shadow:0 2px 12px rgba(139,124,248,0.2); }
     .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
     [data-theme="dark"] .sitter-section-preview { background:#1e2732 !important; }
     .sitter-section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
@@ -125,6 +129,7 @@
      <button class="sidebar-item" data-tab="expenses">Expense Tracker</button>
      <button class="sidebar-item" data-tab="pet-sitter">Pet Sitter Info</button>
      <button class="sidebar-item" data-tab="document-vault">Document Vault</button>
+     <button class="sidebar-item" data-tab="important-links">Important Links</button>
     </nav>
    </aside>
 
@@ -656,6 +661,207 @@
      <div id="documents-list" class="space-y-3"></div>
     </section>
 
+    <!-- IMPORTANT LINKS TAB -->
+    <section id="tab-important-links" class="tab-content">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;">
+      <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Important Links</h2>
+      <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
+     </div>
+
+     <!-- Pet Insurance -->
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Insurance</h3>
+      <p class="font-body text-xs text-secondary mb-4">Top-rated providers — compare plans before enrolling. Prices vary by pet age, breed and location.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+       <a href="https://www.petsbest.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Pets Best</p>
+        <p class="font-body text-xs text-secondary">Best for affordability · avg $40/mo · 70–90% reimbursement</p>
+       </a>
+       <a href="https://www.spotpetins.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Spot Pet Insurance</p>
+        <p class="font-body text-xs text-secondary">Best wellness plans · unlimited coverage available</p>
+       </a>
+       <a href="https://www.aspcapetinsurance.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">ASPCA Pet Insurance</p>
+        <p class="font-body text-xs text-secondary">Short waiting periods · $2,500–$10,000 annual coverage</p>
+       </a>
+       <a href="https://www.pumpkin.care" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Pumpkin</p>
+        <p class="font-body text-xs text-secondary">Up to 90% back · covers routine care · 10% multi-pet discount</p>
+       </a>
+       <a href="https://www.figopetinsurance.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Figo Pet Insurance</p>
+        <p class="font-body text-xs text-secondary">Covers pre-existing conditions after 12 months · Costco discount</p>
+       </a>
+       <a href="https://www.healthypawspetinsurance.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Healthy Paws</p>
+        <p class="font-body text-xs text-secondary">Unlimited lifetime benefits · no caps · up to 90% reimbursement</p>
+       </a>
+       <a href="https://www.embracepetinsurance.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Embrace</p>
+        <p class="font-body text-xs text-secondary">Forbes #1 rated · 92% of claims paid · all breeds & ages</p>
+       </a>
+       <a href="https://www.metlifepetinsurance.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">MetLife Pet Insurance</p>
+        <p class="font-body text-xs text-secondary">Bundle with home/auto · flexible deductibles</p>
+       </a>
+       <a href="https://www.pawlicy.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Pawlicy Advisor</p>
+        <p class="font-body text-xs text-secondary">Compare multiple quotes side by side — free tool</p>
+       </a>
+      </div>
+     </div>
+
+     <!-- Online Pet Pharmacies -->
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Pharmacies</h3>
+      <p class="font-body text-xs text-secondary mb-4">Always verify your vet prescription is required. Look for VIPPS-accredited pharmacies for safety.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+       <a href="https://www.chewy.com/b/pharmacy-332" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Chewy Pharmacy</p>
+        <p class="font-body text-xs text-secondary">Largest selection · auto-ship discounts · free vet chat</p>
+       </a>
+       <a href="https://www.dutch.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Dutch</p>
+        <p class="font-body text-xs text-secondary">Online vet + pharmacy · same-day appts · $11/mo membership</p>
+       </a>
+       <a href="https://www.petmeds.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">PetMeds</p>
+        <p class="font-body text-xs text-secondary">America's oldest VIPPS-certified pharmacy · generics 20-30% cheaper</p>
+       </a>
+       <a href="https://www.covetrus.com/pet-owner" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Covetrus (Vets First Choice)</p>
+        <p class="font-body text-xs text-secondary">Vet-directed prescriptions · compounding available</p>
+       </a>
+       <a href="https://www.allivet.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Allivet</p>
+        <p class="font-body text-xs text-secondary">VIPPS-accredited · wide selection · competitive pricing</p>
+       </a>
+       <a href="https://www.vetsource.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Vetsource</p>
+        <p class="font-body text-xs text-secondary">Vet-recommended home delivery pharmacy</p>
+       </a>
+      </div>
+     </div>
+
+     <!-- Airline Pet Policies -->
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-1">Airline Pet Policies</h3>
+      <p class="font-body text-xs text-secondary mb-4">Policies and fees change — always verify directly with the airline before booking. Most require health certificates within 10 days of travel.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+       <a href="https://www.alaskaair.com/content/travel-info/policies/pets-traveling-with-pets" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Alaska Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin & cargo · $100 · Most pet-friendly US airline</p>
+       </a>
+       <a href="https://www.aa.com/i18n/travel-info/special-assistance/traveling-with-pets.jsp" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">American Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin only (most routes) · $150 · dogs & cats</p>
+       </a>
+       <a href="https://www.delta.com/us/en/pet-travel/overview" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Delta Air Lines</p>
+        <p class="font-body text-xs text-secondary">Cabin only · $150 · no cargo for general public</p>
+       </a>
+       <a href="https://www.united.com/ual/en/us/fly/travel/special-needs/pets.html" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">United Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin only · $150 · dogs & cats only</p>
+       </a>
+       <a href="https://www.southwest.com/html/customer-service/traveling-with-pets/index.html" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Southwest Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin only · $125 · dogs & cats · vaccinated required</p>
+       </a>
+       <a href="https://www.jetblue.com/flying-on-jetblue/traveling-with-pets/" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">JetBlue Airways</p>
+        <p class="font-body text-xs text-secondary">Cabin only · $150 · max 20 lbs with carrier</p>
+       </a>
+       <a href="https://www.flyfrontier.com/travel/travel-info/pet-policy/" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Frontier Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin · $99 · dogs, cats, rabbits, birds & more</p>
+       </a>
+       <a href="https://www.spirit.com/about-spirit/baggage-fees/pet-travel" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Spirit Airlines</p>
+        <p class="font-body text-xs text-secondary">Cabin · $125 · dogs, cats, rabbits & birds</p>
+       </a>
+       <a href="https://www.allegiantair.com/service-and-support/traveling-with-pets" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Allegiant Air</p>
+        <p class="font-body text-xs text-secondary">Cabin only · $50 (most affordable) · cats & dogs only</p>
+       </a>
+      </div>
+     </div>
+
+     <!-- Pet Shipping -->
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Shipping Services</h3>
+      <p class="font-body text-xs text-secondary mb-4">For long-distance or international pet transport when flying with your pet is not possible.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+       <a href="https://www.airanimals.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Air Animal</p>
+        <p class="font-body text-xs text-secondary">Full-service international pet transport since 1977</p>
+       </a>
+       <a href="https://www.petrelocation.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">PetRelocation</p>
+        <p class="font-body text-xs text-secondary">Door-to-door international · handles all paperwork</p>
+       </a>
+       <a href="https://www.ipata.org/find-a-pet-shipper" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">IPATA Directory</p>
+        <p class="font-body text-xs text-secondary">Find accredited pet transport agents worldwide</p>
+       </a>
+       <a href="https://www.happytailstravel.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Happy Tails Travel</p>
+        <p class="font-body text-xs text-secondary">Ground & air transport · coast to coast</p>
+       </a>
+       <a href="https://www.citizenshipping.com/pet-transport" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">CitizenShipper</p>
+        <p class="font-body text-xs text-secondary">Marketplace for pet transport drivers · budget-friendly</p>
+       </a>
+      </div>
+     </div>
+
+     <!-- Online Pet Stores -->
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Stores</h3>
+      <p class="font-body text-xs text-secondary mb-4">Top-rated stores for food, supplies, toys and specialty items.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+       <a href="https://www.chewy.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Chewy</p>
+        <p class="font-body text-xs text-secondary">Largest online pet retailer · auto-ship savings · free 1-2 day shipping</p>
+       </a>
+       <a href="https://www.petco.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Petco</p>
+        <p class="font-body text-xs text-secondary">In-store + online · grooming, vet services, training</p>
+       </a>
+       <a href="https://www.petsmart.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">PetSmart</p>
+        <p class="font-body text-xs text-secondary">Huge selection · grooming & boarding · PetsHotel</p>
+       </a>
+       <a href="https://www.amazon.com/pet-supplies" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Amazon Pet Supplies</p>
+        <p class="font-body text-xs text-secondary">Subscribe & Save · Prime fast shipping · huge variety</p>
+       </a>
+       <a href="https://www.entirely-pets.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">EntirelyPets</p>
+        <p class="font-body text-xs text-secondary">Specialty supplies · prescription food · hard-to-find items</p>
+       </a>
+       <a href="https://www.petflow.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">PetFlow</p>
+        <p class="font-body text-xs text-secondary">Auto-ship pet food specialist · competitive pricing</p>
+       </a>
+       <a href="https://www.healthypetnet.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Only Natural Pet</p>
+        <p class="font-body text-xs text-secondary">Natural & holistic products · supplements · raw food</p>
+       </a>
+       <a href="https://www.wag.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Wag!</p>
+        <p class="font-body text-xs text-secondary">Dog walking, sitting, boarding + supplies marketplace</p>
+       </a>
+       <a href="https://www.rover.com" target="_blank" rel="noopener" class="link-card">
+        <p class="font-heading text-sm font-bold text-primary">Rover</p>
+        <p class="font-body text-xs text-secondary">Find local pet sitters, dog walkers & boarders</p>
+       </a>
+      </div>
+     </div>
+
+    </section>
+
    </main>
   </div>
 
@@ -1094,7 +1300,6 @@
       <div class="sitter-section-preview">
         <div class="sitter-section-header">
           <h3 class="font-heading text-sm font-bold text-primary">Owner &amp; Emergency Contacts</h3>
-          <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('owner')">Edit</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Owner</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-name']||'—'}</p></div>
@@ -1123,7 +1328,7 @@
                 ${p.allergies?`<p class="font-body text-xs" style="color:#e53e3e;font-weight:600;">⚠ Allergies: ${p.allergies}</p>`:''}
               </div>
             </div>
-            <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('pet-${p.__id}')">Edit</button>
+
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
@@ -1140,14 +1345,14 @@
       <div class="sitter-section-preview">
         <div class="sitter-section-header">
           <h3 class="font-heading text-sm font-bold text-primary">Additional Instructions</h3>
-          <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('instructions')">Edit</button>
+
         </div>
         <p class="font-body text-sm text-primary">${data['sitter-instructions']}</p>
       </div>` : ''}
 
       <!-- Actions -->
       <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn-primary px-4 py-2 text-sm" onclick="editSitterSection('all')">Edit All</button>
+        <button class="btn-primary px-4 py-2 text-sm" onclick="editSitterSection('all')">Edit</button>
         <button class="btn-secondary px-4 py-2 text-sm" id="print-sitter-btn-preview">Print / Export</button>
       </div>
     `;
