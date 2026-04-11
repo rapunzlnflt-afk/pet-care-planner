@@ -78,6 +78,11 @@
     [data-theme="dark"] .bg-gray-50 { background: rgba(30,26,50,0.6) !important; }
     [data-theme="dark"] main { background: transparent !important; }
     [data-theme="dark"] .progress-bar { background: rgba(139,124,248,0.15); }
+    .pet-avatar { width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0; }
+    .pet-avatar-placeholder { width:56px;height:56px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2); }
+    .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
+    [data-theme="dark"] .sitter-section-preview { background:#1e2732 !important; }
+    .sitter-section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
   </style>
  </head>
  <body class="h-full">
@@ -232,6 +237,21 @@
        <div>
         <label class="block font-body text-sm text-secondary mb-1">Notes</label>
         <textarea id="pet-notes" rows="2" placeholder="Any other important information..."></textarea>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Pet Photo</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div id="pet-photo-preview" style="width:72px;height:72px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:2px solid var(--border-color);">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </div>
+          <div>
+            <label style="display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">
+              Choose Photo
+              <input type="file" id="pet-photo-input" accept="image/*" style="display:none;" onchange="previewPetPhoto(this)">
+            </label>
+            <p class="font-body text-xs text-secondary mt-1">JPG, PNG or GIF — stored on your device</p>
+          </div>
+        </div>
        </div>
        <button type="submit" class="btn-primary px-4 py-2">Save Pet Profile</button>
       </form>
@@ -658,7 +678,7 @@
     saveData(data);
   }
   function addItem(type, item) {
-    item.__id = Date.now() + Math.random();
+    item.__id = Date.now();
     const list = getList(type);
     list.push(item);
     saveList(type, list);
@@ -700,8 +720,22 @@
   }
 
   // ============ PET PROFILES ============
+  // Photo preview before saving
+  window.previewPetPhoto = function(input) {
+    if(!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const preview = document.getElementById('pet-photo-preview');
+      preview.innerHTML = `<img src="${evt.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+      preview.dataset.photo = evt.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
+  };
+
   document.getElementById('pet-form').addEventListener('submit', e => {
     e.preventDefault();
+    const photoEl = document.getElementById('pet-photo-preview');
+    const photo = photoEl.dataset.photo || '';
     addItem('pets', {
       name: document.getElementById('pet-name').value.trim(),
       species: document.getElementById('pet-species').value,
@@ -715,8 +749,11 @@
       vet: document.getElementById('pet-vet').value,
       allergies: document.getElementById('pet-allergies').value,
       notes: document.getElementById('pet-notes').value,
+      photo,
     });
     e.target.reset();
+    document.getElementById('pet-photo-preview').innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
+    delete document.getElementById('pet-photo-preview').dataset.photo;
     refreshAll();
   });
 
@@ -726,11 +763,17 @@
     if(!pets.length) { container.innerHTML = '<p class="font-body text-sm text-secondary italic">No pets added yet.</p>'; return; }
     container.innerHTML = pets.map(p => {
       const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
+      const avatarHtml = p.photo
+        ? `<img src="${p.photo}" class="pet-avatar" alt="${p.name}">`
+        : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
       return `<div class="card p-5" style="border-left:4px solid var(--accent-color);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <h3 class="font-heading text-lg font-bold text-primary">${p.name} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${p.species}${p.breed ? ' — ' + p.breed : ''}</span></h3>
-            ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${p.sex || ''}</p>` : ''}
+          <div style="display:flex;align-items:center;gap:12px;">
+            ${avatarHtml}
+            <div>
+              <h3 class="font-heading text-lg font-bold text-primary">${p.name} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${p.species}${p.breed ? ' — ' + p.breed : ''}</span></h3>
+              ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${p.sex || ''}</p>` : ''}
+            </div>
           </div>
           <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">X</button>
         </div>
@@ -1009,18 +1052,18 @@
     }, 50);
   }
 
-  document.getElementById('save-sitter-btn').addEventListener('click', () => {
+  function collectSitterData() {
     const pets = getList('pets');
     const data = {
-      'sitter-owner-name': document.getElementById('sitter-owner-name').value,
-      'sitter-owner-phone': document.getElementById('sitter-owner-phone').value,
-      'sitter-owner-email': document.getElementById('sitter-owner-email').value,
-      'sitter-away-dates': document.getElementById('sitter-away-dates').value,
-      'sitter-emerg-name': document.getElementById('sitter-emerg-name').value,
-      'sitter-emerg-phone': document.getElementById('sitter-emerg-phone').value,
-      'sitter-vet': document.getElementById('sitter-vet').value,
-      'sitter-emerg-vet': document.getElementById('sitter-emerg-vet').value,
-      'sitter-instructions': document.getElementById('sitter-instructions').value,
+      'sitter-owner-name': (document.getElementById('sitter-owner-name')||{}).value||'',
+      'sitter-owner-phone': (document.getElementById('sitter-owner-phone')||{}).value||'',
+      'sitter-owner-email': (document.getElementById('sitter-owner-email')||{}).value||'',
+      'sitter-away-dates': (document.getElementById('sitter-away-dates')||{}).value||'',
+      'sitter-emerg-name': (document.getElementById('sitter-emerg-name')||{}).value||'',
+      'sitter-emerg-phone': (document.getElementById('sitter-emerg-phone')||{}).value||'',
+      'sitter-vet': (document.getElementById('sitter-vet')||{}).value||'',
+      'sitter-emerg-vet': (document.getElementById('sitter-emerg-vet')||{}).value||'',
+      'sitter-instructions': (document.getElementById('sitter-instructions')||{}).value||'',
     };
     pets.forEach(p => {
       ['sitter-feed-','sitter-food-','sitter-walk-','sitter-meds-','sitter-behavior-'].forEach(prefix => {
@@ -1028,8 +1071,117 @@
         if(el) data[prefix + p.__id] = el.value;
       });
     });
+    return data;
+  }
+
+  function showSitterPreview() {
+    const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    const pets = getList('pets');
+    const tab = document.getElementById('tab-pet-sitter');
+
+    // Hide form elements, show preview
+    tab.querySelectorAll('.card, p.font-body').forEach(el => el.style.display = 'none');
+    document.getElementById('save-sitter-btn').style.display = 'none';
+
+    // Remove old preview if any
+    const oldPreview = document.getElementById('sitter-preview');
+    if(oldPreview) oldPreview.remove();
+
+    const preview = document.createElement('div');
+    preview.id = 'sitter-preview';
+    preview.innerHTML = `
+      <!-- Owner & Emergency -->
+      <div class="sitter-section-preview">
+        <div class="sitter-section-header">
+          <h3 class="font-heading text-sm font-bold text-primary">Owner &amp; Emergency Contacts</h3>
+          <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('owner')">Edit</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Owner</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-name']||'—'}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Phone</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-phone']||'—'}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Email</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-email']||'—'}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Away Dates</p><p class="font-body text-sm font-medium text-primary">${data['sitter-away-dates']||'—'}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Contact</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-name']||'—'} ${data['sitter-emerg-phone'] ? '· '+data['sitter-emerg-phone'] : ''}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Vet</p><p class="font-body text-sm font-medium text-primary">${data['sitter-vet']||'—'}</p></div>
+          <div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Vet (24hr)</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-vet']||'—'}</p></div>
+        </div>
+      </div>
+
+      <!-- Per-pet sections -->
+      ${pets.map(p => {
+        const avatar = p.photo
+          ? `<img src="${p.photo}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0;" alt="${p.name}">`
+          : `<div style="width:52px;height:52px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+        return `
+        <div class="sitter-section-preview">
+          <div class="sitter-section-header">
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${avatar}
+              <div>
+                <h3 class="font-heading text-sm font-bold text-primary">${p.name}</h3>
+                <p class="font-body text-xs text-secondary">${p.species}${p.breed?' · '+p.breed:''}</p>
+                ${p.allergies?`<p class="font-body text-xs" style="color:#e53e3e;font-weight:600;">⚠ Allergies: ${p.allergies}</p>`:''}
+              </div>
+            </div>
+            <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('pet-${p.__id}')">Edit</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Food Brand</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Walk Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-walk-'+p.__id]||'—'}</p></div>
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p><p class="font-body text-sm font-medium text-primary">${data['sitter-meds-'+p.__id]||'—'}</p></div>
+            ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Behavioral Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+
+      <!-- Additional instructions -->
+      ${data['sitter-instructions'] ? `
+      <div class="sitter-section-preview">
+        <div class="sitter-section-header">
+          <h3 class="font-heading text-sm font-bold text-primary">Additional Instructions</h3>
+          <button class="btn-secondary px-3 py-1 text-xs" onclick="editSitterSection('instructions')">Edit</button>
+        </div>
+        <p class="font-body text-sm text-primary">${data['sitter-instructions']}</p>
+      </div>` : ''}
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn-primary px-4 py-2 text-sm" onclick="editSitterSection('all')">Edit All</button>
+        <button class="btn-secondary px-4 py-2 text-sm" id="print-sitter-btn-preview">Print / Export</button>
+      </div>
+    `;
+    tab.appendChild(preview);
+
+    // Wire print button in preview
+    document.getElementById('print-sitter-btn-preview').addEventListener('click', () => {
+      document.getElementById('print-sitter-btn').click();
+    });
+  }
+
+  window.editSitterSection = function(section) {
+    // Show all form elements again
+    const tab = document.getElementById('tab-pet-sitter');
+    tab.querySelectorAll('.card, p.font-body').forEach(el => el.style.display = '');
+    document.getElementById('save-sitter-btn').style.display = '';
+    const oldPreview = document.getElementById('sitter-preview');
+    if(oldPreview) oldPreview.remove();
+    renderSitterPets();
+    restoreSitterOwnerFields();
+    // Scroll to specific section
+    if(section === 'owner') document.getElementById('sitter-owner-name').scrollIntoView({behavior:'smooth'});
+    if(section === 'instructions') document.getElementById('sitter-instructions').scrollIntoView({behavior:'smooth'});
+    if(section.startsWith('pet-')) {
+      const petId = section.replace('pet-','');
+      const el = document.getElementById('sitter-feed-'+petId);
+      if(el) el.scrollIntoView({behavior:'smooth'});
+    }
+  };
+
+  document.getElementById('save-sitter-btn').addEventListener('click', () => {
+    const data = collectSitterData();
     localStorage.setItem('petSitterInfo', JSON.stringify(data));
-    alert('Sitter info saved!');
+    showSitterPreview();
   });
 
   // Restore sitter owner fields on load
@@ -1076,6 +1228,7 @@
     ${pets.map(p => `
     <h2>${p.name} (${p.species}${p.breed ? ' — ' + p.breed : ''})</h2>
     <div class="pet-section">
+      ${p.photo ? `<img src="${p.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #667eea;">` : ''}
       ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${p.allergies}</p>` : ''}
       <div class="grid">
         <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
@@ -1146,10 +1299,18 @@
         ${pets.map(p => {
           const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
           const latestWeight = getList('weights').filter(w => w.petId === p.__id).sort((a,b) => b.date.localeCompare(a.date))[0];
+          const ov_avatar = p.photo
+            ? `<img src="${p.photo}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0;" alt="${p.name}">`
+            : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
           return `<div class="card p-4" style="border-top:4px solid var(--accent-color);">
-            <h3 class="font-heading text-lg font-bold" style="color:var(--accent-color);">${p.name}</h3>
-            <p class="font-body text-sm text-secondary">${p.species}${p.breed ? ' · ' + p.breed : ''}${age !== null ? ' · ' + age + ' yr' + (age!==1?'s':'') : ''}</p>
-            ${latestWeight ? `<p class="font-body text-sm mt-1 text-primary"><strong>${latestWeight.lbs} lbs</strong> as of ${fmtDate(latestWeight.date)}</p>` : ''}
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              ${ov_avatar}
+              <div>
+                <h3 class="font-heading text-lg font-bold" style="color:var(--accent-color);">${p.name}</h3>
+                <p class="font-body text-sm text-secondary">${p.species}${p.breed ? ' · ' + p.breed : ''}${age !== null ? ' · ' + age + ' yr' + (age!==1?'s':'') : ''}</p>
+              </div>
+            </div>
+            ${latestWeight ? `<p class="font-body text-sm text-primary"><strong>${latestWeight.lbs} lbs</strong> as of ${fmtDate(latestWeight.date)}</p>` : ''}
             ${p.allergies ? `<p class="font-body text-xs mt-1" style="color:#e53e3e;">⚠ ${p.allergies}</p>` : ''}
           </div>`;
         }).join('')}
