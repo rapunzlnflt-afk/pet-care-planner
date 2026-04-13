@@ -111,19 +111,10 @@
   <div id="main-app" class="flex min-h-screen" style="opacity:0;transition:opacity 0.2s ease;">
 
    <!-- Sidebar -->
-   <aside class="w-64 bg-white shadow-lg flex-shrink-0 overflow-y-auto sticky top-0 h-screen">
+   <aside class="w-64 bg-white shadow-lg flex-shrink-0 overflow-y-auto sticky top-0 h-screen" style="display:flex;flex-direction:column;">
     <div class="p-4 border-b border-gray-200">
      <h1 class="font-heading text-lg font-bold text-primary" style="color:var(--accent-color);">🐾 Pet Care Planner</h1>
      <p class="font-body text-xs text-secondary mt-1">Your complete pet health companion</p>
-     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
-      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
-      <label style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
-     </div>
-     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
-     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-      <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      <span id="dark-mode-label">Dark Mode</span>
-     </button>
     </div>
     <nav class="py-2">
      <button class="sidebar-item active" data-tab="overview">Overview</button>
@@ -137,6 +128,17 @@
      <button class="sidebar-item" data-tab="document-vault">Document Vault</button>
      <button class="sidebar-item" data-tab="important-links">Important Links</button>
     </nav>
+    <div class="p-4 border-t border-gray-200" style="margin-top:auto;">
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
+      <label style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+     </div>
+     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
+     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+      <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="dark-mode-label">Dark Mode</span>
+     </button>
+    </div>
    </aside>
 
    <!-- Main content -->
