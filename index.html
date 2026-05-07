@@ -1070,6 +1070,7 @@
             ${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}
             ${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}
             ${v.next ? `<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Next appointment: ${fmtDate(v.next)}</p>` : ''}
+            ${docChipsFor(v.petId, ['Vet Records','Prescription'])}
           </div>
           <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             ${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}
@@ -1082,11 +1083,29 @@
 
   window.deleteVisit = id => { if(confirm('Delete this visit?')) { deleteItem('vet-visits', id); refreshAll(); } };
 
+  // Helper: render document chips for a given pet+type filter
+  function docChipsFor(petId, types) {
+    const docs = getList('documents').filter(d => (petId == null || d.petId === petId) && types.includes(d.type));
+    if(!docs.length) return '';
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${docs.map(d => {
+      const inner = `<span style="display:inline-block;background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;">📎 ${d.name}</span>`;
+      return d.link ? `<a href="${d.link}" target="_blank" rel="noopener" style="text-decoration:none;">${inner}</a>` : inner;
+    }).join('')}</div>`;
+  }
+
   // ============ VACCINATIONS ============
   window.handleVaccOther = sel => {
     document.getElementById('vacc-other-container').style.display = sel.value === 'Other' ? '' : 'none';
   };
 
+  // Pre-fill vacc clinic from pet's Primary Vet (only if empty)
+  document.getElementById('vacc-pet').addEventListener('change', e => {
+    const petId = parseFloat(e.target.value);
+    if(!petId) return;
+    const pet = getList('pets').find(p => p.__id === petId);
+    const vetEl = document.getElementById('vacc-vet');
+    if(pet && pet.vet && vetEl && !vetEl.value) vetEl.value = pet.vet;
+  });
   document.getElementById('vacc-form').addEventListener('submit', e => {
     e.preventDefault();
     const petId = parseFloat(document.getElementById('vacc-pet').value);
@@ -1117,6 +1136,7 @@
           <p class="font-heading font-bold text-primary">${v.name}</p>
           <p class="font-body text-sm text-secondary">${v.petName} · Given: ${fmtDate(v.date)}${v.vet ? ' · ' + v.vet : ''}</p>
           ${v.next ? `<p class="font-body text-sm mt-1" style="${urgency}">Due: ${fmtDate(v.next)}${daysUntil !== null ? (daysUntil < 0 ? ' (overdue)' : ` (${daysUntil} days)`) : ''}</p>` : ''}
+          ${docChipsFor(v.petId, ['Vaccination Records'])}
         </div>
         <button class="delete-x" onclick="deleteVacc(${v.__id})" title="Delete">X</button>
       </div>`;
@@ -1130,6 +1150,14 @@
     document.getElementById('med-other-container').style.display = sel.value === 'Other' ? '' : 'none';
   };
 
+  // Pre-fill prescribing vet from pet's Primary Vet (only if empty)
+  document.getElementById('med-pet').addEventListener('change', e => {
+    const petId = parseFloat(e.target.value);
+    if(!petId) return;
+    const pet = getList('pets').find(p => p.__id === petId);
+    const vetEl = document.getElementById('med-vet');
+    if(pet && pet.vet && vetEl && !vetEl.value) vetEl.value = pet.vet;
+  });
   document.getElementById('med-form').addEventListener('submit', e => {
     e.preventDefault();
     const petId = parseFloat(document.getElementById('med-pet').value);
