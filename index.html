@@ -625,7 +625,11 @@
       <h3 class="font-heading text-sm font-bold text-primary mb-3">Additional Instructions</h3>
       <textarea id="sitter-instructions" rows="4" placeholder="Any other important notes for the sitter — home access codes, special behaviors, routines, items to avoid..."></textarea>
      </div>
-     <button id="save-sitter-btn" class="btn-primary px-6 py-2">Save All Sitter Info</button>
+     <div style="display:flex;align-items:center;gap:14px;">
+       <button id="save-sitter-btn" class="btn-primary px-6 py-2">Save &amp; View Printable</button>
+       <span id="sitter-save-status" class="font-body text-sm" style="color:var(--text-secondary);min-height:20px;"></span>
+     </div>
+     <p class="font-body text-xs text-secondary mt-2" style="font-style:italic;">Your changes save automatically as you type.</p>
     </section>
 
     <!-- DOCUMENT VAULT TAB -->
@@ -1399,6 +1403,33 @@
     localStorage.setItem('petSitterInfo', JSON.stringify(data));
     showSitterPreview();
   });
+
+  // ---- Auto-save Sitter Info on every keystroke (debounced) ----
+  let _sitterSaveTimer = null;
+  let _sitterStatusTimer = null;
+  function autoSaveSitter() {
+    const status = document.getElementById('sitter-save-status');
+    if(status) { status.textContent = 'Saving\u2026'; status.style.color = 'var(--text-secondary)'; }
+    clearTimeout(_sitterSaveTimer);
+    _sitterSaveTimer = setTimeout(() => {
+      const data = collectSitterData();
+      localStorage.setItem('petSitterInfo', JSON.stringify(data));
+      if(status) {
+        status.textContent = '\u2713 Saved';
+        status.style.color = 'var(--accent-color)';
+        clearTimeout(_sitterStatusTimer);
+        _sitterStatusTimer = setTimeout(() => { if(status.textContent === '\u2713 Saved') status.textContent = ''; }, 1800);
+      }
+    }, 500);
+  }
+  // Use event delegation so dynamically rendered per-pet inputs are also covered
+  const sitterTab = document.getElementById('tab-pet-sitter');
+  if(sitterTab) {
+    sitterTab.addEventListener('input', e => {
+      const t = e.target;
+      if(t && t.id && t.id.startsWith('sitter-')) autoSaveSitter();
+    });
+  }
 
   // Restore sitter owner fields on load
   function restoreSitterOwnerFields() {
