@@ -1013,25 +1013,43 @@
   window.deletePet = id => { if(confirm('Delete this pet profile?')) { deleteItem('pets', id); refreshAll(); } };
 
   // ============ VET VISITS ============
+  // Pre-fill clinic name from pet's Primary Vet when a pet is selected (only if clinic field is empty)
+  document.getElementById('vet-pet').addEventListener('change', e => {
+    const petId = parseFloat(e.target.value);
+    if(!petId) return;
+    const pet = getList('pets').find(p => p.__id === petId);
+    const clinicEl = document.getElementById('vet-name');
+    if(pet && pet.vet && clinicEl && !clinicEl.value) clinicEl.value = pet.vet;
+  });
   document.getElementById('vet-form').addEventListener('submit', e => {
     e.preventDefault();
     const petId = parseFloat(document.getElementById('vet-pet').value);
     const pets = getList('pets');
     const pet = pets.find(p => p.__id === petId);
+    const visitDate = document.getElementById('vet-date').value;
+    const visitWeight = document.getElementById('vet-weight').value;
     addItem('vet-visits', {
       petId, petName: pet ? pet.name : '',
-      date: document.getElementById('vet-date').value,
+      date: visitDate,
       vet: document.getElementById('vet-name').value,
       type: document.getElementById('vet-type').value,
       reason: document.getElementById('vet-reason').value,
       diagnosis: document.getElementById('vet-diagnosis').value,
-      weight: document.getElementById('vet-weight').value,
+      weight: visitWeight,
       cost: parseFloat(document.getElementById('vet-cost').value) || 0,
       next: document.getElementById('vet-next').value,
     });
     // Auto-add to expenses
     const cost = parseFloat(document.getElementById('vet-cost').value) || 0;
-    if(cost > 0) addItem('expenses', { petId, petName: pet ? pet.name : '', category: 'Vet Visit', amount: cost, date: document.getElementById('vet-date').value, desc: document.getElementById('vet-reason').value });
+    if(cost > 0) addItem('expenses', { petId, petName: pet ? pet.name : '', category: 'Vet Visit', amount: cost, date: visitDate, desc: document.getElementById('vet-reason').value });
+    // Auto-add to weight tracker (skip if duplicate weight on same date for this pet)
+    const wLbs = parseFloat(visitWeight);
+    if(wLbs > 0 && visitDate) {
+      const existing = getList('weights').find(w => w.petId === petId && w.date === visitDate && parseFloat(w.lbs) === wLbs);
+      if(!existing) {
+        addItem('weights', { petId, petName: pet ? pet.name : '', lbs: wLbs, date: visitDate, notes: 'From vet visit' });
+      }
+    }
     e.target.reset();
     refreshAll();
   });
@@ -1340,6 +1358,8 @@
               <div>
                 <h3 class="font-heading text-sm font-bold text-primary">${p.name}</h3>
                 <p class="font-body text-xs text-secondary">${p.species}${p.breed?' · '+p.breed:''}</p>
+                ${p.microchip?`<p class="font-body text-xs text-secondary">Microchip: ${p.microchip}</p>`:''}
+                ${p.vet?`<p class="font-body text-xs text-secondary">Primary vet: ${p.vet}</p>`:''}
                 ${p.allergies?`<p class="font-body text-xs" style="color:#e53e3e;font-weight:600;">⚠ Allergies: ${p.allergies}</p>`:''}
               </div>
             </div>
@@ -1477,6 +1497,7 @@
     <div class="pet-section">
       ${p.photo ? `<img src="${p.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #5B5BD6;">` : ''}
       ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${p.allergies}</p>` : ''}
+      ${(p.microchip || p.vet) ? `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${p.microchip}</div></div>` : ''}${p.vet ? `<div class="field"><div class="label">Primary Vet</div><div class="value">${p.vet}</div></div>` : ''}</div>` : ''}
       <div class="grid">
         <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
         <div class="field"><div class="label">Food Brand</div><div class="value">${data['sitter-food-'+p.__id]||''}</div></div>
