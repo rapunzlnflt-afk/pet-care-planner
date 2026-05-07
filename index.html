@@ -551,6 +551,11 @@
        <div style="text-align:center;"><p class="font-body text-xs uppercase mb-1" style="color:rgba(255,255,255,0.7);">This Month</p><p class="font-heading text-2xl font-bold" style="color:white;" id="expense-month">$0.00</p></div>
       </div>
      </div>
+     <div class="card p-4 mb-3" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <label class="font-body text-sm text-secondary" style="font-weight:600;">Filter by pet:</label>
+      <select id="expense-filter-pet" style="flex:1;min-width:160px;max-width:280px;"><option value="">All pets</option></select>
+      <span id="expense-filter-count" class="font-body text-xs text-secondary" style="margin-left:auto;"></span>
+     </div>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-base font-bold text-primary mb-4">Add Expense</h3>
       <form id="expense-form" class="space-y-4">
@@ -917,13 +922,26 @@
   // ============ TAB NAVIGATION ============
   document.querySelectorAll('.sidebar-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active-tab'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + btn.dataset.tab).classList.add('active-tab');
-      refreshAll();
+      window.goToTab(btn.dataset.tab);
     });
   });
+
+  // Switch to a tab programmatically (used by reminder cards on Overview)
+  window.goToTab = function(name) {
+    document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active-tab'));
+    const btn = document.querySelector('.sidebar-item[data-tab="' + name + '"]');
+    const tab = document.getElementById('tab-' + name);
+    if(btn) btn.classList.add('active');
+    if(tab) tab.classList.add('active-tab');
+    // Close mobile sidebar if open
+    const aside = document.querySelector('aside');
+    const overlay = document.getElementById('sidebar-overlay');
+    if(aside) aside.classList.remove('open');
+    if(overlay) overlay.style.display = 'none';
+    refreshAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ============ PET DROPDOWNS ============
   function refreshPetDropdowns() {
@@ -1268,14 +1286,32 @@
   });
 
   function renderExpenses() {
-    const expenses = getList('expenses').sort((a,b) => b.date.localeCompare(a.date));
+    const all = getList('expenses').sort((a,b) => b.date.localeCompare(a.date));
+    // Sync filter dropdown options with current pets
+    const filterEl = document.getElementById('expense-filter-pet');
+    const currentVal = filterEl ? filterEl.value : '';
+    if(filterEl) {
+      const pets = getList('pets');
+      filterEl.innerHTML = '<option value="">All pets</option>' + '<option value="__none__">General / unassigned</option>' + pets.map(p => `<option value="${p.__id}">${p.name} (${p.species})</option>`).join('');
+      // Restore prior selection if pet still exists
+      if(currentVal === '__none__' || currentVal === '' || pets.some(p => String(p.__id) === currentVal)) {
+        filterEl.value = currentVal;
+      }
+    }
+    const filterVal = filterEl ? filterEl.value : '';
+    const expenses = filterVal === '' ? all
+      : filterVal === '__none__' ? all.filter(e => !e.petId)
+      : all.filter(e => String(e.petId) === filterVal);
     const total = expenses.reduce((s,e) => s + (e.amount||0), 0);
     const thisMonth = expenses.filter(e => e.date && e.date.slice(0,7) === today().slice(0,7)).reduce((s,e) => s + (e.amount||0), 0);
     document.getElementById('expense-total').textContent = fmt(total);
     document.getElementById('expense-month').textContent = fmt(thisMonth);
-    document.getElementById('stat-spent').textContent = fmt(total);
+    // Top stats card always shows grand total across all pets so the Overview number stays consistent
+    document.getElementById('stat-spent').textContent = fmt(all.reduce((s,e) => s + (e.amount||0), 0));
+    const countEl = document.getElementById('expense-filter-count');
+    if(countEl) countEl.textContent = filterVal ? `${expenses.length} of ${all.length} shown` : `${all.length} total`;
     const el = document.getElementById('expenses-list');
-    if(!expenses.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No expenses logged yet.</p>'; return; }
+    if(!expenses.length) { el.innerHTML = `<p class="font-body text-sm text-secondary italic">${filterVal ? 'No expenses match this filter.' : 'No expenses logged yet.'}</p>`; return; }
     el.innerHTML = expenses.map(e => `
       <div class="card p-4" style="display:flex;justify-content:space-between;align-items:center;">
         <div>
@@ -1283,11 +1319,14 @@
             <span class="font-heading font-bold text-primary">${fmt(e.amount)}</span>
             <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">${e.category}</span>
           </div>
-          <p class="font-body text-sm text-secondary">${e.petName} · ${fmtDate(e.date)}${e.desc ? ' · ' + e.desc : ''}</p>
+          <p class="font-body text-sm text-secondary">${e.petName || 'General'} · ${fmtDate(e.date)}${e.desc ? ' · ' + e.desc : ''}</p>
         </div>
         <button class="delete-x" onclick="deleteExpense(${e.__id})" title="Delete">X</button>
       </div>`).join('');
   }
+
+  // Re-render expenses when filter changes (without full refreshAll)
+  document.getElementById('expense-filter-pet').addEventListener('change', () => renderExpenses());
 
   window.deleteExpense = id => { deleteItem('expenses', id); refreshAll(); };
 
@@ -1636,12 +1675,14 @@
       remindersEl.innerHTML = reminders.map(r => {
         const color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
         const label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : `${r.days} days`;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);">
+        const tabMap = { 'Vaccination':'vaccinations', 'Medication Refill':'medications', 'Vet Appointment':'vet-visits' };
+        const target = tabMap[r.type];
+        return `<div onclick="window.goToTab('${target}')" title="View in ${r.type === 'Medication Refill' ? 'Medications' : r.type === 'Vaccination' ? 'Vaccinations' : 'Vet Visits'}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(91,91,214,0.08)'" onmouseout="this.style.background='transparent'">
           <div>
             <p class="font-body text-sm font-medium text-primary">${r.pet} — ${r.name}</p>
-            <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)}</p>
+            <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)} · <span style="color:#5B5BD6;">View →</span></p>
           </div>
-          <span style="background:${color};color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;">${label}</span>
+          <span style="background:${color};color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">${label}</span>
         </div>`;
       }).join('');
     }
