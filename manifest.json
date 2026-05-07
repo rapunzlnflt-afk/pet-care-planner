@@ -1,11 +1,11 @@
 {
-  "name": "Pet Care Planner",
-  "short_name": "Pet Planner",
-  "description": "Track your pets' health, medications, vet visits, and daily care. Private, offline, and simple.",
+  "name": "Pawfolio — Pet Care Planner",
+  "short_name": "Pawfolio",
+  "description": "All-in-one pet organizer: vet visits, vaccinations, expenses, sitter notes & document vault. Private, offline, and simple.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f0f4ff",
-  "theme_color": "#667eea",
+  "theme_color": "#5B5BD6",
   "icons": [
     {
       "src": "./icon-192.png",

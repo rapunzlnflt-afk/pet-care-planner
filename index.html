@@ -3,19 +3,19 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pet Care Planner</title>
+  <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#667eea">
+  <meta name="theme-color" content="#5B5BD6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Pet Planner">
+  <meta name="apple-mobile-web-app-title" content="Pawfolio">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <script src="https://cdn.tailwindcss.com/3.4.17" type="text/javascript"></script>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --accent-color: #667eea;
-      --accent-color-2: #764ba2;
+      --accent-color: #5B5BD6;
+      --accent-color-2: #4C4CC8;
       --success-color: #48bb78;
       --bg-light: #f0f4ff;
       --text-primary: #2d3748;
@@ -34,20 +34,20 @@
     .btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; cursor: pointer; font-family: 'Karla', sans-serif; font-weight: 500; border-radius: 8px; padding: 8px 16px; }
     .btn-secondary:hover { background: #e2e8f0; }
     input, select, textarea { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-family: 'Karla', sans-serif; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; background: white; color: var(--text-primary); }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(102,126,234,0.12); }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
     .sidebar-item { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 500; color: #64748b; padding: 11px 16px; transition: all 0.15s; }
-    .sidebar-item:hover { background: rgba(102,126,234,0.08); color: var(--accent-color); }
-    .sidebar-item.active { background: rgba(102,126,234,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
+    .sidebar-item:hover { background: rgba(91,91,214,0.08); color: var(--accent-color); }
+    .sidebar-item.active { background: rgba(91,91,214,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
     .tab-content { display: none; }
     .tab-content.active-tab { display: block; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
-    .delete-x { background: none; border: none; color: #667eea; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
+    .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
 
     /* Mobile */
     .mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: white; border-bottom: 1px solid #e2e8f0; align-items: center; padding: 0 16px; z-index: 1000; gap: 12px; }
-    .mobile-topbar h1 { font-size: 14px; font-weight: 700; color: #667eea; flex: 1; margin: 0; font-family: 'Montserrat', sans-serif; }
-    #hamburger-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #667eea; }
+    .mobile-topbar h1 { font-size: 14px; font-weight: 700; color: #5B5BD6; flex: 1; margin: 0; font-family: 'Montserrat', sans-serif; }
+    #hamburger-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #5B5BD6; }
     #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
     #sidebar-overlay.open { display: block; }
 
@@ -84,10 +84,10 @@
     [data-theme="dark"] .bg-gray-50 { background: rgba(30,26,50,0.6) !important; }
     [data-theme="dark"] main { background: transparent !important; }
     [data-theme="dark"] .progress-bar { background: rgba(139,124,248,0.15); }
-    .pet-avatar { width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0; }
-    .pet-avatar-placeholder { width:56px;height:56px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2); }
+    .pet-avatar { width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(91,91,214,0.3);flex-shrink:0; }
+    .pet-avatar-placeholder { width:56px;height:56px;border-radius:50%;background:rgba(91,91,214,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(91,91,214,0.2); }
     .link-card { display:block;padding:14px;border-radius:10px;border:1px solid var(--border-color);background:white;text-decoration:none;transition:all 0.15s; }
-    .link-card:hover { border-color:var(--accent-color);box-shadow:0 2px 12px rgba(102,126,234,0.15);transform:translateY(-1px); }
+    .link-card:hover { border-color:var(--accent-color);box-shadow:0 2px 12px rgba(91,91,214,0.15);transform:translateY(-1px); }
     [data-theme="dark"] .link-card { background:#1e2732 !important;border-color:rgba(139,124,248,0.15); }
     [data-theme="dark"] .link-card:hover { border-color:#8b7cf8;box-shadow:0 2px 12px rgba(139,124,248,0.2); }
     .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
@@ -105,7 +105,7 @@
    <button id="hamburger-btn" aria-label="Open menu">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
    </button>
-   <h1 style="display:flex;align-items:center;gap:6px;"><img src="./icon-192.png" alt="" style="width:22px;height:22px;border-radius:4px;"> Pet Care Planner</h1>
+   <h1 style="display:flex;align-items:center;gap:6px;"><img src="./icon-192.png" alt="" style="width:22px;height:22px;border-radius:4px;"> Pawfolio</h1>
   </div>
 
   <div id="main-app" class="flex min-h-screen" style="opacity:0;transition:opacity 0.2s ease;">
@@ -113,7 +113,10 @@
    <!-- Sidebar -->
    <aside class="w-64 bg-white shadow-lg flex-shrink-0 overflow-y-auto sticky top-0 h-screen" style="display:flex;flex-direction:column;">
     <div class="p-4 border-b border-gray-200">
-     <h1 class="font-heading text-lg font-bold text-primary" style="color:var(--accent-color);display:flex;align-items:center;gap:8px;"><img src="./icon-192.png" alt="" style="width:28px;height:28px;border-radius:6px;"> Pet Care Planner</h1>
+     <h1 class="font-heading text-lg font-bold text-primary" style="color:var(--accent-color);display:flex;flex-direction:column;align-items:flex-start;gap:0;">
+      <span style="display:flex;align-items:center;gap:8px;"><img src="./icon-192.png" alt="" style="width:28px;height:28px;border-radius:6px;"> Pawfolio</span>
+      <span style="font-family:'Karla',sans-serif;font-size:11px;font-weight:500;color:var(--text-secondary);letter-spacing:0.3px;margin-top:2px;">Your pet's whole life, in one app</span>
+     </h1>
      <p class="font-body text-xs text-secondary mt-1">Your complete pet health companion</p>
     </div>
     <nav class="py-2">
@@ -130,11 +133,11 @@
     </nav>
     <div class="p-4 border-t border-gray-200" style="margin-top:auto;">
      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
-      <label style="padding:7px 4px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
+      <label style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
      </div>
      <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
-     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#667eea;border:1.5px solid #667eea;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <span id="dark-mode-label">Dark Mode</span>
      </button>
@@ -258,7 +261,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
           </div>
           <div>
-            <label style="display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">
+            <label style="display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#5B5BD6,#4C4CC8);color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">
               Choose Photo
               <input type="file" id="pet-photo-input" accept="image/*" style="display:none;" onchange="previewPetPhoto(this)">
             </label>
@@ -540,7 +543,7 @@
 
     <!-- EXPENSE TRACKER TAB -->
     <section id="tab-expenses" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:24px;">
       <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Expense Tracker</h2>
       <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Track all pet-related costs in one place</p>
       <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">
@@ -671,7 +674,7 @@
 
     <!-- IMPORTANT LINKS TAB -->
     <section id="tab-important-links" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:24px;">
       <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Important Links</h2>
       <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
      </div>
@@ -979,7 +982,7 @@
       const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
       const avatarHtml = p.photo
         ? `<img src="${p.photo}" class="pet-avatar" alt="${p.name}">`
-        : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+        : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
       return `<div class="card p-5" style="border-left:4px solid var(--accent-color);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div style="display:flex;align-items:center;gap:12px;">
@@ -1039,12 +1042,12 @@
           <div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
               <span class="font-heading font-bold text-primary">${v.petName}</span>
-              <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type}</span>
+              <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type}</span>
             </div>
             <p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.vet ? ' · ' + v.vet : ''}</p>
             ${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}
             ${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}
-            ${v.next ? `<p class="font-body text-sm mt-1" style="color:#667eea;">Next appointment: ${fmtDate(v.next)}</p>` : ''}
+            ${v.next ? `<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Next appointment: ${fmtDate(v.next)}</p>` : ''}
           </div>
           <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             ${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}
@@ -1228,7 +1231,7 @@
         <div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="font-heading font-bold text-primary">${fmt(e.amount)}</span>
-            <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;padding:2px 8px;border-radius:12px;">${e.category}</span>
+            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">${e.category}</span>
           </div>
           <p class="font-body text-sm text-secondary">${e.petName} · ${fmtDate(e.date)}${e.desc ? ' · ' + e.desc : ''}</p>
         </div>
@@ -1323,8 +1326,8 @@
       <!-- Per-pet sections -->
       ${pets.map(p => {
         const avatar = p.photo
-          ? `<img src="${p.photo}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0;" alt="${p.name}">`
-          : `<div style="width:52px;height:52px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+          ? `<img src="${p.photo}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(91,91,214,0.3);flex-shrink:0;" alt="${p.name}">`
+          : `<div style="width:52px;height:52px;border-radius:50%;background:rgba(91,91,214,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(91,91,214,0.2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
         return `
         <div class="sitter-section-preview">
           <div class="sitter-section-header">
@@ -1412,11 +1415,11 @@
     const pets = getList('pets');
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><title>Pet Sitter Instructions</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Pet Sitter Instructions — Pawfolio</title>
     <style>
       body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #2d3748; }
-      h1 { background: linear-gradient(135deg,#667eea,#764ba2); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
-      h2 { font-size: 15px; font-weight: 700; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 6px; margin-top: 20px; }
+      h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
+      h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .field { margin-bottom: 8px; }
       .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1441,7 +1444,7 @@
     ${pets.map(p => `
     <h2>${p.name} (${p.species}${p.breed ? ' — ' + p.breed : ''})</h2>
     <div class="pet-section">
-      ${p.photo ? `<img src="${p.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #667eea;">` : ''}
+      ${p.photo ? `<img src="${p.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #5B5BD6;">` : ''}
       ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${p.allergies}</p>` : ''}
       <div class="grid">
         <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
@@ -1482,7 +1485,7 @@
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
             <span class="font-heading font-bold text-primary">${d.name}</span>
-            <span style="background:rgba(102,126,234,0.1);color:#667eea;font-size:11px;padding:2px 8px;border-radius:12px;">${d.type}</span>
+            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">${d.type}</span>
           </div>
           <p class="font-body text-sm text-secondary">${d.petName}${d.notes ? ' · ' + d.notes : ''}</p>
           ${d.link ? `<a href="${d.link}" target="_blank" class="font-body text-sm" style="color:var(--accent-color);">View Document &rarr;</a>` : ''}
@@ -1504,7 +1507,7 @@
     const overviewPets = document.getElementById('overview-pets');
     if(!pets.length) {
       overviewPets.innerHTML = `<div class="card p-6 text-center" style="border-left:4px solid var(--accent-color);">
-        <p class="font-heading text-lg font-bold text-primary mb-2">Welcome to Pet Care Planner</p>
+        <p class="font-heading text-lg font-bold text-primary mb-2">Welcome to Pawfolio</p>
         <p class="font-body text-sm text-secondary">Start by adding your pet's profile using the <strong>Pet Profiles</strong> tab.</p>
       </div>`;
     } else {
@@ -1513,8 +1516,8 @@
           const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
           const latestWeight = getList('weights').filter(w => w.petId === p.__id).sort((a,b) => b.date.localeCompare(a.date))[0];
           const ov_avatar = p.photo
-            ? `<img src="${p.photo}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid rgba(102,126,234,0.3);flex-shrink:0;" alt="${p.name}">`
-            : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(102,126,234,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(102,126,234,0.2);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
+            ? `<img src="${p.photo}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid rgba(91,91,214,0.3);flex-shrink:0;" alt="${p.name}">`
+            : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(91,91,214,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(91,91,214,0.2);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
           return `<div class="card p-4" style="border-top:4px solid var(--accent-color);">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
               ${ov_avatar}
