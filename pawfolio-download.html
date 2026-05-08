@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pawfolio — Pet Care Planner</title>
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="2.0">
+  <meta name="app-version" content="2.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -210,8 +210,13 @@
     <!-- PET PROFILES TAB -->
     <section id="tab-pet-profiles" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Pet Profiles</h2>
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-4">Add a Pet</h3>
+     <div id="pet-profiles-list" class="space-y-4 mb-5"></div>
+     <div id="add-pet-card" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <button type="button" id="add-pet-toggle" aria-expanded="true" aria-controls="add-pet-form-wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:transparent;border:none;padding:0;cursor:pointer;font-family:inherit;color:inherit;text-align:left;">
+       <h3 class="font-heading text-base font-bold text-primary" style="margin:0;">Add a Pet</h3>
+       <svg id="add-pet-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="2.5" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="add-pet-form-wrap" style="margin-top:16px;">
       <form id="pet-form" class="space-y-4">
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
@@ -299,8 +304,8 @@
        </div>
        <button type="submit" class="btn-primary px-4 py-2">Save Pet Profile</button>
       </form>
+      </div>
      </div>
-     <div id="pet-profiles-list" class="space-y-4"></div>
     </section>
 
     <!-- VET VISITS TAB -->
@@ -1022,12 +1027,32 @@
     document.getElementById('pet-photo-preview').innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
     delete document.getElementById('pet-photo-preview').dataset.photo;
     refreshAll();
+    // Auto-collapse the Add a Pet card after a successful save
+    setAddPetExpanded(false);
+  });
+
+  // ============ ADD-A-PET CARD COLLAPSE ============
+  function setAddPetExpanded(expanded) {
+    const wrap = document.getElementById('add-pet-form-wrap');
+    const chev = document.getElementById('add-pet-chevron');
+    const btn = document.getElementById('add-pet-toggle');
+    if (!wrap || !chev || !btn) return;
+    wrap.style.display = expanded ? '' : 'none';
+    chev.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
+    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+  document.getElementById('add-pet-toggle').addEventListener('click', () => {
+    const wrap = document.getElementById('add-pet-form-wrap');
+    const isOpen = wrap.style.display !== 'none';
+    setAddPetExpanded(!isOpen);
   });
 
   function renderPets() {
     const pets = getList('pets');
     const container = document.getElementById('pet-profiles-list');
-    if(!pets.length) { container.innerHTML = '<p class="font-body text-sm text-secondary italic">No pets added yet.</p>'; return; }
+    // Auto-collapse Add a Pet card if pets exist; expand if none
+    setAddPetExpanded(pets.length === 0);
+    if(!pets.length) { container.innerHTML = '<p class="font-body text-sm text-secondary italic">No pets added yet. Use the form below to add your first pet.</p>'; return; }
     container.innerHTML = pets.map(p => {
       const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
       const avatarHtml = p.photo
