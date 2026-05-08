@@ -156,8 +156,8 @@
       <div style="display:flex;align-items:flex-start;gap:12px;">
        <div style="font-size:22px;line-height:1;flex-shrink:0;">💾</div>
        <div style="flex:1;">
-        <p class="font-heading text-sm font-bold text-primary mb-1">Your data lives on this device</p>
-        <p class="font-body text-sm text-secondary" style="line-height:1.5;">Pawfolio saves everything locally to your phone or browser — nothing is sent to a server. If you uninstall the app or clear your browser data, your records will be lost. <strong>Tap Export every week or two</strong> to save a backup file you can re-import later or move to another device.</p>
+        <p class="font-heading text-sm font-bold text-primary mb-1">Welcome to Pawfolio</p>
+        <p class="font-body text-sm text-secondary" style="line-height:1.5;">Your pet's records are saved right here on this phone or browser — nothing is uploaded to the internet, so only you can see them.<br><br>Because of that, it's important to <strong>tap Export every week or two</strong> to save a backup. That way, if your phone breaks, you uninstall the app, or you clear your browser, you won't lose anything. You can also use the backup file to move your records to a new phone.<br><br>A friendly reminder will appear when it's time to back up.</p>
         <button id="first-visit-dismiss" style="margin-top:10px;padding:7px 14px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Got it</button>
        </div>
       </div>
@@ -1652,7 +1652,7 @@
     if(!pets.length) {
       overviewPets.innerHTML = `<div class="card p-6 text-center" style="border-left:4px solid var(--accent-color);">
         <p class="font-heading text-lg font-bold text-primary mb-2">Welcome to Pawfolio</p>
-        <p class="font-body text-sm text-secondary">Start by adding your pet's profile using the <strong>Pet Profiles</strong> tab.</p>
+        <p class="font-body text-sm text-secondary" style="line-height:1.5;">Let's add your first pet. To get started, tap the <strong>Pet Profiles</strong> tab at the top, then tap <strong>Add Pet</strong> and fill in the basics like name, species, and birthday.<br><br>Once your pet is added, you can start tracking vet visits, vaccinations, medications, weight, and more.</p>
       </div>`;
     } else {
       overviewPets.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:20px;">
