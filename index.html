@@ -6,6 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
+  <meta name="app-version" content="2.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -137,6 +138,10 @@
       <label style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
      </div>
      <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
+     <button id="check-updates-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <span>Check for updates</span>
+     </button>
      <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <span id="dark-mode-label">Dark Mode</span>
@@ -1748,6 +1753,117 @@
     renderBackupReminder();
   }
   document.getElementById('export-data-btn').addEventListener('click', exportPlannerData);
+
+  // ============ CHECK FOR UPDATES ============
+  // Reads version.json from the GitHub Pages site, compares to the version baked into this HTML,
+  // and lets the user know if a newer version is available. Works for users opening either the
+  // live URL or the downloaded HTML file.
+  const VERSION_URL = 'https://rapunzlnflt-afk.github.io/pet-care-planner/version.json';
+  const CURRENT_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '0.0';
+
+  function compareVersions(a, b) {
+    const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const da = pa[i] || 0, db = pb[i] || 0;
+      if (da > db) return 1;
+      if (da < db) return -1;
+    }
+    return 0;
+  }
+
+  async function fetchLatestVersion() {
+    try {
+      const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function showUpdateModal({ heading, body, buttons }) {
+    // Remove any existing modal
+    const existing = document.getElementById('update-modal-overlay');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'update-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;';
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:white;border-radius:12px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.25);font-family:Karla,sans-serif;';
+    if (document.documentElement.getAttribute('data-theme') === 'dark') {
+      modal.style.background = '#1e1a32';
+      modal.style.color = '#e8e6f0';
+    }
+    const buttonsHTML = buttons.map((b, i) =>
+      `<button data-idx="${i}" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;border:none;${b.primary ? 'background:#5B5BD6;color:white;' : 'background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;'}">${b.label}</button>`
+    ).join('');
+    modal.innerHTML =
+      '<h3 style="font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;margin:0 0 12px 0;color:#5B5BD6;">' + heading + '</h3>' +
+      '<div style="font-size:14px;line-height:1.55;margin-bottom:18px;">' + body + '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' + buttonsHTML + '</div>';
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelectorAll('button[data-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const action = buttons[idx].onClick;
+        overlay.remove();
+        if (typeof action === 'function') action();
+      });
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  }
+
+  async function checkForUpdates(silent) {
+    const info = await fetchLatestVersion();
+    if (!info || !info.version) {
+      if (!silent) showUpdateModal({
+        heading: "Couldn't check",
+        body: "We couldn't reach the update server right now. Please check your internet connection and try again.",
+        buttons: [{ label: 'Close', primary: true }]
+      });
+      return;
+    }
+    const cmp = compareVersions(info.version, CURRENT_VERSION);
+    if (cmp > 0) {
+      // Newer version available
+      const downloadUrl = info.download_url || 'https://rapunzlnflt-afk.github.io/pet-care-planner/pawfolio-download.html';
+      const liveUrl = info.live_url || 'https://rapunzlnflt-afk.github.io/pet-care-planner/';
+      showUpdateModal({
+        heading: 'A new version is available',
+        body:
+          '<p style="margin:0 0 10px 0;"><strong>You\'re on version ' + CURRENT_VERSION + '. Latest is ' + info.version + '.</strong></p>' +
+          (info.notes ? '<p style="margin:0 0 10px 0;color:#64748b;"><strong>What\'s new:</strong><br>' + info.notes + '</p>' : '') +
+          '<p style="margin:0;color:#64748b;font-size:13px;">Tip: <strong>Tap Export first</strong> to save a backup of your data, just in case. Then tap <strong>Get update</strong> to download the latest file. Your data will still be there when you open the new version in the same browser.</p>',
+        buttons: [
+          { label: 'Later' },
+          { label: 'Open in browser', onClick: () => window.open(liveUrl, '_blank') },
+          { label: 'Get update', primary: true, onClick: () => window.open(downloadUrl, '_blank') }
+        ]
+      });
+      // Mark as notified so we don't nag
+      localStorage.setItem('pawfolioLastUpdateCheck', new Date().toISOString().slice(0,10));
+      localStorage.setItem('pawfolioLatestKnownVersion', info.version);
+    } else {
+      if (!silent) showUpdateModal({
+        heading: "You're up to date",
+        body: '<p style="margin:0;">You\'re running the latest version (' + CURRENT_VERSION + '). Thanks for keeping Pawfolio current</p>',
+        buttons: [{ label: 'Great', primary: true }]
+      });
+      localStorage.setItem('pawfolioLastUpdateCheck', new Date().toISOString().slice(0,10));
+    }
+  }
+
+  document.getElementById('check-updates-btn').addEventListener('click', () => checkForUpdates(false));
+
+  // Silent daily background check on load
+  (function silentBackgroundCheck() {
+    const last = localStorage.getItem('pawfolioLastUpdateCheck');
+    const todayStr = new Date().toISOString().slice(0,10);
+    if (last === todayStr) return; // already checked today
+    setTimeout(() => checkForUpdates(true), 3000); // wait 3s so it doesn't slow down initial load
+  })();
 
   // ============ BACKUP REMINDER + FIRST-VISIT NOTICE ============
   // First-visit notice: show once if user has any data and hasn't dismissed it
