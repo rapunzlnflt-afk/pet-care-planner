@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="2.1">
+  <meta name="app-version" content="2.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -117,7 +117,6 @@
 .stat-icon {
   width: 44px;
   height: 44px;
-  padding: 10px;
   border-radius: 50%;
   background: rgba(91, 91, 214, 0.12);
   color: var(--accent-color);
@@ -126,14 +125,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: 26px;          /* controls icon size */
+  line-height: 1;
 }
-
-.stat-icon svg {
-  width: 100%;
-  height: 100%;
-  stroke-width: 2.5;
-}
-
 .stat-label {
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -155,7 +149,7 @@
 @media (max-width: 360px) {
   .stats-row { gap: 6px; }
   .stat-card { padding: 10px 4px; }
-  .stat-icon { width: 36px; height: 36px; padding: 8px; }
+ .stat-icon { width: 36px; height: 36px; font-size: 20px; }
   .stat-label { font-size: 9px; }
 }
   </style>
@@ -259,17 +253,17 @@
     <!-- Quick stats -->
 <div class="stats-row">
   <div class="card stat-card">
-    <i data-lucide="paw-print" class="stat-icon"></i>
+    <i class="ph-fill ph-paw-print stat-icon"></i>
     <p class="font-body stat-label">Pets</p>
     <p class="font-heading stat-value" id="stat-pets">0</p>
   </div>
   <div class="card stat-card">
-    <i data-lucide="stethoscope" class="stat-icon"></i>
+   <i class="ph-fill ph-stethoscope stat-icon"></i>
     <p class="font-body stat-label">Vet Visits</p>
     <p class="font-heading stat-value" id="stat-visits">0</p>
   </div>
   <div class="card stat-card">
-    <i data-lucide="dollar-sign" class="stat-icon"></i>
+    <i class="ph-fill ph-currency-dollar stat-icon"></i>
     <p class="font-body stat-label">Total Spent</p>
     <p class="font-heading stat-value" id="stat-spent">$0</p>
   </div>
@@ -2077,7 +2071,6 @@
       });
     }
   </script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-<script>lucide.createIcons();</script>
+  //unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
  </body>
 </html>
