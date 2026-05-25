@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="2.5">
+  <meta name="app-version" content="2.6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -48,7 +48,9 @@
 
     /* Mobile */
     .mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: linear-gradient(135deg, #5B5BD6 0%, #8B5BD6 50%, #4C4CC8 100%); border-bottom: 1px solid rgba(255,255,255,0.15); align-items: center; padding: 0 16px; z-index: 1000; gap: 12px; }
-    .mobile-topbar h1 { font-size: 28px; font-weight: 700; color: white; flex: 1; margin: 0; font-family: 'Montserrat', sans-serif; }
+    .mobile-topbar .topbar-title { font-size: 22px; font-weight: 700; color: white; flex: 1; margin: 0; font-family: 'Montserrat', sans-serif; text-align: left; padding-left: 4px; }
+.mobile-topbar .topbar-logo { width: 40px; height: 40px; border-radius: 8px; background: white; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); flex-shrink: 0; }
+.mobile-topbar { gap: 12px; }
     #hamburger-btn { background: none; border: none; cursor: pointer; padding: 4px; color: white; }
     #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
     #sidebar-overlay.open { display: block; }
@@ -162,11 +164,10 @@
 
   <!-- Mobile top bar -->
   <div class="mobile-topbar">
-   <button id="hamburger-btn" aria-label="Open menu">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-   </button>
-   <h1 style="display:flex;align-items:center;gap:6px;"><img src="./icon-192.png" alt="" style="width:36px;height:36px;border-radius:4px;"> Pawfolio</h1>
-  </div>
+  <button id="hamburger-btn" aria-label="Open menu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">e x1="4" y1="6" x2="20" y2="6"/>e x1="4" y1="12" x2="20" y2="12"/>e x1="4" y1="18" x2="20" y2="18"/></svg></button>
+  <h1 class="topbar-title">Pawfolio</h1>
+  <img src="./icon-192.png" alt="" class="topbar-logo">
+</div>
 
   <div id="main-app" class="flex min-h-screen" style="opacity:0;transition:opacity 0.2s ease;">
 
