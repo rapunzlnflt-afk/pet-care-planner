@@ -1,4 +1,5 @@
 const CACHE_NAME = 'pet-care-planner-v13';
+const ASSETS = [
   './',
   './index.html',
   './manifest.json',
