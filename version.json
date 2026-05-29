@@ -1,7 +1,1 @@
-{
-  "version": "3.4",
-  "released": "2026-05-29",
-  "download_url": "https://rapunzlnflt-afk.github.io/pet-care-planner/pawfolio-download.html",
-  "live_url": "https://rapunzlnflt-afk.github.io/pet-care-planner/",
-  "notes": "Fix: Past vet appointments are no longer shown as Overdue in the overview reminders."
-}
+{"version": "3.5", "released": "2026-05-29", "download_url": "https://rapunzlnflt-afk.github.io/pet-care-planner/pawfolio-download.html", "live_url": "https://rapunzlnflt-afk.github.io/pet-care-planner/", "notes": "New: Edit existing pet profiles. Pet photo thumbnails now appear on vet visit, vaccination, medication, and weight cards. Vet visit weight entries are auto-logged into the weight tracker."}
