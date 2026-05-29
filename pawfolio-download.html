@@ -1717,7 +1717,7 @@
       const days = Math.ceil((new Date(m.refill) - now) / 86400000);
       if(days <= 30) reminders.push({ type: 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
     });
-    getList('vet-visits').filter(v => v.next).forEach(v => {
+    getList('vet-visits').map(v => ({...v, next: v.next || v.date})).filter(v => v.next).forEach(v => {
       const days = Math.ceil((new Date(v.next) - now) / 86400000);
       if(days <= 60) reminders.push({ type: 'Vet Appointment', name: v.reason || 'Follow-up', pet: v.petName, days, date: v.next });
     });
