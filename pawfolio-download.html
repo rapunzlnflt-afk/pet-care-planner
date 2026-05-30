@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pawfolio — Pet Care Planner</title>
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.6">
+  <meta name="app-version" content="3.5.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2397,5 +2397,128 @@ refreshAll();
     else start();
     console.log('Pawfolio v3.5.6 pencil-pin patch active (demo)');
   } catch(e){ console.warn('Pawfolio v3.5.6 demo patch failed (non-fatal):', e); }
+})();
+</script>
+
+<script>
+/* Pawfolio v3.5.7 — demo mirror */
+(function(){
+  try {
+    var css = ''
+      + '.stats-row, [data-pawfolio-stats-row]{display:grid !important;grid-template-columns:repeat(3, 1fr) !important;gap:10px !important;width:100% !important;}'
+      + '.stat-card{padding:14px 6px !important;text-align:center !important;}'
+      + '.stat-icon{display:inline-flex !important;align-items:center !important;justify-content:center !important;}'
+      + '[data-pawfolio-pinned="3.5.7"]{top:50% !important;transform:translateY(-50%) !important;}'
+      + '[data-pawfolio-x-pinned="3.5.7"]{top:50% !important;transform:translateY(-50%) !important;}';
+    var styleEl = document.getElementById('pawfolio-v357-style');
+    if (!styleEl){ styleEl = document.createElement('style'); styleEl.id='pawfolio-v357-style'; styleEl.textContent = css; document.head.appendChild(styleEl); }
+
+    var PENCIL_RE = /✏|🖊|pencil|edit/i;
+    var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
+    function isPencilBtn(el){
+      if (!el) return false;
+      if (el.tagName !== 'BUTTON' && el.tagName !== 'A') return false;
+      var t = (el.textContent||'').trim();
+      var aria = (el.getAttribute && (el.getAttribute('aria-label')||el.getAttribute('title'))) || '';
+      if (PENCIL_RE.test(t) || PENCIL_RE.test(aria)) return true;
+      var cls = el.className && el.className.toString ? el.className.toString() : '';
+      if (/pencil|edit/i.test(cls)) return true;
+      return false;
+    }
+    function isXBtn(el){
+      if (!el) return false;
+      if (el.tagName !== 'BUTTON' && el.tagName !== 'A') return false;
+      var t = (el.textContent||'').trim();
+      var aria = (el.getAttribute && (el.getAttribute('aria-label')||el.getAttribute('title'))) || '';
+      return X_RE.test(t) || /delete|remove|close/i.test(aria);
+    }
+    function findCard(el){
+      var n = el;
+      for (var i=0; i<8 && n; i++){
+        if (n.nodeType === 1){
+          var cls = (n.className && n.className.toString) ? n.className.toString() : '';
+          if (/card|pet|profile|rounded/i.test(cls) && n.offsetWidth > 200){ n.style.position = n.style.position||'relative'; return n; }
+        }
+        n = n.parentElement;
+      }
+      return null;
+    }
+    function pinPencilX(){
+      var btns = document.querySelectorAll('button, a[role="button"]');
+      var pencils=[], xs=[];
+      btns.forEach(function(b){ if (isPencilBtn(b)) pencils.push(b); else if (isXBtn(b)) xs.push(b); });
+      pencils.forEach(function(p){
+        var card = findCard(p); if(!card) return;
+        var xInCard=null;
+        for (var i=0;i<xs.length;i++){ if (card.contains(xs[i])){ xInCard=xs[i]; break; } }
+        if(!xInCard) return;
+        card.style.position = card.style.position||'relative';
+        xInCard.style.position='absolute';
+        xInCard.style.right='12px';
+        xInCard.style.zIndex='6';
+        xInCard.setAttribute('data-pawfolio-x-pinned','3.5.7');
+        p.style.position='absolute';
+        p.style.right='40px';
+        p.style.zIndex='6';
+        p.setAttribute('data-pawfolio-pinned','3.5.7');
+      });
+    }
+    var STAT_ICONS = {
+      'pets': '<i class="fa-solid fa-paw"></i>',
+      'vet visits': '<i class="fa-solid fa-stethoscope"></i>',
+      'total spent': '<i class="fa-solid fa-sack-dollar"></i>'
+    };
+    function restoreStatIcons(){
+      var labels = document.querySelectorAll('.stat-label, .stat-card *');
+      var seen = new WeakSet();
+      labels.forEach(function(el){
+        if (seen.has(el)) return;
+        var txt = (el.textContent||'').trim().toLowerCase();
+        if (!STAT_ICONS[txt]) return;
+        var card = el;
+        for (var i=0;i<4 && card;i++){
+          var cls = (card.className && card.className.toString) ? card.className.toString() : '';
+          if (/stat-card|card/i.test(cls)) break;
+          card = card.parentElement;
+        }
+        if (!card) return;
+        seen.add(card);
+        var iconHolder = card.querySelector('.stat-icon');
+        if (!iconHolder){
+          iconHolder = document.createElement('div');
+          iconHolder.className = 'stat-icon';
+          iconHolder.style.cssText = 'width:44px;height:44px;border-radius:50%;background:rgba(91,91,214,0.12);color:var(--accent-color);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:22px;';
+          card.insertBefore(iconHolder, card.firstChild);
+        }
+        if (!iconHolder.querySelector('i')){ iconHolder.innerHTML = STAT_ICONS[txt]; }
+      });
+      var all = document.querySelectorAll('*');
+      var firstStatLabel = null;
+      for (var k=0;k<all.length;k++){
+        var e = all[k];
+        if (e.children.length===0 && (e.textContent||'').trim().toLowerCase()==='pets'){ firstStatLabel = e; break; }
+      }
+      if (firstStatLabel){
+        var p = firstStatLabel.parentElement;
+        for (var j=0;j<5 && p;j++){
+          var cs = window.getComputedStyle(p);
+          if (cs.display==='grid' || cs.display==='flex'){ p.setAttribute('data-pawfolio-stats-row','1'); break; }
+          p = p.parentElement;
+        }
+      }
+    }
+    function runAll(){ try{ pinPencilX(); }catch(e){} try{ restoreStatIcons(); }catch(e){} }
+    var scheduled=false;
+    function schedule(){ if (scheduled) return; scheduled=true; requestAnimationFrame(function(){ scheduled=false; runAll(); }); }
+    var mo = new MutationObserver(schedule);
+    function start(){
+      try { mo.observe(document.body, {childList:true, subtree:true}); } catch(e){}
+      runAll();
+      setTimeout(runAll, 200); setTimeout(runAll, 800); setTimeout(runAll, 2000);
+      window.addEventListener('resize', schedule);
+    }
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+    console.log('Pawfolio v3.5.7 patch active (demo)');
+  } catch(e){ console.warn('Pawfolio v3.5.7 demo patch failed (non-fatal):', e); }
 })();
 </script>
