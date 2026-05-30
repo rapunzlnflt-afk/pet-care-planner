@@ -2332,6 +2332,51 @@ refreshAll();
     setTimeout(wrapButtons, 800);
   } catch(e){ console.warn('Pawfolio v3.5.5a-fix patch failed (non-fatal):', e); }
 })();
+   /* === Pawfolio patches v3.5.5a-fix2: pin pencil to sit exactly aligned with X (horizontally AND vertically) === */
+(function(){
+  try {
+    function pinPencilToX(){
+      try {
+        var list = document.getElementById('pets-list');
+        if (!list) return;
+        list.querySelectorAll('.card').forEach(function(card){
+          var xBtn = card.querySelector('.delete-x');
+          var eBtn = card.querySelector('.edit-pet-btn');
+          if (!xBtn || !eBtn) return;
+          var cs = window.getComputedStyle(card);
+          if (cs.position === 'static') card.style.position = 'relative';
+          var xCs = window.getComputedStyle(xBtn);
+          /* Match the X button's exact font metrics so glyphs sit on the same baseline */
+          eBtn.style.position    = 'absolute';
+          eBtn.style.top         = xBtn.offsetTop + 'px';
+          eBtn.style.right       = (card.offsetWidth - xBtn.offsetLeft + 6) + 'px';
+          eBtn.style.margin      = '0';
+          eBtn.style.padding     = xCs.padding;
+          eBtn.style.fontSize    = xCs.fontSize;
+          eBtn.style.lineHeight  = xCs.lineHeight;
+          eBtn.style.height      = xCs.height;
+          eBtn.style.display     = 'inline-flex';
+          eBtn.style.alignItems  = 'center';
+          eBtn.style.justifyContent = 'center';
+          eBtn.style.zIndex      = '5';
+        });
+      } catch(e){ console.warn('pinPencilToX failed', e); }
+    }
+    if (typeof window.refreshAll === 'function'){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(pinPencilToX, 50);
+        return r;
+      };
+    }
+    pinPencilToX();
+    setTimeout(pinPencilToX, 300);
+    setTimeout(pinPencilToX, 1000);
+    setTimeout(pinPencilToX, 2500);
+    window.addEventListener('resize', function(){ setTimeout(pinPencilToX, 50); });
+  } catch(e){ console.warn('Pawfolio v3.5.5a-fix2 patch failed (non-fatal):', e); }
+})();
   </script>
   <script>
     if ('serviceWorker' in navigator) {
