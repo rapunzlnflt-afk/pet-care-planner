@@ -2226,6 +2226,47 @@ refreshAll();
     tightenEditNextToX();
   } catch(e){ console.warn('Pawfolio v3.5.5a patch failed (non-fatal):', e); }
 })();
+   /* === Pawfolio patches v3.5.5a-fix: wrap pencil+X together so flex justify-between treats them as a single right-edge item === */
+(function(){
+  try {
+    function wrapButtons(){
+      try {
+        var list = document.getElementById('pets-list');
+        if (!list) return;
+        list.querySelectorAll('.card').forEach(function(card){
+          var xBtn = card.querySelector('.delete-x');
+          var eBtn = card.querySelector('.edit-pet-btn');
+          if (!xBtn || !eBtn) return;
+          /* Already wrapped? */
+          if (xBtn.parentNode.classList && xBtn.parentNode.classList.contains('pf-btn-pair')) return;
+          /* Both must share the same parent for this fix to apply */
+          if (eBtn.parentNode !== xBtn.parentNode) return;
+          var wrap = document.createElement('span');
+          wrap.className = 'pf-btn-pair';
+          wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+          var parent = xBtn.parentNode;
+          parent.insertBefore(wrap, eBtn);
+          wrap.appendChild(eBtn);
+          wrap.appendChild(xBtn);
+          eBtn.style.margin = '0';
+          eBtn.style.verticalAlign = 'middle';
+          xBtn.style.verticalAlign = 'middle';
+        });
+      } catch(e){ console.warn('wrapButtons failed', e); }
+    }
+    if (typeof window.refreshAll === 'function'){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(wrapButtons, 10);
+        return r;
+      };
+    }
+    wrapButtons();
+    setTimeout(wrapButtons, 200);
+    setTimeout(wrapButtons, 800);
+  } catch(e){ console.warn('Pawfolio v3.5.5a-fix patch failed (non-fatal):', e); }
+})();
   </script>
   <script>
     if ('serviceWorker' in navigator) {
