@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pawfolio — Pet Care Planner</title>
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.4">
+  <meta name="app-version" content="3.5.5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2188,6 +2188,43 @@ refreshAll();
       }
     });
   } catch(e){ console.warn('Pawfolio v3.5.4 patch failed (non-fatal):', e); }
+})();
+   /* === Pawfolio patches v3.5.5a: pencil tight next to X === */
+(function(){
+  try {
+    function tightenEditNextToX(){
+      try {
+        var list = document.getElementById('pets-list');
+        if (!list) return;
+        list.querySelectorAll('.card').forEach(function(card){
+          var xBtn = card.querySelector('.delete-x');
+          if (!xBtn) return;
+          card.querySelectorAll('.edit-pet-btn').forEach(function(b){ b.parentNode.removeChild(b); });
+          var match = (xBtn.getAttribute('onclick')||'').match(/\d+/);
+          if (!match) return;
+          var pid = match[0];
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'edit-pet-btn';
+          btn.title = 'Edit';
+          btn.innerHTML = '&#x270E;';
+          btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--accent-color);font-size:18px;padding:0;margin:0 4px 0 0;line-height:1;vertical-align:middle;';
+          btn.onclick = function(){ if (typeof editPet === 'function') editPet(parseInt(pid,10)); };
+          xBtn.style.verticalAlign = 'middle';
+          xBtn.parentNode.insertBefore(btn, xBtn);
+        });
+      } catch(e){ console.warn('tightenEditNextToX failed', e); }
+    }
+    if (typeof window.refreshAll === 'function'){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(tightenEditNextToX, 0);
+        return r;
+      };
+    }
+    tightenEditNextToX();
+  } catch(e){ console.warn('Pawfolio v3.5.5a patch failed (non-fatal):', e); }
 })();
   </script>
   <script>
