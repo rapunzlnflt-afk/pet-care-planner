@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-27';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-28';const ASSETS = [
   './',
   './index.html',
   './manifest.json',
