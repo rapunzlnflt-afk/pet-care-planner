@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.2">
+  <meta name="app-version" content="3.5.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2066,6 +2066,54 @@
   /* === Pawfolio patches v3.5 === */ (function(){function petById(id){return getList('pets').find(p=>p.__id==id);} function petAvatar(petId,size){var p=petById(petId);var s=size||22; if(p&&p.photo)return '<img src="'+p.photo+'" style="width:'+s+'px;height:'+s+'px;border-radius:50%;object-fit:cover;margin-right:6px;vertical-align:middle;" alt="">'; return '<span style="display:inline-block;width:'+s+'px;height:'+s+'px;border-radius:50%;background:rgba(91,91,214,0.15);margin-right:6px;vertical-align:middle;text-align:center;line-height:'+s+'px;font-size:'+Math.floor(s*0.55)+'px;">🐾</span>';} window.petAvatar=petAvatar; window.editPet=function(id){var p=petById(id); if(!p)return; var set=function(eid,val){var el=document.getElementById(eid); if(el)el.value=val||'';}; set('pet-name',p.name); set('pet-species',p.species); set('pet-breed',p.breed); set('pet-dob',p.dob); set('pet-color',p.color); set('pet-sex',p.sex); set('pet-microchip',p.microchip); set('pet-insurance',p.insurance); set('pet-policy',p.policy); set('pet-vet',p.vet); set('pet-allergies',p.allergies); set('pet-notes',p.notes); var preview=document.getElementById('pet-photo-preview'); if(p.photo&&preview){preview.dataset.photo=p.photo; preview.innerHTML='<img src="'+p.photo+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';} var hidden=document.getElementById('pet-edit-id'); if(!hidden){hidden=document.createElement('input'); hidden.type='hidden'; hidden.id='pet-edit-id'; document.getElementById('pet-form').appendChild(hidden);} hidden.value=id; if(typeof setAddPetExpanded==='function')setAddPetExpanded(true); var sb=document.querySelector('#pet-form button[type=submit]'); if(sb)sb.textContent='Update Pet Profile'; document.getElementById('pet-form').scrollIntoView({behavior:'smooth',block:'center'});}; var petForm=document.getElementById('pet-form'); if(petForm){petForm.addEventListener('submit',function(e){var hidden=document.getElementById('pet-edit-id'); if(!hidden||!hidden.value)return; e.preventDefault(); e.stopImmediatePropagation(); var id=parseFloat(hidden.value); var pets=getList('pets'); var idx=pets.findIndex(p=>p.__id==id); if(idx<0)return; var photoEl=document.getElementById('pet-photo-preview'); var g=function(eid){var el=document.getElementById(eid); return el?el.value:'';}; pets[idx]=Object.assign({},pets[idx],{name:g('pet-name').trim(),species:g('pet-species'),breed:g('pet-breed'),dob:g('pet-dob'),color:g('pet-color'),sex:g('pet-sex'),microchip:g('pet-microchip'),insurance:g('pet-insurance'),policy:g('pet-policy'),vet:g('pet-vet'),allergies:g('pet-allergies'),notes:g('pet-notes'),photo:(photoEl&&photoEl.dataset.photo)||pets[idx].photo||''}); saveList('pets',pets); hidden.value=''; e.target.reset(); if(photoEl){photoEl.dataset.photo=''; photoEl.innerHTML='';} var sb=document.querySelector('#pet-form button[type=submit]'); if(sb)sb.textContent='Save Pet Profile'; refreshAll();},true);} var _renderPets=window.renderPets; window.renderPets=function(){_renderPets(); var container=document.getElementById('pet-profiles-list'); if(!container)return; getList('pets').forEach(function(p){var xBtn=container.querySelector('button.delete-x[onclick*="deletePet('+p.__id+')"]'); if(xBtn && !xBtn.parentNode.querySelector('.edit-pet-btn')){var eb=document.createElement('button'); eb.type='button'; eb.className='edit-pet-btn'; eb.title='Edit'; eb.style.cssText='background:none;border:none;cursor:pointer;color:var(--accent-color);font-size:18px;margin-right:6px;'; eb.innerHTML='✎'; eb.onclick=function(){editPet(p.__id);}; xBtn.parentNode.insertBefore(eb,xBtn);}});}; function addAvatarsToList(containerId){var c=document.getElementById(containerId); if(!c)return; var pets=getList('pets'); c.querySelectorAll('.card').forEach(function(card){if(card.dataset.avatarInjected)return; var txt=card.textContent; var p=pets.find(function(pp){return pp.name && txt.indexOf(pp.name)>=0;}); if(p){var h=card.querySelector('h3,h4'); if(h){var span=document.createElement('span'); span.innerHTML=petAvatar(p.__id,22); var node=span.firstChild; if(node){h.insertBefore(node,h.firstChild); card.dataset.avatarInjected='1';}}}});} var listMap={renderVetVisits:'vet-visits-list',renderVaccinations:'vaccinations-list',renderMedications:'medications-list',renderWeights:'weights-list'}; Object.keys(listMap).forEach(function(fn){var orig=window[fn]; if(!orig)return; window[fn]=function(){orig.apply(this,arguments); addAvatarsToList(listMap[fn]);};}); var vetForm=document.getElementById('vet-form'); if(vetForm){vetForm.addEventListener('submit',function(e){setTimeout(function(){var visits=getList('vet-visits'); if(!visits.length)return; var last=visits[visits.length-1]; if(!last||!last.weight)return; var weights=getList('weights'); var dup=weights.some(function(w){return w.petId==last.petId && w.date===last.date;}); if(dup)return; addItem('weights',{petId:last.petId,petName:last.petName,lbs:parseFloat(last.weight),date:last.date,notes:'Auto-logged from vet visit'}); if(typeof renderWeights==='function')renderWeights(); if(typeof renderOverview==='function')renderOverview();},50);});} })();
 refreshAll();
   document.getElementById('main-app').style.opacity = '1';
+   /* === Pawfolio patches v3.5.3: clean avatar injection (try/catch guarded) === */
+(function(){
+  try {
+    if (typeof getList !== 'function') return;
+    function petById(id){
+      var list = getList('pets') || [];
+      for (var i=0;i<list.length;i++){ if(list[i].__id == id) return list[i]; }
+      return null;
+    }
+    function avatarHTML(petId, size){
+      var p = petById(petId);
+      var s = size || 22;
+      if (!p) return '';
+      if (p.photo){
+        return '<img src="'+p.photo+'" alt="" style="display:inline-block;width:'+s+'px;height:'+s+'px;border-radius:50%;object-fit:cover;margin-right:6px;vertical-align:middle;flex-shrink:0;">';
+      }
+      var initial = (p.name || '?').charAt(0).toUpperCase();
+      return '<span style="display:inline-block;width:'+s+'px;height:'+s+'px;border-radius:50%;background:rgba(91,91,214,0.15);color:#5B5BD6;margin-right:6px;vertical-align:middle;text-align:center;line-height:'+s+'px;font-size:'+Math.floor(s*0.55)+'px;font-weight:600;flex-shrink:0;">'+initial+'</span>';
+    }
+    function injectAvatars(containerId){
+      try {
+        var c = document.getElementById(containerId);
+        if (!c) return;
+        var cards = c.querySelectorAll('[data-pet-id]');
+        cards.forEach(function(card){
+          if (card.querySelector('.pf-avatar')) return;
+          var pid = card.getAttribute('data-pet-id');
+          var html = avatarHTML(pid, 22);
+          if (!html) return;
+          var target = card.querySelector('h1,h2,h3,h4,h5,h6,.pet-name,p,span');
+          if (target && !target.querySelector('img,.pf-avatar')){
+            var wrap = document.createElement('span');
+            wrap.className = 'pf-avatar';
+            wrap.innerHTML = html;
+            target.insertBefore(wrap, target.firstChild);
+          }
+        });
+      } catch(e){ console.warn('injectAvatars failed for '+containerId, e); }
+    }
+    var containers = ['pets-list','reminders-list','vet-list','feeding-list','grooming-list'];
+    function runAll(){ containers.forEach(injectAvatars); }
+    runAll();
+    if (typeof refreshAll === 'function'){
+      var orig = refreshAll;
+      window.refreshAll = function(){ var r = orig.apply(this, arguments); setTimeout(runAll, 0); return r; };
+    }
+  } catch(e){ console.warn('Pawfolio v3.5.3 avatar patch failed (non-fatal):', e); }
+})();
   </script>
   <script>
     if ('serviceWorker' in navigator) {
