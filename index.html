@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.13">
+  <meta name="app-version" content="3.5.14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2473,3 +2473,60 @@ refreshAll();
 })();
 </script>
 
+
+<script>
+/* Pawfolio v3.5.14 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
+(function(){
+try {
+  var PENCIL_RE = /✏|🖊|pencil|edit/i;
+  var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
+  function isBtn(el){ if(!el) return false; var tn=el.tagName; return tn==='BUTTON'||tn==='A'; }
+  function isX(el){ if(!isBtn(el)) return false; return X_RE.test((el.textContent||'').trim()); }
+  function isPencil(el){
+    if(!isBtn(el)) return false;
+    var t=(el.textContent||'').trim();
+    var aria=(el.getAttribute&&(el.getAttribute('aria-label')||el.getAttribute('title')))||'';
+    if (PENCIL_RE.test(t)||PENCIL_RE.test(aria)) return true;
+    if (el.querySelector && el.querySelector('i.fa-pencil, i.fa-edit, i[class*="pencil"], i[class*="edit"], svg')) return true;
+    var cls=el.className&&el.className.toString?el.className.toString():'';
+    if (/pencil|edit/i.test(cls)) return true;
+    return false;
+  }
+  function applyBox(btn){
+    btn.style.width='22px';
+    btn.style.height='22px';
+    btn.style.display='inline-flex';
+    btn.style.alignItems='center';
+    btn.style.justifyContent='center';
+    btn.style.padding='0';
+    btn.style.margin='0';
+    btn.style.lineHeight='1';
+    btn.style.fontSize='14px';
+    btn.style.boxSizing='border-box';
+    btn.style.verticalAlign='middle';
+  }
+  function normalize(){
+    // Only act on buttons already pinned by v3.5.6 (data-pawfolio-pinned attr)
+    var pinned=document.querySelectorAll('[data-pawfolio-pinned]');
+    pinned.forEach(function(btn){
+      if(isPencil(btn)||isX(btn)){
+        applyBox(btn);
+        btn.setAttribute('data-pawfolio-normalized','3.5.14');
+      }
+    });
+  }
+  var sched=false;
+  function schedule(){ if(sched) return; sched=true; requestAnimationFrame(function(){ sched=false; try{ normalize(); }catch(e){} }); }
+  function start(){
+    try{ new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-pawfolio-pinned','style']}); }catch(e){}
+    normalize();
+    setTimeout(normalize,300);
+    setTimeout(normalize,1000);
+    setTimeout(normalize,2500);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
+  else start();
+  console.log('Pawfolio v3.5.14 pencil/X box-normalize active');
+} catch(e){ console.warn('Pawfolio v3.5.14 patch failed (non-fatal):',e); }
+})();
+</script>
