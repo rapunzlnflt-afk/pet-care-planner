@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.21">
+  <meta name="app-version" content="3.5.22">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1132,7 +1132,7 @@
               ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${p.sex || ''}</p>` : ''}
             </div>
           </div>
-          <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">X</button>
+          <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">✕</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
           ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${p.microchip}</p></div>` : ''}
@@ -1211,7 +1211,7 @@
           <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             ${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}
             ${v.weight ? `<span class="font-body text-xs text-secondary">${v.weight} lbs</span>` : ''}
-            <button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">X</button>
+            <button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">✕</button>
           </div>
         </div>
       </div>`).join('');
@@ -1274,7 +1274,7 @@
           ${v.next ? `<p class="font-body text-sm mt-1" style="${urgency}">Due: ${fmtDate(v.next)}${daysUntil !== null ? (daysUntil < 0 ? ' (overdue)' : ` (${daysUntil} days)`) : ''}</p>` : ''}
           ${docChipsFor(v.petId, ['Vaccination Records'])}
         </div>
-        <button class="delete-x" onclick="deleteVacc(${v.__id})" title="Delete">X</button>
+        <button class="delete-x" onclick="deleteVacc(${v.__id})" title="Delete">✕</button>
       </div>`;
     }).join('');
   }
@@ -1330,7 +1330,7 @@
             ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">Refill: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
             ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${m.notes}</p>` : ''}
           </div>
-          <button class="delete-x" onclick="deleteMed(${m.__id})" title="Delete">X</button>
+          <button class="delete-x" onclick="deleteMed(${m.__id})" title="Delete">✕</button>
         </div>
       </div>`;
     }).join('');
@@ -1377,7 +1377,7 @@
             <span class="font-body text-sm text-secondary">${fmtDate(w.date)}${w.notes ? ' · ' + w.notes : ''}</span>
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="font-body text-sm font-medium text-primary">${w.lbs} lbs</span>
-              <button class="delete-x" onclick="deleteWeight(${w.__id})" title="Delete">X</button>
+              <button class="delete-x" onclick="deleteWeight(${w.__id})" title="Delete">✕</button>
             </div>
           </div>`).join('')}
         </div>
@@ -1439,7 +1439,7 @@
           </div>
           <p class="font-body text-sm text-secondary">${e.petName || 'General'} · ${fmtDate(e.date)}${e.desc ? ' · ' + e.desc : ''}</p>
         </div>
-        <button class="delete-x" onclick="deleteExpense(${e.__id})" title="Delete">X</button>
+        <button class="delete-x" onclick="deleteExpense(${e.__id})" title="Delete">✕</button>
       </div>`).join('');
   }
 
@@ -1727,7 +1727,7 @@
           <p class="font-body text-sm text-secondary">${d.petName}${d.notes ? ' · ' + d.notes : ''}</p>
           ${d.link ? `<a href="${d.link}" target="_blank" class="font-body text-sm" style="color:var(--accent-color);">View Document &rarr;</a>` : ''}
         </div>
-        <button class="delete-x" onclick="deleteDoc(${d.__id})" title="Delete">X</button>
+        <button class="delete-x" onclick="deleteDoc(${d.__id})" title="Delete">✕</button>
       </div>`).join('');
   }
 
@@ -2475,7 +2475,7 @@ refreshAll();
 
 
 <script>
-/* Pawfolio v3.5.21 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
+/* Pawfolio v3.5.22 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
 (function(){
 try {
   var PENCIL_RE = /✏|🖊|pencil|edit/i;
@@ -2511,7 +2511,7 @@ try {
     pinned.forEach(function(btn){
       if(isPencil(btn)||isX(btn)){
         applyBox(btn);
-        btn.setAttribute('data-pawfolio-normalized','3.5.21');
+        btn.setAttribute('data-pawfolio-normalized','3.5.22');
       }
     });
   }
@@ -2526,7 +2526,7 @@ try {
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
   else start();
-  console.log('Pawfolio v3.5.21 pencil/X box-normalize active');
-} catch(e){ console.warn('Pawfolio v3.5.21 patch failed (non-fatal):',e); }
+  console.log('Pawfolio v3.5.22 pencil/X box-normalize active');
+} catch(e){ console.warn('Pawfolio v3.5.22 patch failed (non-fatal):',e); }
 })();
 </script>
