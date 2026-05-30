@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.12">
+  <meta name="app-version" content="3.5.13">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2473,70 +2473,3 @@ refreshAll();
 })();
 </script>
 
-
-<script>
-/* Pawfolio v3.5.12 — pencil/X exact vertical-center alignment (measures X rect, syncs pencil) */
-(function(){
-try {
-  var PENCIL_RE = /✏|🖊|pencil|edit/i;
-  var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
-  function isBtn(el){ if(!el) return false; var tn=el.tagName; return tn==='BUTTON'||tn==='A'||(el.getAttribute&&el.getAttribute('role')==='button'); }
-  function isX(el){ if(!isBtn(el)) return false; var t=(el.textContent||'').trim(); return X_RE.test(t); }
-  function isPencil(el){
-    if(!isBtn(el)) return false;
-    var t=(el.textContent||'').trim();
-    var aria=(el.getAttribute&&(el.getAttribute('aria-label')||el.getAttribute('title')))||'';
-    if (PENCIL_RE.test(t)||PENCIL_RE.test(aria)) return true;
-    var cls=el.className&&el.className.toString?el.className.toString():'';
-    if (/pencil|edit/i.test(cls)) return true;
-    return false;
-  }
-  function align(){
-    var cards = document.querySelectorAll('.card, [class*="card" i]');
-    cards.forEach(function(card){
-      var btns = card.querySelectorAll('button, a, [role="button"]');
-      var xBtn=null, pBtn=null;
-      btns.forEach(function(b){ if(!xBtn && isX(b)) xBtn=b; if(!pBtn && isPencil(b)) pBtn=b; });
-      if(!xBtn||!pBtn) return;
-      var cs=getComputedStyle(card);
-      if(cs.position==='static') card.style.position='relative';
-      var cardRect=card.getBoundingClientRect();
-      var xRect=xBtn.getBoundingClientRect();
-      xBtn.style.position='absolute';
-      xBtn.style.top=(xRect.top-cardRect.top)+'px';
-      xBtn.style.right=(cardRect.right-xRect.right)+'px';
-      xBtn.style.margin='0';
-      xBtn.style.lineHeight='1';
-      xBtn.style.zIndex='6';
-      var xRect2=xBtn.getBoundingClientRect();
-      var xCenterY=xRect2.top+xRect2.height/2;
-      pBtn.style.position='absolute';
-      pBtn.style.margin='0';
-      pBtn.style.lineHeight='1';
-      pBtn.style.zIndex='6';
-      pBtn.style.right=((cardRect.right-xRect2.left)+8)+'px';
-      var pRect=pBtn.getBoundingClientRect();
-      var topPx=(xCenterY - pRect.height/2) - cardRect.top;
-      pBtn.style.top=topPx+'px';
-      pBtn.setAttribute('data-pawfolio-aligned','3.5.12');
-      xBtn.setAttribute('data-pawfolio-aligned','3.5.12');
-    });
-  }
-  var sched=false;
-  function schedule(){ if(sched) return; sched=true; requestAnimationFrame(function(){ sched=false; try{ align(); }catch(e){} }); }
-  var mo=new MutationObserver(schedule);
-  function start(){
-    try{ mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']}); }catch(e){}
-    align();
-    setTimeout(align,200);
-    setTimeout(align,800);
-    setTimeout(align,2000);
-    window.addEventListener('resize',schedule);
-    window.addEventListener('scroll',schedule,{passive:true});
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
-  else start();
-  console.log('Pawfolio v3.5.12 pencil/X exact-center alignment active');
-} catch(e){ console.warn('Pawfolio v3.5.12 patch failed (non-fatal):',e); }
-})();
-</script>
