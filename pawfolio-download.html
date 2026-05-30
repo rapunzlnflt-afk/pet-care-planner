@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pawfolio — Pet Care Planner</title>
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.7">
+  <meta name="app-version" content="3.5.8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2520,5 +2520,79 @@ refreshAll();
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
     console.log('Pawfolio v3.5.7 patch active (demo)');
   } catch(e){ console.warn('Pawfolio v3.5.7 demo patch failed (non-fatal):', e); }
+})();
+</script>
+
+<script>
+/* Pawfolio v3.5.8 — demo mirror */
+(function(){
+  try {
+    var LABELS = {
+      'pets': '<i class="fa-solid fa-paw"></i>',
+      'vet visits': '<i class="fa-solid fa-stethoscope"></i>',
+      'total spent': '<i class="fa-solid fa-sack-dollar"></i>'
+    };
+    function norm(s){ return (s||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+    function findStatGrid(){
+      var all = document.querySelectorAll('p,div,span,h1,h2,h3,h4,h5,h6');
+      var petsLabel = null;
+      for (var i=0;i<all.length;i++){
+        var el = all[i];
+        if (el.children.length===0 && norm(el.textContent)==='pets'){ petsLabel = el; break; }
+      }
+      if (!petsLabel) return null;
+      var n = petsLabel.parentElement;
+      for (var j=0;j<6 && n;j++){
+        var cs = window.getComputedStyle(n);
+        if ((cs.display==='grid'||cs.display==='flex') && n.children.length>=3){ return {grid:n, petsLabel:petsLabel}; }
+        n = n.parentElement;
+      }
+      return {grid:null, petsLabel:petsLabel};
+    }
+    function injectIcon(card, key){
+      if (card.getAttribute('data-pawfolio-icon-injected')===key) return;
+      var stub = card.querySelector('.stat-icon, [data-pawfolio-icon]');
+      if (stub) stub.parentNode.removeChild(stub);
+      var holder = document.createElement('div');
+      holder.setAttribute('data-pawfolio-icon', key);
+      holder.style.cssText = 'width:44px;height:44px;border-radius:50%;background:rgba(91,91,214,0.12);color:var(--accent-color,#5B5BD6);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:22px;';
+      holder.innerHTML = LABELS[key];
+      card.insertBefore(holder, card.firstChild);
+      card.setAttribute('data-pawfolio-icon-injected', key);
+    }
+    function run(){
+      var found = findStatGrid();
+      if (!found || !found.grid) return;
+      var grid = found.grid;
+      grid.style.setProperty('display','grid','important');
+      grid.style.setProperty('grid-template-columns','repeat(3, 1fr)','important');
+      grid.style.setProperty('gap','10px','important');
+      var kids = grid.children;
+      for (var i=0;i<kids.length;i++){
+        var card = kids[i];
+        var inner = card.querySelectorAll('p,div,span,h1,h2,h3,h4,h5,h6');
+        var matchedKey = null;
+        for (var k=0;k<inner.length;k++){
+          var el = inner[k];
+          if (el.children.length>0) continue;
+          var t = norm(el.textContent);
+          if (LABELS[t]){ matchedKey = t; break; }
+        }
+        if (matchedKey) injectIcon(card, matchedKey);
+        card.style.textAlign = card.style.textAlign || 'center';
+      }
+    }
+    var scheduled=false;
+    function schedule(){ if(scheduled) return; scheduled=true; requestAnimationFrame(function(){ scheduled=false; try{ run(); }catch(e){} }); }
+    var mo = new MutationObserver(schedule);
+    function start(){
+      try{ mo.observe(document.body,{childList:true,subtree:true}); }catch(e){}
+      run();
+      setTimeout(run,200); setTimeout(run,800); setTimeout(run,2000);
+      window.addEventListener('resize', schedule);
+    }
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+    console.log('Pawfolio v3.5.8 stats-icon patch active (demo)');
+  } catch(e){ console.warn('Pawfolio v3.5.8 demo patch failed (non-fatal):', e); }
 })();
 </script>
