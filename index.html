@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.14">
+  <meta name="app-version" content="3.5.19">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2475,7 +2475,7 @@ refreshAll();
 
 
 <script>
-/* Pawfolio v3.5.14 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
+/* Pawfolio v3.5.19 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
 (function(){
 try {
   var PENCIL_RE = /✏|🖊|pencil|edit/i;
@@ -2511,7 +2511,7 @@ try {
     pinned.forEach(function(btn){
       if(isPencil(btn)||isX(btn)){
         applyBox(btn);
-        btn.setAttribute('data-pawfolio-normalized','3.5.14');
+        btn.setAttribute('data-pawfolio-normalized','3.5.19');
       }
     });
   }
@@ -2526,7 +2526,7 @@ try {
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
   else start();
-  console.log('Pawfolio v3.5.14 pencil/X box-normalize active');
-} catch(e){ console.warn('Pawfolio v3.5.14 patch failed (non-fatal):',e); }
+  console.log('Pawfolio v3.5.19 pencil/X box-normalize active');
+} catch(e){ console.warn('Pawfolio v3.5.19 patch failed (non-fatal):',e); }
 })();
 </script>
