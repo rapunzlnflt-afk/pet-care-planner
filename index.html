@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-  <meta name="app-version" content="3.5.3">
+  <meta name="app-version" content="3.5.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2113,6 +2113,146 @@ refreshAll();
       window.refreshAll = function(){ var r = orig.apply(this, arguments); setTimeout(runAll, 0); return r; };
     }
   } catch(e){ console.warn('Pawfolio v3.5.3 avatar patch failed (non-fatal):', e); }
+})();
+   /* === Pawfolio patches v3.5.4: weight columns, edit-next-to-X, appointment time === */
+(function(){
+  try {
+    function ensureVetTimeField(){
+      try {
+        var dateInput = document.getElementById('vet-next');
+        if (!dateInput) return;
+        if (document.getElementById('vet-next-time')) return;
+        var timeInput = document.createElement('input');
+        timeInput.type = 'time';
+        timeInput.id = 'vet-next-time';
+        timeInput.className = dateInput.className || '';
+        var timeLabel = document.createElement('label');
+        timeLabel.className = 'font-body text-sm text-secondary';
+        timeLabel.style.display = 'block';
+        timeLabel.style.marginTop = '8px';
+        timeLabel.textContent = 'Next Appointment Time';
+        timeLabel.appendChild(document.createElement('br'));
+        timeLabel.appendChild(timeInput);
+        dateInput.parentNode.insertBefore(timeLabel, dateInput.nextSibling);
+      } catch(e){ console.warn('ensureVetTimeField failed', e); }
+    }
+    if (typeof window.addItem === 'function'){
+      var origAddItem = window.addItem;
+      window.addItem = function(listName, item){
+        try {
+          if (listName === 'vet-visits' && item && !item.nextTime){
+            var t = document.getElementById('vet-next-time');
+            if (t && t.value) item.nextTime = t.value;
+          }
+        } catch(e){}
+        return origAddItem.apply(this, arguments);
+      };
+    }
+    function enhanceVetCards(){
+      try {
+        var visits = (typeof getList === 'function') ? (getList('vet-visits') || []) : [];
+        var container = document.getElementById('vet-list');
+        if (!container) return;
+        var cards = container.querySelectorAll('.card');
+        cards.forEach(function(card, idx){
+          var v = visits[idx];
+          if (!v || !v.nextTime) return;
+          if (card.querySelector('.pf-appt-time')) return;
+          var paras = card.querySelectorAll('p');
+          for (var i=0;i<paras.length;i++){
+            if (/Next appointment/i.test(paras[i].textContent)){
+              var hhmm = v.nextTime;
+              var t12 = hhmm;
+              try {
+                var parts = hhmm.split(':');
+                var h = parseInt(parts[0],10);
+                var m = parts[1];
+                var ap = h>=12 ? 'PM' : 'AM';
+                var h12 = ((h+11)%12)+1;
+                t12 = h12+':'+m+' '+ap;
+              } catch(e){}
+              var span = document.createElement('span');
+              span.className = 'pf-appt-time';
+              span.textContent = ' at ' + t12;
+              paras[i].appendChild(span);
+              break;
+            }
+          }
+        });
+      } catch(e){ console.warn('enhanceVetCards failed', e); }
+    }
+    function placeEditNextToX(){
+      try {
+        var list = document.getElementById('pets-list');
+        if (!list) return;
+        var cards = list.querySelectorAll('.card');
+        cards.forEach(function(card){
+          var xBtn = card.querySelector('.delete-x');
+          if (!xBtn) return;
+          var existing = card.querySelectorAll('.edit-pet-btn');
+          var primary = null;
+          existing.forEach(function(b){
+            if (b.parentNode === xBtn.parentNode){ primary = b; }
+            else { b.parentNode.removeChild(b); }
+          });
+          if (!primary){
+            var match = (xBtn.getAttribute('onclick')||'').match(/\d+/);
+            if (!match) return;
+            var pid = match[0];
+            primary = document.createElement('button');
+            primary.type = 'button';
+            primary.className = 'edit-pet-btn';
+            primary.title = 'Edit';
+            primary.innerHTML = '&#x270E;';
+            primary.style.background = 'none';
+            primary.style.border = 'none';
+            primary.style.cursor = 'pointer';
+            primary.style.color = 'var(--accent-color)';
+            primary.style.fontSize = '18px';
+            primary.style.marginRight = '6px';
+            primary.onclick = function(){ if (typeof editPet === 'function') editPet(parseInt(pid,10)); };
+          }
+          if (xBtn.previousElementSibling !== primary){
+            xBtn.parentNode.insertBefore(primary, xBtn);
+          }
+        });
+      } catch(e){ console.warn('placeEditNextToX failed', e); }
+    }
+    function applyWeightColumns(){
+      try {
+        var el = document.getElementById('weight-list');
+        if (!el) return;
+        var children = el.children;
+        if (!children || children.length === 0) return;
+        if (children.length === 1 && children[0].tagName === 'P') return;
+        el.style.display = 'grid';
+        el.style.gridTemplateColumns = 'repeat(auto-fit, minmax(280px, 1fr))';
+        el.style.gap = '16px';
+        el.style.alignItems = 'start';
+      } catch(e){ console.warn('applyWeightColumns failed', e); }
+    }
+    function runAll354(){
+      ensureVetTimeField();
+      applyWeightColumns();
+      placeEditNextToX();
+      enhanceVetCards();
+    }
+    if (typeof window.refreshAll === 'function'){
+      var origRA = window.refreshAll;
+      window.refreshAll = function(){
+        var r = origRA.apply(this, arguments);
+        setTimeout(runAll354, 0);
+        return r;
+      };
+    }
+    runAll354();
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if (t && ((t.classList && t.classList.contains('sidebar-item')) || (t.closest && t.closest('.sidebar-item')))){
+        setTimeout(runAll354, 50);
+      }
+    });
+  } catch(e){ console.warn('Pawfolio v3.5.4 patch failed (non-fatal):', e); }
 })();
   </script>
   <script>
