@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.29">
+                          <meta name="app-version" content="3.5.30">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -378,63 +378,77 @@
     <!-- VET VISITS TAB -->
     <section id="tab-vet-visits" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Vet Visits</h2>
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-4">Log a Vet Visit</h3>
-      <form id="vet-form" class="space-y-4">
-       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
-         <select id="vet-pet" required><option value="">Select pet...</option></select>
-        </div>
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Date *</label>
-         <input type="date" id="vet-date" required>
-        </div>
-       </div>
-       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Vet / Clinic Name</label>
-         <input type="text" id="vet-name" placeholder="e.g., Happy Paws Clinic">
-        </div>
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Visit Type</label>
-         <select id="vet-type">
-          <option value="Wellness Exam">Wellness Exam</option>
-          <option value="Sick Visit">Sick Visit</option>
-          <option value="Follow-up">Follow-up</option>
-          <option value="Emergency">Emergency</option>
-          <option value="Surgery">Surgery</option>
-          <option value="Dental">Dental</option>
-          <option value="Vaccination">Vaccination</option>
-          <option value="Other">Other</option>
-         </select>
-        </div>
-       </div>
-       <div>
-        <label class="block font-body text-sm text-secondary mb-1">Reason for Visit</label>
+     <div class="card p-5 mb-4">
+  <h3 class="font-heading text-base font-bold text-primary mb-3">Vet Appointment</h3>
+  <form id="vet-form">
+    <!-- ===== Section 1: Schedule ===== -->
+    <p class="font-body text-xs uppercase tracking-wide text-secondary mb-2" style="border-bottom:1px solid var(--border-color);padding-bottom:4px;">Schedule</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div>
+        abel class="font-body text-sm">Pet *</label>
+        <select id="vet-pet" required><option value="">Select pet...</option></select>
+      </div>
+      <div>
+        abel class="font-body text-sm">Date *</label>
+        <input type="date" id="vet-date" required>
+      </div>
+      <div>
+        abel class="font-body text-sm">Time</label>
+        <input type="time" id="vet-time">
+      </div>
+      <div>
+        abel class="font-body text-sm">Vet / Clinic Name</label>
+        <input type="text" id="vet-name" placeholder="e.g., Happy Paws Clinic">
+      </div>
+      <div>
+        abel class="font-body text-sm">Visit Type</label>
+        <select id="vet-type">
+          <option>Wellness Exam</option><option>Sick Visit</option>
+          <option>Vaccination</option><option>Dental</option>
+          <option>Surgery</option><option>Other</option>
+        </select>
+      </div>
+      <div>
+        abel class="font-body text-sm">Reason for Visit</label>
         <input type="text" id="vet-reason" placeholder="e.g., Annual checkup, limping on right leg">
-       </div>
-       <div>
-        <label class="block font-body text-sm text-secondary mb-1">Diagnosis / Notes</label>
-        <textarea id="vet-diagnosis" rows="2" placeholder="What the vet found and recommended..."></textarea>
-       </div>
-       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Weight at Visit (lbs)</label>
-         <input type="number" id="vet-weight" placeholder="0.0" step="0.1" min="0">
-        </div>
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Cost ($)</label>
-         <input type="number" id="vet-cost" placeholder="0.00" step="0.01" min="0">
-        </div>
-       </div>
-       <div>
-        <label class="block font-body text-sm text-secondary mb-1">Next Appointment Date</label>
+      </div>
+    </div>
+
+    <!-- ===== Section 2: Visit Details ===== -->
+    <p class="font-body text-xs uppercase tracking-wide text-secondary mb-2 mt-4" style="border-bottom:1px solid var(--border-color);padding-bottom:4px;">Visit Details <span style="text-transform:none;color:#94a3b8;font-weight:400;">(fill in after the appointment)</span></p>
+
+    <!-- Clickable Document Vault reminder -->
+    <button type="button" id="vet-doc-vault-link" style="width:100%;text-align:left;background:rgba(91,91,214,0.08);border:1px dashed var(--accent-color);border-radius:8px;padding:10px 12px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <i class="fa-solid fa-camera" style="color:var(--accent-color);font-size:18px;"></i>
+      <span style="font-size:13px;color:var(--text-primary);">Snap a photo of the receipt, vet notes, or care instructions and add it to the Document Vault →</span>
+    </button>
+
+    <div>
+      abel class="font-body text-sm">Diagnosis / Notes</label>
+      <textarea id="vet-diagnosis" rows="3" placeholder="What the vet found and recommended..."></textarea>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+      <div>
+        abel class="font-body text-sm">Weight at Visit (lbs)</label>
+        <input type="number" id="vet-weight" placeholder="0.0" step="0.1" min="0">
+      </div>
+      <div>
+        abel class="font-body text-sm">Cost ($)</label>
+        <input type="number" id="vet-cost" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div>
+        abel class="font-body text-sm">Next Appointment Date</label>
         <input type="date" id="vet-next">
-       </div>
-       <button type="submit" class="btn-primary px-4 py-2">Save Visit</button>
-      </form>
-     </div>
+      </div>
+      <div>
+        abel class="font-body text-sm">Next Appointment Time</label>
+        <input type="time" id="vet-next-time">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-primary mt-4">Save Appointment</button>
+  </form>
+</div>
      <div id="vet-visits-list" class="space-y-3"></div>
     </section>
 
@@ -1167,16 +1181,20 @@
     const visitDate = document.getElementById('vet-date').value;
     const visitWeight = document.getElementById('vet-weight').value;
     addItem('vet-visits', {
-      petId, petName: pet ? pet.name : '',
-      date: visitDate,
-      vet: document.getElementById('vet-name').value,
-      type: document.getElementById('vet-type').value,
-      reason: document.getElementById('vet-reason').value,
-      diagnosis: document.getElementById('vet-diagnosis').value,
-      weight: visitWeight,
-      cost: parseFloat(document.getElementById('vet-cost').value) || 0,
-      next: document.getElementById('vet-next').value,
-    });
+  id: crypto.randomUUID(),
+  petId: document.getElementById('vet-pet').value,
+  date: document.getElementById('vet-date').value,
+  time: document.getElementById('vet-time').value || '',
+  vet: document.getElementById('vet-name').value.trim(),
+  type: document.getElementById('vet-type').value,
+  reason: document.getElementById('vet-reason').value.trim(),
+  diagnosis: document.getElementById('vet-diagnosis').value.trim(),
+  weight: parseFloat(document.getElementById('vet-weight').value) || 0,
+  cost: parseFloat(document.getElementById('vet-cost').value) || 0,
+  nextDate: document.getElementById('vet-next').value,
+  nextTime: document.getElementById('vet-next-time').value || '',
+  linkedDocs: []
+});
     // Auto-add to expenses
     const cost = parseFloat(document.getElementById('vet-cost').value) || 0;
     if(cost > 0) addItem('expenses', { petId, petName: pet ? pet.name : '', category: 'Vet Visit', amount: cost, date: visitDate, desc: document.getElementById('vet-reason').value });
@@ -1784,14 +1802,35 @@
       const days = Math.ceil((new Date(m.refill) - now) / 86400000);
       if(days <= 30) reminders.push({ type: 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
     });
-    getList('vet-visits').map(v => ({...v, next: v.next || v.date})).filter(v => v.next).forEach(v => {
-      const days = Math.ceil((new Date(v.next) - now) / 86400000);
-      if(days >= 0 && days <= 60) reminders.push({ type: 'Vet Appointment', name: v.reason || 'Follow-up', pet: v.petName, days, date: v.next });
+    
+   // === Future vet appointments → Reminders (v3.5.30) ===
+  const nowMs = Date.now();
+  getList('vet-visits').forEach(v => {
+  const datesToCheck = [];
+    if (v.date)     datesToCheck.push({ d: v.date,     t: v.time,     label: v.reason || v.type || 'Vet Appointment' });
+    const nextD = v.nextDate || v.next; // backwards compat
+    if (nextD) datesToCheck.push({ d: nextD, t: v.nextTime || '', label: 'Next vet appointment' });
+  datesToCheck.forEach(({d, t, label}) => {
+    const iso = d + 'T' + (t && t.length ? t : '23:59');
+    const ms  = new Date(iso).getTime();
+    if (isNaN(ms) || ms <= nowMs) return;
+    const days = Math.ceil((ms - nowMs) / 86400000);
+    if (days > 30) return;
+    const petName = (getList('pets').find(p => p.id === v.petId) || {}).name || 'Pet';
+    reminders.push({
+      type: 'Vet Appointment',
+      name: label,
+      pet: petName,
+      days,
+      date: d
     });
+  });
+});
     reminders.sort((a,b) => a.days - b.days);
     if(!reminders.length) {
       remindersEl.innerHTML = '<p class="font-body text-sm text-secondary italic">No upcoming reminders. Add vaccinations and medications to track due dates.</p>';
     } else {
+    
       remindersEl.innerHTML = reminders.map(r => {
         const color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
         const label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : `${r.days} days`;
@@ -2530,5 +2569,45 @@ try {
   else start();
   console.log('Pawfolio v3.5.22 pencil/X box-normalize active');
 } catch(e){ console.warn('Pawfolio v3.5.22 patch failed (non-fatal):',e); }
+})();
+ // === Vet Appointment → Document Vault handoff (v3.5.30) ===
+(function(){
+  const btn = document.getElementById('vet-doc-vault-link');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const petId = document.getElementById('vet-pet').value;
+    const date  = document.getElementById('vet-date').value;
+    if (!petId || !date) {
+      alert('Please pick the Pet and Date first so the document is tagged correctly.');
+      return;
+    }
+    // Stash context for the Document Vault to pick up
+    sessionStorage.setItem('pawfolio.docContext', JSON.stringify({
+      petId, visitDate: date, source: 'vet-visit'
+    }));
+    window.goToTab('documents');
+  });
+
+  // When Document Vault renders, pre-fill from context if present
+  const ctxRaw = sessionStorage.getItem('pawfolio.docContext');
+  if (ctxRaw) {
+    setTimeout(() => {
+      try {
+        const ctx = JSON.parse(ctxRaw);
+        const dp = document.getElementById('doc-pet');
+        const dn = document.getElementById('doc-name');
+        const dt = document.getElementById('doc-type');
+        if (dp) dp.value = ctx.petId;
+        if (dt) dt.value = 'Vet Receipt / Notes';
+        if (dn && !dn.value) dn.value = 'Vet visit ' + ctx.visitDate;
+        sessionStorage.removeItem('pawfolio.docContext');
+        const banner = document.createElement('div');
+        banner.style.cssText='background:rgba(91,91,214,0.1);border-left:3px solid var(--accent-color);padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:13px;';
+        banner.textContent = 'Linking this upload to your vet visit on ' + ctx.visitDate + '.';
+        const form = document.getElementById('doc-form');
+        if (form && form.parentNode) form.parentNode.insertBefore(banner, form);
+      } catch(e) { console.warn('doc context parse failed', e); }
+    }, 300);
+  }
 })();
 </script>
