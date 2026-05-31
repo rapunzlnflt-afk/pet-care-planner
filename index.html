@@ -42,7 +42,7 @@
     .sidebar-item:hover { background: rgba(91,91,214,0.08); color: var(--accent-color); }
     .sidebar-item.active { background: rgba(91,91,214,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
     .tab-content { display: none; }
-    .tab-content.active-tab { display: block; }
+            /* Pawfolio fallback layout v3.5.36 - ensures visibility without Tailwind CDN */        aside { width: 260px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--border-color); padding: 16px; }        main { flex: 1; padding: 32px; min-width: 0; }        .tab-content:first-of-type, #overview { display: block; } { display: block; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
     .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
