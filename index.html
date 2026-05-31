@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.36"> 
+                          <meta name="app-version" content="3.5.41"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -156,6 +156,20 @@
   .stat-card { padding: 10px 4px; }
  .stat-icon { width: 36px; height: 36px; font-size: 20px; }
   .stat-label { font-size: 9px; }
+}
+ body {
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2));
+  min-height: 100vh;
+}
+#main-app {
+  width: 100%;
+  max-width: 1280px;
+  margin: 24px auto;
+  min-height: calc(100vh - 48px);
+  background: var(--bg-light);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
 }
   </style>
  </head>
