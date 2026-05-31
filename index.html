@@ -2197,7 +2197,7 @@ try {
   }
 
   document.addEventListener('click', function(e){
-        const card = e.target.closest('[onclick*="goToTab(\u0027vet-visits\u0027)"]');
+              const card = e.target.closest('[onclick*="goToTab"][onclick*="vet-visits"]');
     if(!card) return;
     try {
       const txt = card.innerText || '';
