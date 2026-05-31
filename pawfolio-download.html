@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pawfolio — Pet Care Planner</title>
   <meta name="theme-color" content="#5B5BD6">
-        <meta name="app-version" content="3.5.34">
+        <meta name="app-version" content="3.5.35">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -594,7 +594,7 @@
 
     <!-- EXPENSE TRACKER TAB -->
     <section id="tab-expenses" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:16px 24px;">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:20px 24px;color:white;">
       <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Expense Tracker</h2>
       <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Track all pet-related costs in one place</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px;">
@@ -734,7 +734,7 @@
 
     <!-- IMPORTANT LINKS TAB -->
     <section id="tab-important-links" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:16px 24px;">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:20px 24px;color:white;">
       <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Important Links</h2>
       <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
      </div>
@@ -1117,7 +1117,7 @@
     const pet = pets.find(p => p.__id === petId);
     const visitDate = document.getElementById('vet-date').value;
     const visitWeight = document.getElementById('vet-weight').value;
-    addItem('vet-visits', {
+    if(window._editingVisitId){ deleteItem('vet-visits', window._editingVisitId); window._editingVisitId = null; const btn = e.target.querySelector('button[type="submit"]'); if(btn) btn.textContent = 'Save Appointment'; } addItem('vet-visits', {
   id: crypto.randomUUID(),
   petId: document.getElementById('vet-pet').value, petName: (getList('pets').find(p => String(p.__id) === document.getElementById('vet-pet').value) || {}).name || '',
   date: document.getElementById('vet-date').value,
@@ -1148,33 +1148,13 @@
   });
 
   function renderVetVisits() {
-    const visits = getList('vet-visits').sort((a,b) => b.date.localeCompare(a.date));
-    const el = document.getElementById('vet-visits-list');
-    if(!visits.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>'; return; }
-    el.innerHTML = visits.map(v => `
-      <div class="card p-4">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-              <span class="font-heading font-bold text-primary">${v.petName || (getList('pets').find(p => String(p.__id) === String(v.petId)) || {}).name || 'Pet'}</span>
-              <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type}</span>
-            </div>
-            <p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.vet ? ' · ' + v.vet : ''}</p>
-            ${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}
-            ${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}
-            ${v.next ? `<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Next appointment: ${fmtDate(v.next)}</p>` : ''}
-            ${docChipsFor(v.petId, ['Vet Records','Prescription'])}
-          </div>
-          <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-            ${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}
-            ${v.weight ? `<span class="font-body text-xs text-secondary">${v.weight} lbs</span>` : ''}
-            <button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">X</button>
-          </div>
-        </div>
-      </div>`).join('');
+    const allVisits = getList('vet-visits'); const todayISO = new Date().toISOString().slice(0,10); const upcomingList = []; const pastList = []; allVisits.forEach(v => { const apptDate = v.date; const apptTime = v.time || '23:59'; const apptDT = new Date(apptDate + 'T' + apptTime); const isFuture = apptDT >= new Date(); if(isFuture) upcomingList.push(v); else pastList.push(v); }); upcomingList.sort((a,b) => (a.date + (a.time||'23:59')).localeCompare(b.date + (b.time||'23:59'))); pastList.sort((a,b) => (b.date + (b.time||'')).localeCompare(a.date + (a.time||''))); const visits = pastList;
+    const upEl = document.getElementById('vet-upcoming-list'); const el = document.getElementById('vet-past-list') || document.getElementById('vet-visits-list'); const _fmtT = t => { if(!t) return ''; const [h,m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr % 12 || 12; return h12 + ':' + m + ' ' + ampm; }; const _renderCard = v => `<div class="card p-4"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;"><span class="font-heading font-bold text-primary">${v.petName || (getList('pets').find(p => String(p.__id) === String(v.petId)) || {}).name || 'Pet'}</span><span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type||''}</span></div><p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.time ? ' @ ' + _fmtT(v.time) : ''}${v.vet ? ' · ' + v.vet : ''}</p>${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}${v.nextDate ? `<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Next: ${fmtDate(v.nextDate)}${v.nextTime ? ' @ ' + _fmtT(v.nextTime) : ''}</p>` : ''}${docChipsFor(v.petId, ['Vet Records','Prescription'])}</div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}${v.weight ? `<span class="font-body text-xs text-secondary">${v.weight} lbs</span>` : ''}<div style="display:flex;gap:4px;"><button class="delete-x" style="background:#5B5BD6;" onclick="editVisit(${v.__id})" title="Edit">✏</button><button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">✕</button></div></div></div></div>`; if(upEl){ upEl.innerHTML = upcomingList.length ? upcomingList.map(_renderCard).join('') : '<p class="font-body text-sm text-secondary italic">No upcoming appointments.</p>'; }
+    if(!visits.length) { if(el) el.innerHTML = '<p class="font-body text-sm text-secondary italic">No past appointments yet.</p>'; return; }
+    if(el) el.innerHTML = visits.map(_renderCard).join('');
   }
 
-  window.deleteVisit = id => { if(confirm('Delete this visit?')) { deleteItem('vet-visits', id); refreshAll(); } };
+  window._editingVisitId = null; window.editVisit = id => { const v = getList('vet-visits').find(x => x.__id === id); if(!v) return; window._editingVisitId = id; const set = (eid, val) => { const e = document.getElementById(eid); if(e) e.value = val || ''; }; set('vet-pet', v.petId); set('vet-date', v.date); set('vet-time', v.time); set('vet-name', v.vet); set('vet-type', v.type); set('vet-reason', v.reason); set('vet-diagnosis', v.diagnosis); set('vet-weight', v.weight); set('vet-cost', v.cost); set('vet-next', v.nextDate); set('vet-next-time', v.nextTime); const form = document.getElementById('vet-form'); if(form){ form.scrollIntoView({behavior:'smooth', block:'center'}); const btn = form.querySelector('button[type="submit"]'); if(btn) btn.textContent = 'Update Appointment'; } }; window.deleteVisit = id => { if(confirm('Delete this visit?')) { deleteItem('vet-visits', id); refreshAll(); } };
 
   // Helper: render document chips for a given pet+type filter
   function docChipsFor(petId, types) {
@@ -1752,9 +1732,9 @@ getList('vet-visits').forEach(v => {
     if (isNaN(ms) || ms <= nowMs) return;
     const days = Math.ceil((ms - nowMs) / 86400000);
     if (days > 30) return;
-    const petName = (getList('pets').find(p => p.id === v.petId) || {}).name || 'Pet';
+    const petName = (v.petName || (getList('pets').find(p => String(p.__id) === String(v.petId)) || {}).name || 'Pet');
     reminders.push({
-      type: 'Vet Appointment',
+      type: 'Vet Appointment', time: v.nextTime || v.time || '',
       name: label,
       pet: petName,
       days,
@@ -1773,7 +1753,7 @@ getList('vet-visits').forEach(v => {
         const target = tabMap[r.type];
         return `<div onclick="window.goToTab('${target}')" title="View in ${r.type === 'Medication Refill' ? 'Medications' : r.type === 'Vaccination' ? 'Vaccinations' : 'Vet Visits'}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(91,91,214,0.08)'" onmouseout="this.style.background='transparent'">
           <div>
-            <p class="font-body text-sm font-medium text-primary">${r.pet} — ${r.name}</p>
+            <p class="font-body text-sm font-medium text-primary">${r.pet}${r.type === 'Vet Appointment' ? ' — Vet Appointment' + (r.time ? ' @ ' + r.time : '') : ' — ' + r.name}</p>
             <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)} · <span style="color:#5B5BD6;">View →</span></p>
           </div>
           <span style="background:${color};color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">${label}</span>
