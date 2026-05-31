@@ -6,7 +6,8 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-        <meta name="app-version" content="3.5.36">
+                          <meta name="app-version" content="3.5.36"> 
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -42,7 +43,7 @@
     .sidebar-item:hover { background: rgba(91,91,214,0.08); color: var(--accent-color); }
     .sidebar-item.active { background: rgba(91,91,214,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
     .tab-content { display: none; }
-            /* Pawfolio fallback layout v3.5.36 - ensures visibility without Tailwind CDN */        aside { width: 260px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--border-color); padding: 16px; }        main { flex: 1; padding: 32px; min-width: 0; }        .tab-content:first-of-type, #overview { display: block; } { display: block; }
+    .tab-content.active-tab { display: block; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
     .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
@@ -2168,6 +2169,7 @@ try {
   }
  })();
  </script>
-           <script>(function(){function show(){var el=document.getElementById('main-app');if(el){el.style.opacity='1';el.style.transition='none';}}show();document.addEventListener('DOMContentLoaded',show);window.addEventListener('load',show);setTimeout(show,100);setTimeout(show,500);setTimeout(show,1500);})();</script>
            </body>
            </html>
+})();
+</script>
