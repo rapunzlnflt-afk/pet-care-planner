@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.31">
+                          <meta name="app-version" content="3.5.32">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -385,23 +385,23 @@
     <p class="font-body text-xs uppercase tracking-wide text-secondary mb-2" style="border-bottom:1px solid var(--border-color);padding-bottom:4px;">Schedule</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div>
-        abel class="font-body text-sm">Pet *</label>
+        <label class="font-body text-sm">Pet *</label>
         <select id="vet-pet" required><option value="">Select pet...</option></select>
       </div>
       <div>
-        abel class="font-body text-sm">Date *</label>
+        <label class="font-body text-sm">Date *</label>
         <input type="date" id="vet-date" required>
       </div>
       <div>
-        abel class="font-body text-sm">Time</label>
+        <label class="font-body text-sm">Time</label>
         <input type="time" id="vet-time">
       </div>
       <div>
-        abel class="font-body text-sm">Vet / Clinic Name</label>
+        <label class="font-body text-sm">Vet / Clinic Name</label>
         <input type="text" id="vet-name" placeholder="e.g., Happy Paws Clinic">
       </div>
       <div>
-        abel class="font-body text-sm">Visit Type</label>
+        <label class="font-body text-sm">Visit Type</label>
         <select id="vet-type">
           <option>Wellness Exam</option><option>Sick Visit</option>
           <option>Vaccination</option><option>Dental</option>
@@ -409,7 +409,7 @@
         </select>
       </div>
       <div>
-        abel class="font-body text-sm">Reason for Visit</label>
+        <label class="font-body text-sm">Reason for Visit</label>
         <input type="text" id="vet-reason" placeholder="e.g., Annual checkup, limping on right leg">
       </div>
     </div>
@@ -424,24 +424,24 @@
     </button>
 
     <div>
-      abel class="font-body text-sm">Diagnosis / Notes</label>
+      <label class="font-body text-sm">Diagnosis / Notes</label>
       <textarea id="vet-diagnosis" rows="3" placeholder="What the vet found and recommended..."></textarea>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
       <div>
-        abel class="font-body text-sm">Weight at Visit (lbs)</label>
+        <label class="font-body text-sm">Weight at Visit (lbs)</label>
         <input type="number" id="vet-weight" placeholder="0.0" step="0.1" min="0">
       </div>
       <div>
-        abel class="font-body text-sm">Cost ($)</label>
+        <label class="font-body text-sm">Cost ($)</label>
         <input type="number" id="vet-cost" placeholder="0.00" step="0.01" min="0">
       </div>
       <div>
-        abel class="font-body text-sm">Next Appointment Date</label>
+        <label class="font-body text-sm">Next Appointment Date</label>
         <input type="date" id="vet-next">
       </div>
       <div>
-        abel class="font-body text-sm">Next Appointment Time</label>
+        <label class="font-body text-sm">Next Appointment Time</label>
         <input type="time" id="vet-next-time">
       </div>
     </div>
