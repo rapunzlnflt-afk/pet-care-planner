@@ -657,14 +657,7 @@
 
     <!-- EXPENSE TRACKER TAB -->
     <section id="tab-expenses" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:20px 24px;color:white;">
-      <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Expense Tracker</h2>
-      <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Track all pet-related costs in one place</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px;">
-       <div style="text-align:left;"><p class="font-body text-xs uppercase mb-1" style="color:rgba(255,255,255,0.7);">Total Spent</p><p class="font-heading text-2xl font-bold" style="color:white;" id="expense-total">$0.00</p></div>
-       <div style="text-align:left;"><p class="font-body text-xs uppercase mb-1" style="color:rgba(255,255,255,0.7);">This Month</p><p class="font-heading text-2xl font-bold" style="color:white;" id="expense-month">$0.00</p></div>
-      </div>
-     </div>
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:18px 20px;color:white;"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:0;"><h2 class="font-heading text-xl font-bold" style="color:white;margin:0 0 2px 0;">Expense Tracker</h2><p class="font-body text-xs" style="color:rgba(255,255,255,0.85);margin:0;">Track all pet-related costs in one place</p></div><div style="display:flex;gap:24px;"><div style="text-align:right;"><p class="font-body text-xs uppercase" style="color:rgba(255,255,255,0.75);margin:0 0 2px 0;letter-spacing:0.5px;">Total Spent</p><p class="font-heading text-2xl font-bold" id="expense-total" style="color:white;margin:0;line-height:1.1;">$0.00</p></div><div style="text-align:right;"><p class="font-body text-xs uppercase" style="color:rgba(255,255,255,0.75);margin:0 0 2px 0;letter-spacing:0.5px;">This Month</p><p class="font-heading text-2xl font-bold" id="expense-month" style="color:white;margin:0;line-height:1.1;">$0.00</p></div></div></div></div>
      <div class="card p-4 mb-3" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <label class="font-body text-sm text-secondary" style="font-weight:600;">Filter by pet:</label>
       <select id="expense-filter-pet" style="flex:1;min-width:160px;max-width:280px;"><option value="">All pets</option></select>
@@ -797,422 +790,7 @@
 
     <!-- IMPORTANT LINKS TAB -->
     <section id="tab-important-links" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:20px 24px;color:white;">
-      <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Important Links</h2>
-      <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
-     </div>
-
-     <!-- Pet Insurance -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Insurance</h3>
-      <p class="font-body text-xs text-secondary mb-4">Top-rated providers — compare plans before enrolling. Prices vary by pet age, breed and location.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-       <a href="https://www.petsbest.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Pets Best</p>
-        <p class="font-body text-xs text-secondary">Best for affordability · avg $40/mo · 70–90% reimbursement</p>
-       </a>
-       <a href="https://www.spotpetins.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Spot Pet Insurance</p>
-        <p class="font-body text-xs text-secondary">Best wellness plans · unlimited coverage available</p>
-       </a>
-       <a href="https://www.aspcapetinsurance.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">ASPCA Pet Insurance</p>
-        <p class="font-body text-xs text-secondary">Short waiting periods · $2,500–$10,000 annual coverage</p>
-       </a>
-       <a href="https://www.pumpkin.care" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Pumpkin</p>
-        <p class="font-body text-xs text-secondary">Up to 90% back · covers routine care · 10% multi-pet discount</p>
-       </a>
-       <a href="https://www.figopetinsurance.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Figo Pet Insurance</p>
-        <p class="font-body text-xs text-secondary">Covers pre-existing conditions after 12 months · Costco discount</p>
-       </a>
-       <a href="https://www.healthypawspetinsurance.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Healthy Paws</p>
-        <p class="font-body text-xs text-secondary">Unlimited lifetime benefits · no caps · up to 90% reimbursement</p>
-       </a>
-       <a href="https://www.embracepetinsurance.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Embrace</p>
-        <p class="font-body text-xs text-secondary">Forbes #1 rated · 92% of claims paid · all breeds & ages</p>
-       </a>
-       <a href="https://www.metlifepetinsurance.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">MetLife Pet Insurance</p>
-        <p class="font-body text-xs text-secondary">Bundle with home/auto · flexible deductibles</p>
-       </a>
-       <a href="https://www.pawlicy.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Pawlicy Advisor</p>
-        <p class="font-body text-xs text-secondary">Compare multiple quotes side by side — free tool</p>
-       </a>
-      </div>
-     </div>
-
-     <!-- Online Pet Pharmacies -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Pharmacies</h3>
-      <p class="font-body text-xs text-secondary mb-4">Always verify your vet prescription is required. Look for VIPPS-accredited pharmacies for safety.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-       <a href="https://www.chewy.com/b/pharmacy-332" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Chewy Pharmacy</p>
-        <p class="font-body text-xs text-secondary">Largest selection · auto-ship discounts · free vet chat</p>
-       </a>
-       <a href="https://www.dutch.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Dutch</p>
-        <p class="font-body text-xs text-secondary">Online vet + pharmacy · same-day appts · $11/mo membership</p>
-       </a>
-       <a href="https://www.petmeds.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">PetMeds</p>
-        <p class="font-body text-xs text-secondary">America's oldest VIPPS-certified pharmacy · generics 20-30% cheaper</p>
-       </a>
-       <a href="https://www.covetrus.com/pet-owner" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Covetrus (Vets First Choice)</p>
-        <p class="font-body text-xs text-secondary">Vet-directed prescriptions · compounding available</p>
-       </a>
-       <a href="https://www.allivet.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Allivet</p>
-        <p class="font-body text-xs text-secondary">VIPPS-accredited · wide selection · competitive pricing</p>
-       </a>
-       <a href="https://www.vetsource.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Vetsource</p>
-        <p class="font-body text-xs text-secondary">Vet-recommended home delivery pharmacy</p>
-       </a>
-      </div>
-     </div>
-
-     <!-- Airline Pet Policies -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-1">Airline Pet Policies</h3>
-      <p class="font-body text-xs text-secondary mb-4">Policies and fees change — always verify directly with the airline before booking. Most require health certificates within 10 days of travel.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-       <a href="https://www.alaskaair.com/content/travel-info/policies/pets-traveling-with-pets" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Alaska Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin & cargo · $100 · Most pet-friendly US airline</p>
-       </a>
-       <a href="https://www.aa.com/i18n/travel-info/special-assistance/traveling-with-pets.jsp" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">American Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin only (most routes) · $150 · dogs & cats</p>
-       </a>
-       <a href="https://www.delta.com/us/en/pet-travel/overview" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Delta Air Lines</p>
-        <p class="font-body text-xs text-secondary">Cabin only · $150 · no cargo for general public</p>
-       </a>
-       <a href="https://www.united.com/ual/en/us/fly/travel/special-needs/pets.html" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">United Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin only · $150 · dogs & cats only</p>
-       </a>
-       <a href="https://www.southwest.com/html/customer-service/traveling-with-pets/index.html" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Southwest Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin only · $125 · dogs & cats · vaccinated required</p>
-       </a>
-       <a href="https://www.jetblue.com/flying-on-jetblue/traveling-with-pets/" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">JetBlue Airways</p>
-        <p class="font-body text-xs text-secondary">Cabin only · $150 · max 20 lbs with carrier</p>
-       </a>
-       <a href="https://www.flyfrontier.com/travel/travel-info/pet-policy/" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Frontier Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin · $99 · dogs, cats, rabbits, birds & more</p>
-       </a>
-       <a href="https://www.spirit.com/about-spirit/baggage-fees/pet-travel" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Spirit Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin · $125 · dogs, cats, rabbits & birds</p>
-       </a>
-       <a href="https://www.allegiantair.com/service-and-support/traveling-with-pets" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Allegiant Air</p>
-        <p class="font-body text-xs text-secondary">Cabin only · $50 (most affordable) · cats & dogs only</p>
-       </a>
-      </div>
-     </div>
-
-     <!-- Pet Shipping -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Shipping Services</h3>
-      <p class="font-body text-xs text-secondary mb-4">For long-distance or international pet transport when flying with your pet is not possible.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-       <a href="https://www.airanimals.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Air Animal</p>
-        <p class="font-body text-xs text-secondary">Full-service international pet transport since 1977</p>
-       </a>
-       <a href="https://www.petrelocation.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">PetRelocation</p>
-        <p class="font-body text-xs text-secondary">Door-to-door international · handles all paperwork</p>
-       </a>
-       <a href="https://www.ipata.org/find-a-pet-shipper" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">IPATA Directory</p>
-        <p class="font-body text-xs text-secondary">Find accredited pet transport agents worldwide</p>
-       </a>
-       <a href="https://www.happytailstravel.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Happy Tails Travel</p>
-        <p class="font-body text-xs text-secondary">Ground & air transport · coast to coast</p>
-       </a>
-       <a href="https://www.citizenshipping.com/pet-transport" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">CitizenShipper</p>
-        <p class="font-body text-xs text-secondary">Marketplace for pet transport drivers · budget-friendly</p>
-       </a>
-      </div>
-     </div>
-
-     <!-- Online Pet Stores -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Stores</h3>
-      <p class="font-body text-xs text-secondary mb-4">Top-rated stores for food, supplies, toys and specialty items.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-       <a href="https://www.chewy.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Chewy</p>
-        <p class="font-body text-xs text-secondary">Largest online pet retailer · auto-ship savings · free 1-2 day shipping</p>
-       </a>
-       <a href="https://www.petco.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Petco</p>
-        <p class="font-body text-xs text-secondary">In-store + online · grooming, vet services, training</p>
-       </a>
-       <a href="https://www.petsmart.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">PetSmart</p>
-        <p class="font-body text-xs text-secondary">Huge selection · grooming & boarding · PetsHotel</p>
-       </a>
-       <a href="https://www.amazon.com/pet-supplies" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Amazon Pet Supplies</p>
-        <p class="font-body text-xs text-secondary">Subscribe & Save · Prime fast shipping · huge variety</p>
-       </a>
-       <a href="https://www.entirely-pets.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">EntirelyPets</p>
-        <p class="font-body text-xs text-secondary">Specialty supplies · prescription food · hard-to-find items</p>
-       </a>
-       <a href="https://www.petflow.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">PetFlow</p>
-        <p class="font-body text-xs text-secondary">Auto-ship pet food specialist · competitive pricing</p>
-       </a>
-       <a href="https://www.healthypetnet.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Only Natural Pet</p>
-        <p class="font-body text-xs text-secondary">Natural & holistic products · supplements · raw food</p>
-       </a>
-       <a href="https://www.wag.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Wag!</p>
-        <p class="font-body text-xs text-secondary">Dog walking, sitting, boarding + supplies marketplace</p>
-       </a>
-       <a href="https://www.rover.com" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Rover</p>
-        <p class="font-body text-xs text-secondary">Find local pet sitters, dog walkers & boarders</p>
-       </a>
-      </div>
-     </div>
-
-    </section>
-
-   </main>
-  </div>
-
-  <script>
-  // ============ DATA STORE ============
-  const STORE_KEY = 'petPlannerData_v1';
-
-  function loadData() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { return {}; }
-  }
-  function saveData(data) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(data));
-  }
-  function getList(type) {
-    return loadData()[type] || [];
-  }
-  function saveList(type, list) {
-    const data = loadData();
-    data[type] = list;
-    saveData(data);
-  }
-  function addItem(type, item) {
-    item.__id = Date.now();
-    const list = getList(type);
-    list.push(item);
-    saveList(type, list);
-    return item;
-  }
-  function deleteItem(type, id) {
-    const list = getList(type).filter(i => i.__id !== id);
-    saveList(type, list);
-  }
-
-  const fmt = n => '$' + (parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const fmtDate = d => { if(!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
-  const today = () => new Date().toISOString().slice(0,10);
-
-  // ============ TAB NAVIGATION ============
-  document.querySelectorAll('.sidebar-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.goToTab(btn.dataset.tab);
-    });
-  });
-
-  // Switch to a tab programmatically (used by reminder cards on Overview)
-  window.goToTab = function(name) {
-    document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active-tab'));
-    const btn = document.querySelector('.sidebar-item[data-tab="' + name + '"]');
-    const tab = document.getElementById('tab-' + name);
-    if(btn) btn.classList.add('active');
-    if(tab) tab.classList.add('active-tab');
-    // Close mobile sidebar if open
-    const aside = document.querySelector('aside');
-    const overlay = document.getElementById('sidebar-overlay');
-    if(aside) aside.classList.remove('open');
-    if(overlay) overlay.style.display = 'none';
-    refreshAll();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // ============ PET DROPDOWNS ============
-  function refreshPetDropdowns() {
-    const pets = getList('pets');
-    const opts = pets.map(p => `<option value="${p.__id}">${p.name} (${p.species})</option>`).join('');
-    const optsWithAll = `<option value="">All pets / General</option>` + opts;
-    ['vet-pet','vacc-pet','med-pet','weight-pet'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.innerHTML = `<option value="">Select pet...</option>` + opts;
-    });
-    ['expense-pet','doc-pet'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.innerHTML = optsWithAll;
-    });
-  }
-
-  // ============ PET PROFILES ============
-  // Photo preview before saving
-  window.previewPetPhoto = function(input) {
-    if(!input.files || !input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const preview = document.getElementById('pet-photo-preview');
-      preview.innerHTML = `<img src="${evt.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
-      preview.dataset.photo = evt.target.result;
-    };
-    reader.readAsDataURL(input.files[0]);
-  };
-
-  document.getElementById('pet-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const photoEl = document.getElementById('pet-photo-preview');
-    const photo = photoEl.dataset.photo || '';
-    addItem('pets', {
-      name: document.getElementById('pet-name').value.trim(),
-      species: document.getElementById('pet-species').value,
-      breed: document.getElementById('pet-breed').value,
-      dob: document.getElementById('pet-dob').value,
-      color: document.getElementById('pet-color').value,
-      sex: document.getElementById('pet-sex').value,
-      microchip: document.getElementById('pet-microchip').value,
-      insurance: document.getElementById('pet-insurance').value,
-      policy: document.getElementById('pet-policy').value,
-      vet: document.getElementById('pet-vet').value,
-      allergies: document.getElementById('pet-allergies').value,
-      notes: document.getElementById('pet-notes').value,
-      photo,
-    });
-    e.target.reset();
-    document.getElementById('pet-photo-preview').innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
-    delete document.getElementById('pet-photo-preview').dataset.photo;
-    refreshAll();
-    // Auto-collapse the Add a Pet card after a successful save
-    setAddPetExpanded(false);
-  });
-
-  // ============ ADD-A-PET CARD COLLAPSE ============
-  function setAddPetExpanded(expanded) {
-    const wrap = document.getElementById('add-pet-form-wrap');
-    const chev = document.getElementById('add-pet-chevron');
-    const btn = document.getElementById('add-pet-toggle');
-    if (!wrap || !chev || !btn) return;
-    wrap.style.display = expanded ? '' : 'none';
-    chev.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
-    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-  }
-  document.getElementById('add-pet-toggle').addEventListener('click', () => {
-    const wrap = document.getElementById('add-pet-form-wrap');
-    const isOpen = wrap.style.display !== 'none';
-    setAddPetExpanded(!isOpen);
-  });
-
-  function renderPets() {
-    const pets = getList('pets');
-    const container = document.getElementById('pet-profiles-list');
-    // Auto-collapse Add a Pet card if pets exist; expand if none
-    setAddPetExpanded(pets.length === 0);
-    if(!pets.length) { container.innerHTML = '<p class="font-body text-sm text-secondary italic">No pets added yet. Use the form below to add your first pet.</p>'; return; }
-    container.innerHTML = pets.map(p => {
-      const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
-      const avatarHtml = p.photo
-        ? `<img src="${p.photo}" class="pet-avatar" alt="${p.name}">`
-        : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
-      return `<div class="card p-5" style="border-left:4px solid var(--accent-color);">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            ${avatarHtml}
-            <div>
-              <h3 class="font-heading text-lg font-bold text-primary">${p.name} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${p.species}${p.breed ? ' — ' + p.breed : ''}</span></h3>
-              ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${p.sex || ''}</p>` : ''}
-            </div>
-          </div>
-          <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">✕</button>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
-          ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${p.microchip}</p></div>` : ''}
-          ${p.insurance ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Insurance</p><p class="font-body text-sm">${p.insurance}</p></div>` : ''}
-          ${p.vet ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm">${p.vet}</p></div>` : ''}
-          ${p.allergies ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Allergies</p><p class="font-body text-sm" style="color:#e53e3e;">${p.allergies}</p></div>` : ''}
-          ${p.color ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Color</p><p class="font-body text-sm">${p.color}</p></div>` : ''}
-        </div>
-        ${p.notes ? `<p class="font-body text-sm text-secondary mt-3" style="border-top:1px solid var(--border-color);padding-top:8px;">${p.notes}</p>` : ''}
-      </div>`;
-    }).join('');
-  }
-
-  window.deletePet = id => { if(confirm('Delete this pet profile?')) { deleteItem('pets', id); refreshAll(); } };
-
-  // ============ VET VISITS ============
-  // Pre-fill clinic name from pet's Primary Vet when a pet is selected (only if clinic field is empty)
-  document.getElementById('vet-pet').addEventListener('change', e => {
-    const petId = parseFloat(e.target.value);
-    if(!petId) return;
-    const pet = getList('pets').find(p => p.__id === petId);
-    const clinicEl = document.getElementById('vet-name');
-    if(pet && pet.vet && clinicEl && !clinicEl.value) clinicEl.value = pet.vet;
-  });
-  document.getElementById('vet-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const petId = parseFloat(document.getElementById('vet-pet').value);
-    const pets = getList('pets');
-    const pet = pets.find(p => p.__id === petId);
-    const visitDate = document.getElementById('vet-date').value;
-    const visitWeight = document.getElementById('vet-weight').value;
-    if(window._editingVisitId){ deleteItem('vet-visits', window._editingVisitId); window._editingVisitId = null; const btn = e.target.querySelector('button[type="submit"]'); if(btn) btn.textContent = 'Save Appointment'; } addItem('vet-visits', {
-  id: crypto.randomUUID(),
-  petId: document.getElementById('vet-pet').value, petName: (getList('pets').find(p => String(p.__id) === document.getElementById('vet-pet').value) || {}).name || '',
-  date: document.getElementById('vet-date').value,
-  time: document.getElementById('vet-time').value || '',
-  vet: document.getElementById('vet-name').value.trim(),
-  type: document.getElementById('vet-type').value,
-  reason: document.getElementById('vet-reason').value.trim(),
-  diagnosis: document.getElementById('vet-diagnosis').value.trim(),
-  weight: parseFloat(document.getElementById('vet-weight').value) || 0,
-  cost: parseFloat(document.getElementById('vet-cost').value) || 0,
-  nextDate: document.getElementById('vet-next').value,
-  nextTime: document.getElementById('vet-next-time').value || '',
-  linkedDocs: []
-});
-    // Auto-add to expenses
-    const cost = parseFloat(document.getElementById('vet-cost').value) || 0;
-    if(cost > 0) addItem('expenses', { petId, petName: pet ? pet.name : '', category: 'Vet Visit', amount: cost, date: visitDate, desc: document.getElementById('vet-reason').value });
-    // Auto-add to weight tracker (skip if duplicate weight on same date for this pet)
-    const wLbs = parseFloat(visitWeight);
-    if(wLbs > 0 && visitDate) {
-      const existing = getList('weights').find(w => w.petId === petId && w.date === visitDate && parseFloat(w.lbs) === wLbs);
-      if(!existing) {
-        addItem('weights', { petId, petName: pet ? pet.name : '', lbs: wLbs, date: visitDate, notes: 'From vet visit' });
-      }
-    }
-    e.target.reset();
-    refreshAll();
-  });
-
-  function renderVetVisits() {
-    const allVisits = getList('vet-visits'); const todayISO = new Date().toISOString().slice(0,10); const upcomingList = []; const pastList = []; allVisits.forEach(v => { const apptDate = v.date; const apptTime = v.time || '23:59'; const apptDT = new Date(apptDate + 'T' + apptTime); const isFuture = apptDT >= new Date(); if(isFuture) upcomingList.push(v); else pastList.push(v); }); upcomingList.sort((a,b) => (a.date + (a.time||'23:59')).localeCompare(b.date + (b.time||'23:59'))); pastList.sort((a,b) => (b.date + (b.time||'')).localeCompare(a.date + (a.time||''))); const visits = pastList;
-    const upEl = document.getElementById('vet-upcoming-list'); const el = document.getElementById('vet-past-list') || document.getElementById('vet-visits-list'); const _fmtT = t => { if(!t) return ''; const [h,m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr % 12 || 12; return h12 + ':' + m + ' ' + ampm; }; const _renderCard = v => `<div class="card p-4"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;"><span class="font-heading font-bold text-primary">${v.petName || (getList('pets').find(p => String(p.__id) === String(v.petId)) || {}).name || 'Pet'}</span><span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${v.type||''}</span></div><p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.time ? ' @ ' + _fmtT(v.time) : ''}${v.vet ? ' · ' + v.vet : ''}</p>${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${v.reason}</p>` : ''}${v.diagnosis ? `<p class="font-body text-sm text-secondary mt-1">${v.diagnosis}</p>` : ''}${v.nextDate ? `<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Next: ${fmtDate(v.nextDate)}${v.nextTime ? ' @ ' + _fmtT(v.nextTime) : ''}</p>` : ''}${docChipsFor(v.petId, ['Vet Records','Prescription'])}</div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">${v.cost ? `<span class="font-heading font-bold text-primary">${fmt(v.cost)}</span>` : ''}${v.weight ? `<span class="font-body text-xs text-secondary">${v.weight} lbs</span>` : ''}<div style="display:flex;gap:4px;"><button class="delete-x" style="background:#5B5BD6;" onclick="editVisit(${v.__id})" title="Edit">✏</button><button class="delete-x" onclick="deleteVisit(${v.__id})" title="Delete">✕</button></div></div></div></div>`; if(upEl){ upEl.innerHTML = upcomingList.length ? upcomingList.map(_renderCard).join('') : '<p class="font-body text-sm text-secondary italic">No upcoming appointments.</p>'; }
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:18px 20px;color:white;"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:0;"><h2 class="font-heading text-xl font-bold" style="color:white;margin:0 0 2px 0;">Expense Tracker</h2><p class="font-body text-xs" style="color:rgba(255,255,255,0.85);margin:0;">Track all pet-related costs in one place</p></div><div style="display:flex;gap:24px;"><div style="text-align:right;"><p class="font-body text-xs uppercase" style="color:rgba(255,255,255,0.75);margin:0 0 2px 0;letter-spacing:0.5px;">Total Spent</p><p class="font-heading text-2xl font-bold" id="expense-total" style="color:white;margin:0;line-height:1.1;">$0.00</p></div><div style="text-align:right;"><p class="font-body text-xs uppercase" style="color:rgba(255,255,255,0.75);margin:0 0 2px 0;letter-spacing:0.5px;">This Month</p><p class="font-heading text-2xl font-bold" id="expense-month" style="color:white;margin:0;line-height:1.1;">$0.00</p></div></div></div></div>`; if(upEl){ upEl.innerHTML = upcomingList.length ? upcomingList.map(_renderCard).join('') : '<p class="font-body text-sm text-secondary italic">No upcoming appointments.</p>'; }
     if(!visits.length) { if(el) el.innerHTML = '<p class="font-body text-sm text-secondary italic">No past appointments yet.</p>'; return; }
     if(el) el.innerHTML = visits.map(_renderCard).join('');
   }
@@ -2588,6 +2166,163 @@ try {
         if (form && form.parentNode) form.parentNode.insertBefore(banner, form);
       } catch(e) { console.warn('doc context parse failed', e); }
     }, 300);
+  }
+})();
+</script>
+<script>
+/* Patch v3.5.36 — Fix vet edit btn overlap, reminder→visit detail, expense header */
+(function(){
+  try { const m=document.querySelector('meta[name="app-version"]'); if(m) m.setAttribute('content','3.5.36'); } catch(e){}
+
+  function fixVetEditButtons(){
+    document.querySelectorAll('#vet-visits-tab .delete-x, #vet-visits-tab button[onclick^="editVisit"]').forEach(btn=>{
+      const isPencil = (btn.textContent||'').trim()==='\u270F' || /editVisit/.test(btn.getAttribute('onclick')||'');
+      if(!isPencil) return;
+      btn.style.background='transparent';
+      btn.style.color='#5B5BD6';
+      btn.style.border='none';
+      btn.style.width='28px';
+      btn.style.height='28px';
+      btn.style.padding='0';
+      btn.style.display='inline-flex';
+      btn.style.alignItems='center';
+      btn.style.justifyContent='center';
+      btn.style.fontSize='15px';
+      btn.style.position='absolute';
+      btn.style.top='10px';
+      btn.style.right='44px';
+      btn.style.zIndex='6';
+      btn.style.boxShadow='none';
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    const card = e.target.closest('[onclick*="goToTab(\\'vet-visits\\')"]');
+    if(!card) return;
+    try {
+      const txt = card.innerText || '';
+      const petMatch = txt.match(/^([^\u2014\-]+?)\s*[\u2014\-]/);
+      const dateMatch = txt.match(/Vet Appointment\s*[\u00B7\u2027\u2022\.]\s*([A-Za-z]{3}\s+\d{1,2},?\s*\d{0,4})/);
+      sessionStorage.setItem('pawfolio.vetFocus', JSON.stringify({
+        pet: petMatch ? petMatch[1].trim() : '',
+        dateText: dateMatch ? dateMatch[1].trim() : '',
+        ts: Date.now()
+      }));
+    } catch(err){}
+  }, true);
+
+  function highlightFocusedVisit(){
+    const raw = sessionStorage.getItem('pawfolio.vetFocus');
+    if(!raw) return;
+    let data; try { data = JSON.parse(raw); } catch(e){ return; }
+    if(!data || (Date.now()-data.ts) > 15000) { sessionStorage.removeItem('pawfolio.vetFocus'); return; }
+    const tab = document.getElementById('vet-visits-tab');
+    if(!tab || !tab.classList.contains('active-tab')) return;
+    const cards = tab.querySelectorAll('.card');
+    let match = null;
+    cards.forEach(c=>{
+      if(match) return;
+      const t = (c.innerText||'').toLowerCase();
+      const pet = (data.pet||'').toLowerCase();
+      const dt = (data.dateText||'').toLowerCase();
+      if(pet && t.includes(pet) && (!dt || t.includes(dt))) match = c;
+    });
+    if(match){
+      match.scrollIntoView({behavior:'smooth', block:'center'});
+      const prev = match.style.boxShadow;
+      const prevBorder = match.style.border;
+      match.style.transition='box-shadow .3s, border-color .3s';
+      match.style.boxShadow='0 0 0 3px rgba(91,91,214,0.45), 0 4px 16px rgba(91,91,214,0.25)';
+      match.style.border='1px solid #5B5BD6';
+      setTimeout(()=>{ match.style.boxShadow=prev; match.style.border=prevBorder; }, 2600);
+      sessionStorage.removeItem('pawfolio.vetFocus');
+    }
+  }
+
+  function ensureUpcomingVetCards(){
+    const tab = document.getElementById('vet-visits-tab');
+    if(!tab || !tab.classList.contains('active-tab')) return;
+    try {
+      const visits = (typeof getList==='function') ? (getList('vet-visits')||[]) : [];
+      const pets = (typeof getList==='function') ? (getList('pets')||[]) : [];
+      const now = new Date();
+      const upcoming = visits.filter(v=>{
+        if(!v.date) return false;
+        const dt = new Date(v.date + 'T' + (v.time||'23:59'));
+        return dt >= now;
+      });
+      if(upcoming.length===0) return;
+      const html = tab.innerHTML.toLowerCase();
+      const allShown = upcoming.every(v => html.includes((v.date||'').toLowerCase()));
+      if(allShown) return;
+      const headings = tab.querySelectorAll('h2,h3,h4');
+      let upHead=null;
+      headings.forEach(h=>{ if(/upcoming/i.test(h.textContent||'')) upHead = h; });
+      const existing = tab.querySelector('#patch-upcoming-vet-cards');
+      if(existing) existing.remove();
+      const container = document.createElement('div');
+      container.id='patch-upcoming-vet-cards';
+      container.style.cssText='display:flex;flex-direction:column;gap:10px;margin-top:10px;';
+      upcoming.forEach(v=>{
+        const pet = pets.find(p=> String(p.id)===String(v.petId)) || {name:'Pet'};
+        const card = document.createElement('div');
+        card.className='card';
+        card.style.cssText='padding:14px;position:relative;';
+        card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">'+
+          '<div><p class="font-heading" style="font-weight:700;font-size:16px;color:#2d3748;margin:0 0 4px;">'+ (pet.name||'Pet') +' — Vet Appointment</p>'+
+          '<p style="font-size:13px;color:#718096;margin:0;">'+ v.date + (v.time?(' @ '+v.time):'') +'</p>'+
+          (v.reason?'<p style="font-size:13px;color:#475569;margin:6px 0 0;">'+v.reason+'</p>':'')+
+          '<p style="font-size:13px;color:#475569;margin:6px 0 0;">Amount spent: $'+ (v.cost!=null?Number(v.cost).toFixed(2):'0.00') +'</p></div>'+
+          '<span style="background:#5B5BD6;color:white;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;">UPCOMING</span>'+
+          '</div>';
+        container.appendChild(card);
+      });
+      if(upHead && upHead.parentNode) upHead.parentNode.insertBefore(container, upHead.nextSibling);
+      else tab.insertBefore(container, tab.firstChild);
+    } catch(e){}
+  }
+
+  function fixExpenseHeader(){
+    const tab = document.getElementById('expenses-tab') || document.getElementById('expense-tab') || document.querySelector('[id*="expense"][id$="-tab"]');
+    if(!tab) return;
+    const headings = tab.querySelectorAll('h1,h2,h3');
+    let h=null;
+    headings.forEach(x=>{ if(/expense tracker/i.test(x.textContent||'')) h=x; });
+    if(!h) return;
+    if(h.dataset.patched==='1') return;
+    h.dataset.patched='1';
+    h.className='font-heading';
+    h.style.cssText='font-size:24px;font-weight:800;color:white;margin:0 0 4px;letter-spacing:-0.5px;';
+    const sub = h.nextElementSibling;
+    if(sub && sub.tagName==='P'){
+      sub.style.cssText='font-size:14px;color:rgba(255,255,255,0.9);margin:0;';
+    }
+    if(!h.parentElement.classList.contains('page-header-patched')){
+      const wrap = document.createElement('div');
+      wrap.className='page-header-patched';
+      wrap.style.cssText='padding:18px 20px;background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);border-radius:12px;margin-bottom:16px;';
+      const parent = h.parentNode;
+      parent.insertBefore(wrap, h);
+      wrap.appendChild(h);
+      if(sub && sub.tagName==='P') wrap.appendChild(sub);
+    }
+  }
+
+  function runAll(){
+    fixVetEditButtons();
+    ensureUpcomingVetCards();
+    highlightFocusedVisit();
+    fixExpenseHeader();
+  }
+
+  const mo = new MutationObserver(()=>{ clearTimeout(window.__patch36t); window.__patch36t=setTimeout(runAll, 60); });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    runAll();
+    mo.observe(document.body, {childList:true, subtree:true});
+  });
+  if(document.readyState!=='loading'){
+    runAll();
+    mo.observe(document.body, {childList:true, subtree:true});
   }
 })();
 </script>
