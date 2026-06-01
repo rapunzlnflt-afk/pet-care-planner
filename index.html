@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.52"> 
+                          <meta name="app-version" content="3.5.53"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2191,6 +2191,28 @@ try {
   window.addEventListener('load', fix);
   setTimeout(fix, 100);
   setTimeout(fix, 500);
+})();
+</script>
+         <script>
+(function(){
+  function activate(tabId){
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
+    document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+    var target = document.getElementById('tab-' + tabId);
+    if(target) target.classList.add('active-tab');
+    var btn = document.querySelector('.sidebar-item[data-tab="' + tabId + '"]');
+    if(btn) btn.classList.add('active');
+    if(window.innerWidth <= 768){
+      var aside = document.querySelector('aside');
+      var overlay = document.getElementById('sidebar-overlay');
+      if(aside) aside.classList.remove('open');
+      if(overlay) overlay.classList.remove('open');
+    }
+  }
+  document.querySelectorAll('.sidebar-item[data-tab]').forEach(btn => {
+    btn.addEventListener('click', function(){ activate(this.getAttribute('data-tab')); });
+  });
+  window.goToTab = function(tabId){ activate(tabId); };
 })();
 </script>
           </body>
