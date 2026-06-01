@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.47"> 
+                          <meta name="app-version" content="3.5.48"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1234,7 +1234,7 @@
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><title>Pet Sitter Instructions — Pawfolio</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #2d3748; }
+      .print-body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #2d3748; }
       h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
       h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1242,8 +1242,8 @@
       .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
       .value { font-size: 13px; font-weight: 600; }
       .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
-      @media print { body { padding: 0; } h1 { margin: 0 0 20px; } }
-    </style></head><body>
+      @media print { .print-body { padding: 0; } h1 { margin: 0 0 20px; } }
+    </style></head><body class="print-body">
     <h1>Pet Sitter Instructions</h1>
     <h2>Owner Info</h2>
     <div class="grid">
