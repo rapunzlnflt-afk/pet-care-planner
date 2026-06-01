@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.48"> 
+                          <meta name="app-version" content="3.5.49"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -41,7 +41,8 @@
     input, select, textarea { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-family: 'Karla', sans-serif; font-size: 16px; width: 100%; outline: none; transition: border-color 0.2s; background: white; color: var(--text-primary); }
     input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
         aside h1 { color: #ffffff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-    aside .p-4:first-child p { color: rgba(255,255,255,0.92) !important; }
+        aside .p-4:first-child *:not(h1) { color: rgba(255,255,255,0.92) !important; }
+    aside .p-4:first-child { background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)) !important; }
    
    .sidebar-item { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 500; color: #64748b; padding: 11px 16px; transition: all 0.15s; }
     .sidebar-item:hover { background: rgba(91,91,214,0.08); color: var(--accent-color); }
