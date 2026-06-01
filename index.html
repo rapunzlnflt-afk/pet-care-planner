@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.46"> 
+                          <meta name="app-version" content="3.5.47"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2172,7 +2172,26 @@ try {
   }
  })();
  </script>
-           </body>
+           <script>
+(function(){
+  function fix(){
+    var app = document.getElementById('main-app');
+    if(!app) return;
+    if(window.innerWidth > 768){
+      var aside = app.querySelector('aside');
+      var main = app.querySelector('main');
+      if(main){ main.style.setProperty('flex','1','important'); main.style.setProperty('min-width','0','important'); }
+      if(aside){ aside.style.setProperty('flex-shrink','0','important'); }
+    }
+  }
+  fix();
+  window.addEventListener('resize', fix);
+  window.addEventListener('load', fix);
+  setTimeout(fix, 100);
+  setTimeout(fix, 500);
+})();
+</script>
+          </body>
            </html>
 })();
 </script>
