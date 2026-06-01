@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.53"> 
+                          <meta name="app-version" content="3.5.54"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1429,8 +1429,7 @@
 
   // ============ EXPORT / IMPORT ============
   function exportPlannerData() {
-    const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme'];
-    const data = {};
+const keys = Object.keys(localStorage);    const data = {};
     keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
