@@ -2519,6 +2519,61 @@ refreshAll();
   }
 })();
 </script>
+  <script>
+/* === Pawfolio v3.5.36 — Strip duplicate times from reminders (DOM-level fix) ===
+   v3.5.35's attempt to overwrite window.enhanceOverviewReminders failed because
+   v3.5.31's renderOverview wrapper calls the function via a closure reference,
+   not via window. Instead, we observe the reminders DOM and collapse any
+   "TIME · TIME · TIME" sequences back to a single TIME.
+*/
+(function(){
+  if (window.__pawfolio_v3536) return; window.__pawfolio_v3536 = true;
+
+  // Matches "1:00 PM" and collapses runs of " · 1:00 PM · 1:00 PM..." to single " · 1:00 PM"
+  var DUP_TIME = /(\s·\s*\d{1,2}:\d{2}\s*(?:AM|PM))(\s*·\s*\d{1,2}:\d{2}\s*(?:AM|PM))+/gi;
+
+  function stripDupTimes(){
+    var box = document.getElementById('overview-reminders');
+    if (!box) return;
+    box.querySelectorAll('p.font-body.text-xs.text-secondary').forEach(function(p){
+      var html = p.innerHTML;
+      if (!html) return;
+      var fixed = html.replace(DUP_TIME, '$1');
+      if (fixed !== html) p.innerHTML = fixed;
+    });
+  }
+
+  // Run now and after every render cycle
+  function runRepeatedly(){
+    stripDupTimes();
+    // Re-run on a short loop for ~2s to catch late renders
+    var ticks = 0;
+    var iv = setInterval(function(){
+      stripDupTimes();
+      if (++ticks > 20) clearInterval(iv);
+    }, 100);
+  }
+
+  // Observe the reminders box for any DOM changes and re-strip
+  function startObserver(){
+    var box = document.getElementById('overview-reminders');
+    if (!box) { setTimeout(startObserver, 200); return; }
+    var mo = new MutationObserver(function(){
+      // Defer to let other code finish its mutation
+      setTimeout(stripDupTimes, 5);
+    });
+    mo.observe(box, { childList: true, subtree: true, characterData: true });
+    stripDupTimes();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ runRepeatedly(); startObserver(); });
+  } else {
+    runRepeatedly();
+    startObserver();
+  }
+})();
+</script>
  </body>
 </html>
 
