@@ -2454,6 +2454,71 @@ refreshAll();
   document.head.appendChild(style);
 })();
 </script>
+  <script>
+/* === Pawfolio v3.5.35 — Reminder duplicate-time fix (real) + sidebar cleanup ===
+   - Fully neutralizes v3.5.31's enhanceOverviewReminders (the actual source of duplicate times)
+   - Removes "Your complete pet health companion" subtitle
+   - Enlarges the sidebar logo from 28px to 40px
+   - Reverts v3.5.34's day-chip pull-left; chip stays on the far right
+*/
+(function(){
+  if (window.__pawfolio_v3535) return; window.__pawfolio_v3535 = true;
+
+  // --- 1. Kill enhanceOverviewReminders so it can't run again ---
+  // It runs via setTimeout from inside renderOverview's v3.5.31 wrapper.
+  // Replacing it with a no-op stops the double-time injection at the source.
+  if (typeof window.enhanceOverviewReminders === 'function') {
+    window.enhanceOverviewReminders = function(){ /* disabled in v3.5.35 */ };
+  }
+  // Catch any late-binding case: define on window in case v3.5.31 hadn't bound yet
+  Object.defineProperty(window, 'enhanceOverviewReminders', {
+    configurable: true,
+    writable: true,
+    value: function(){ /* disabled */ }
+  });
+
+  // --- 2. One-time DOM cleanup: remove tagline, resize logo ---
+  function cleanupSidebar(){
+    // Remove "Your complete pet health companion" subtitle
+    document.querySelectorAll('aside p.font-body.text-xs.text-secondary.mt-1').forEach(function(p){
+      if (/complete pet health companion/i.test(p.textContent)) p.style.display = 'none';
+    });
+    // Enlarge the sidebar logo
+    document.querySelectorAll('aside img[src*="icon-192"]').forEach(function(img){
+      img.style.width = '40px';
+      img.style.height = '40px';
+      img.style.borderRadius = '8px';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cleanupSidebar);
+  } else {
+    cleanupSidebar();
+  }
+
+  // --- 3. CSS: undo v3.5.34's day-chip pull-left (back to far right) ---
+  var css = `
+@media (min-width: 1024px) {
+  #tab-overview #overview-reminders > div[onclick] {
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+  #tab-overview #overview-reminders > div[onclick] > div:last-child {
+    margin-left: 8px !important;
+  }
+}
+`;
+  var style = document.createElement('style');
+  style.id = 'pawfolio-v3535-style';
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // --- 4. Force a rebuild now that enhancer is dead ---
+  if (typeof window.rebuildReminders === 'function') {
+    setTimeout(function(){ try { window.rebuildReminders(); } catch(e){} }, 100);
+  }
+})();
+</script>
  </body>
 </html>
 
