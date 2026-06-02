@@ -3163,3 +3163,487 @@ try {
   else { boot(); }
 })();
 </script>
+<script>
+/* === Pawfolio v3.5.32 — Vet bug fixes ===
+   Fixes from v3.5.31:
+   1. CREATE: appointment time now persists (no longer wiped by form.reset before setTimeout runs)
+   2. OVERVIEW: reminders now natively render appointment time (no more brittle text parsing)
+   3. Reminder click: takes user to vet-visits tab AND scrolls to the matching card,
+      and clears any residual edit state in the form
+   Safe to append after v3.5.31 (idempotent).
+*/
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3532) return; window.__pawfolio_v3532 = true;
+
+  function $(id){ return document.getElementById(id); }
+  function todayISO(){ var d=new Date(); var m=String(d.getMonth()+1).padStart(2,'0'); var day=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+m+'-'+day; }
+  function isFutureOrToday(s){ return !!s && s >= todayISO(); }
+  function fmtTime(t){
+    if(!t) return ''; var p=String(t).split(':'); if(p.length<2) return t;
+    var h=parseInt(p[0],10); var m=p[1]; var ampm=h>=12?'PM':'AM'; var h12=((h+11)%12)+1;
+    return h12+':'+m+' '+ampm;
+  }
+  function fmtDateLocal(d){
+    if(!d) return '';
+    try { return new Date(d+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
+    catch(e){ return d; }
+  }
+
+  // ---------- FIX 1: time on CREATE ----------
+  // The v3.5.30 submit handler reads vet-time inside a setTimeout(...,30ms).
+  // By then, the ORIGINAL handler has already called e.target.reset() which clears the <select>.
+  // Solution: snapshot vet-time value on a CAPTURE-PHASE submit listener BEFORE any handler runs,
+  // and stash it on the form. The v3.5.30 setTimeout then reads from the snapshot if the live
+  // value is empty.
+  function installTimeSnapshot(){
+    var form = $('vet-form'); if(!form) return;
+    if(form.dataset.v3532Snap) return; form.dataset.v3532Snap='1';
+    form.addEventListener('submit', function(){
+      var t = $('vet-time') ? $('vet-time').value : '';
+      var nt = $('vet-next-time') ? $('vet-next-time').value : '';
+      form.dataset.snapTime = t || '';
+      form.dataset.snapNextTime = nt || '';
+    }, true); // CAPTURE — runs before all bubble-phase listeners
+    // Also patch the persisted-last-visit step: poll briefly after submit and write time
+    // if the v3.5.30 handler missed it.
+    form.addEventListener('submit', function(){
+      // Only run for non-edit submits (CREATE)
+      if(form.dataset.editId) return;
+      var snap = form.dataset.snapTime;
+      var snapNext = form.dataset.snapNextTime;
+      if(!snap && !snapNext) return;
+      // Try up to 6 times over ~360ms — covers the v3.5.30 setTimeout(30) plus refresh
+      var tries = 0;
+      var iv = setInterval(function(){
+        tries++;
+        try {
+          var visits = (typeof getList==='function') ? (getList('vet-visits')||[]) : [];
+          if(visits.length){
+            var last = visits[visits.length-1];
+            var changed=false;
+            if(snap && !last.time){ last.time = snap; changed=true; }
+            if(snapNext && !last.nextTime){ last.nextTime = snapNext; changed=true; }
+            if(changed){
+              if(typeof saveList==='function') saveList('vet-visits', visits);
+              if(typeof refreshAll==='function') refreshAll();
+              clearInterval(iv); return;
+            }
+            // If time is already present, done.
+            if(last.time || !snap){ clearInterval(iv); return; }
+          }
+        } catch(e){}
+        if(tries>=6){ clearInterval(iv); }
+      }, 60);
+    }, false); // bubble — runs after originals
+  }
+
+  // ---------- FIX 2: Overview reminders render time natively ----------
+  // Replace the post-render text-parsing approach with a renderOverview wrapper that
+  // re-renders the reminder rows using full visit objects (so time is always available).
+  function rebuildReminders(){
+    var el = $('overview-reminders'); if(!el) return;
+    if(typeof getList !== 'function') return;
+    var reminders = [];
+    var now = new Date();
+    try {
+      (getList('vaccinations')||[]).filter(function(v){return v.next;}).forEach(function(v){
+        var days = Math.ceil((new Date(v.next) - now) / 86400000);
+        if(days <= 60) reminders.push({type:'Vaccination', name:v.name, pet:v.petName, days:days, date:v.next, time:'', tab:'vaccinations'});
+      });
+      (getList('medications')||[]).filter(function(m){return m.refill;}).forEach(function(m){
+        var days = Math.ceil((new Date(m.refill) - now) / 86400000);
+        if(days <= 30) reminders.push({type:'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
+      });
+      (getList('vet-visits')||[]).forEach(function(v){
+        // Choose appointment date+time (v.date/v.time) OR follow-up date+time (v.next/v.nextTime)
+        // If v.next is set, that's a follow-up reminder; otherwise use v.date for scheduled appts.
+        var useDate, useTime, vid = v.__id;
+        if(v.next){ useDate = v.next; useTime = v.nextTime || ''; }
+        else { useDate = v.date; useTime = v.time || ''; }
+        if(!useDate) return;
+        var days = Math.ceil((new Date(useDate) - now) / 86400000);
+        if(days >= 0 && days <= 60){
+          reminders.push({type:'Vet Appointment', name:v.reason||'Follow-up', pet:v.petName, days:days, date:useDate, time:useTime, tab:'vet-visits', visitId:vid});
+        }
+      });
+    } catch(e){ return; }
+    reminders.sort(function(a,b){return a.days-b.days;});
+    if(!reminders.length){
+      el.innerHTML = '<p class="font-body text-sm text-secondary italic">No upcoming reminders. Add vaccinations and medications to track due dates.</p>';
+      return;
+    }
+    var fmtDate = window.fmtDate || fmtDateLocal;
+    el.innerHTML = reminders.map(function(r){
+      var color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
+      var label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : (r.days + ' days');
+      var timeBit = r.time ? (' · ' + fmtTime(r.time)) : '';
+      var titleAttr = 'View in ' + (r.type==='Medication Refill'?'Medications':(r.type==='Vaccination'?'Vaccinations':'Vet Visits'));
+      var clickAttr = r.visitId
+        ? 'window.pfGoToVetVisit('+r.visitId+')'
+        : "window.goToTab('"+r.tab+"')";
+      return '<div onclick="'+clickAttr+'" title="'+titleAttr+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(91,91,214,0.08)\'" onmouseout="this.style.background=\'transparent\'">'+
+        '<div>'+
+          '<p class="font-body text-sm font-medium text-primary">'+r.pet+' — '+r.name+'</p>'+
+          '<p class="font-body text-xs text-secondary">'+r.type+' · '+fmtDate(r.date)+timeBit+' · <span style="color:#5B5BD6;">View →</span></p>'+
+        '</div>'+
+        '<span style="background:'+color+';color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">'+label+'</span>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ---------- FIX 3: Reminder click → vet tab + scroll to card (NOT edit mode) ----------
+  // Clear any residual form edit state, switch tab, scroll the matching card into view & flash highlight.
+  window.pfGoToVetVisit = function(visitId){
+    // Clear residual edit state on the form (in case user had previously been editing)
+    var form = $('vet-form');
+    if(form){
+      if(form.dataset.editId){
+        delete form.dataset.editId;
+        delete form.dataset.forceLogMode;
+        try { form.reset(); } catch(e){}
+        if($('vet-time')) $('vet-time').value='';
+        if($('vet-next-time')) $('vet-next-time').value='';
+        var w=$('vet-next-wrap'); if(w) w.style.display='none';
+        var tw=$('vet-next-time-wrap'); if(tw) tw.style.display='none';
+        var fb=$('vet-followup-btn'); if(fb) fb.textContent='+ Add follow-up appointment';
+      }
+      // Always hide edit banner + clear card highlights
+      var banner = $('vet-edit-banner'); if(banner) banner.style.display='none';
+      document.querySelectorAll('.pf-editing-card').forEach(function(c){
+        c.classList.remove('pf-editing-card');
+        c.style.boxShadow=''; c.style.borderColor='';
+      });
+      // Reset title/submit text
+      var titleEl = $('vet-form-title');
+      if(titleEl) titleEl.textContent = 'Schedule Vet Appointment';
+      var submit = document.querySelector('#vet-form button[type="submit"]');
+      if(submit) submit.textContent = 'Schedule Appointment';
+      var hint = $('vet-form-hint'); if(hint) hint.style.display='';
+    }
+    if(typeof window.goToTab === 'function') window.goToTab('vet-visits');
+    // Wait for the list to render, then scroll to the matching card
+    setTimeout(function(){
+      // Identify card by its Edit button onclick="pfEditVisit(<id>)"
+      var btn = document.querySelector('#vet-visits-list button[onclick*="pfEditVisit('+visitId+')"]');
+      var card = btn ? btn.closest('.card') : null;
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+        // Brief highlight flash
+        var origShadow = card.style.boxShadow;
+        var origBorder = card.style.borderColor;
+        card.style.transition = 'box-shadow 0.3s, border-color 0.3s';
+        card.style.boxShadow = '0 0 0 3px rgba(91,91,214,0.45)';
+        card.style.borderColor = '#5B5BD6';
+        setTimeout(function(){
+          card.style.boxShadow = origShadow;
+          card.style.borderColor = origBorder;
+        }, 1600);
+      }
+    }, 220);
+  };
+
+  // ---------- Boot ----------
+  function boot(){
+    if(!$('vet-form')) return setTimeout(boot, 60);
+    installTimeSnapshot();
+    // Wrap renderOverview so reminders are rebuilt with native time after every render
+    if(typeof window.renderOverview === 'function' && !window.renderOverview.__v3532){
+      var origRO = window.renderOverview;
+      window.renderOverview = function(){
+        origRO.apply(this, arguments);
+        // Run AFTER any v3.5.31 enhancement, replacing reminders entirely
+        setTimeout(rebuildReminders, 30);
+      };
+      window.renderOverview.__v3532 = true;
+    }
+    // Rebuild once now (so the user sees the fix immediately without waiting for a render)
+    rebuildReminders();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script>
+/* === Pawfolio v3.5.33 — Auto-log sync on edit + delete ===
+   Keeps the auto-logged expense and weight in sync with a vet visit's record.
+
+   Strategy: tag every auto-logged expense/weight with __vetVisitId === visit.__id.
+     - On EDIT: update the linked expense (amount, date, desc) and weight (lbs, date)
+                — or create one if cost/weight is newly added — or delete if cost/weight removed.
+     - On DELETE: remove the linked expense + weight.
+     - On first-time match (existing data with no tag): one-time backfill links by
+                petId + date + amount (expense) / petId + date + "vet visit" notes (weight),
+                then proceed as tagged from then on.
+
+   Safe to append after v3.5.32 (idempotent).
+*/
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3533) return; window.__pawfolio_v3533 = true;
+
+  function _getList(t){ return (typeof getList==='function') ? (getList(t)||[]) : []; }
+  function _save(t, arr){ if(typeof saveList==='function') saveList(t, arr); }
+
+  // ---------- One-time backfill: find untagged auto-logs and link them ----------
+  function backfillLinks(){
+    var visits = _getList('vet-visits');
+    if(!visits.length) return;
+    var expenses = _getList('expenses');
+    var weights  = _getList('weights');
+    var expChanged = false, wChanged = false;
+    visits.forEach(function(v){
+      // Match expense
+      if(v.cost && Number(v.cost) > 0){
+        // Skip if a tagged expense already exists for this visit
+        var alreadyTagged = expenses.some(function(e){ return String(e.__vetVisitId||'') === String(v.__id); });
+        if(!alreadyTagged){
+          for(var i=0;i<expenses.length;i++){
+            var e = expenses[i];
+            if(e.__vetVisitId) continue; // already linked to a different visit
+            if((e.category||'') !== 'Vet Visit') continue;
+            if(String(e.petId||'') !== String(v.petId||'')) continue;
+            if((e.date||'') !== (v.date||'')) continue;
+            if(Math.abs(Number(e.amount||0) - Number(v.cost)) >= 0.005) continue;
+            e.__vetVisitId = v.__id;
+            expChanged = true;
+            break;
+          }
+        }
+      }
+      // Match weight
+      if(v.weight){
+        var alreadyTaggedW = weights.some(function(w){ return String(w.__vetVisitId||'') === String(v.__id); });
+        if(!alreadyTaggedW){
+          for(var j=0;j<weights.length;j++){
+            var w = weights[j];
+            if(w.__vetVisitId) continue;
+            if(String(w.petId||'') !== String(v.petId||'')) continue;
+            if((w.date||'') !== (v.date||'')) continue;
+            if(!/vet visit/i.test(w.notes||'')) continue;
+            if(Math.abs(Number(w.lbs||0) - Number(v.weight)) >= 0.005) continue;
+            w.__vetVisitId = v.__id;
+            wChanged = true;
+            break;
+          }
+        }
+      }
+    });
+    if(expChanged) _save('expenses', expenses);
+    if(wChanged)   _save('weights',  weights);
+  }
+
+  // ---------- Tag newly-created auto-logs ----------
+  // The original vet-form submit creates the expense + weight via addItem(...) inside its handler.
+  // We piggy-back: after submit + addItem completes, find the just-added auto-logs for the most
+  // recent visit and tag them with that visit's __id.
+  function tagNewAutoLogs(){
+    var form = document.getElementById('vet-form'); if(!form) return;
+    if(form.dataset.v3533Tag) return; form.dataset.v3533Tag = '1';
+    form.addEventListener('submit', function(){
+      if(form.dataset.editId) return; // EDIT path is handled separately
+      setTimeout(function(){
+        var visits = _getList('vet-visits');
+        if(!visits.length) return;
+        var last = visits[visits.length-1];
+        if(!last || !last.__id) return;
+        // Tag the most recent matching expense
+        if(last.cost && Number(last.cost) > 0){
+          var expenses = _getList('expenses');
+          // Walk from end (newest) backwards looking for an untagged auto-log
+          for(var i=expenses.length-1;i>=0;i--){
+            var e = expenses[i];
+            if(e.__vetVisitId) continue;
+            if((e.category||'') !== 'Vet Visit') continue;
+            if(String(e.petId||'') !== String(last.petId||'')) continue;
+            if((e.date||'') !== (last.date||'')) continue;
+            if(Math.abs(Number(e.amount||0) - Number(last.cost)) >= 0.005) continue;
+            e.__vetVisitId = last.__id;
+            _save('expenses', expenses);
+            break;
+          }
+        }
+        // Tag the most recent matching weight
+        if(last.weight){
+          var weights = _getList('weights');
+          for(var j=weights.length-1;j>=0;j--){
+            var w = weights[j];
+            if(w.__vetVisitId) continue;
+            if(String(w.petId||'') !== String(last.petId||'')) continue;
+            if((w.date||'') !== (last.date||'')) continue;
+            if(!/vet visit/i.test(w.notes||'')) continue;
+            if(Math.abs(Number(w.lbs||0) - Number(last.weight)) >= 0.005) continue;
+            w.__vetVisitId = last.__id;
+            _save('weights', weights);
+            break;
+          }
+        }
+      }, 160); // after original handler + our v3.5.32 retry loop
+    }, false); // bubble
+  }
+
+  // ---------- Sync auto-logs on EDIT ----------
+  // After an edit save, find the linked expense + weight by __vetVisitId and update them.
+  // Create if newly added, delete if newly removed.
+  function syncAutoLogsForVisit(v){
+    if(!v || !v.__id) return;
+    // ----- EXPENSE -----
+    var expenses = _getList('expenses');
+    var expIdx = expenses.findIndex(function(e){ return String(e.__vetVisitId||'') === String(v.__id); });
+    var wantCost = v.cost && Number(v.cost) > 0;
+    if(expIdx >= 0){
+      if(wantCost){
+        // Update in place
+        expenses[expIdx] = Object.assign({}, expenses[expIdx], {
+          petId: v.petId,
+          petName: v.petName || expenses[expIdx].petName,
+          category: 'Vet Visit',
+          amount: Number(v.cost),
+          date: v.date || expenses[expIdx].date,
+          desc: v.reason || expenses[expIdx].desc || '',
+          __vetVisitId: v.__id
+        });
+        _save('expenses', expenses);
+      } else {
+        // Cost cleared — remove the linked expense
+        expenses.splice(expIdx, 1);
+        _save('expenses', expenses);
+      }
+    } else if(wantCost){
+      // No linked expense yet — create one and tag it
+      if(typeof addItem === 'function'){
+        addItem('expenses', {
+          petId: v.petId, petName: v.petName || '',
+          category: 'Vet Visit', amount: Number(v.cost),
+          date: v.date || '', desc: v.reason || '',
+          __vetVisitId: v.__id
+        });
+      }
+    }
+    // ----- WEIGHT -----
+    var weights = _getList('weights');
+    var wIdx = weights.findIndex(function(w){ return String(w.__vetVisitId||'') === String(v.__id); });
+    var wantWeight = v.weight && !isNaN(parseFloat(v.weight));
+    if(wIdx >= 0){
+      if(wantWeight){
+        weights[wIdx] = Object.assign({}, weights[wIdx], {
+          petId: v.petId,
+          petName: v.petName || weights[wIdx].petName,
+          lbs: parseFloat(v.weight),
+          date: v.date || weights[wIdx].date,
+          notes: weights[wIdx].notes || 'From vet visit',
+          __vetVisitId: v.__id
+        });
+        _save('weights', weights);
+      } else {
+        weights.splice(wIdx, 1);
+        _save('weights', weights);
+      }
+    } else if(wantWeight){
+      if(typeof addItem === 'function'){
+        addItem('weights', {
+          petId: v.petId, petName: v.petName || '',
+          lbs: parseFloat(v.weight),
+          date: v.date || '',
+          notes: 'From vet visit',
+          __vetVisitId: v.__id
+        });
+      }
+    }
+    if(typeof refreshAll === 'function') refreshAll();
+  }
+
+  // Wire EDIT detection: the v3.5.30 EDIT handler calls e.stopImmediatePropagation()
+  // in capture phase, so we cannot rely on submit listeners. Instead, intercept the
+  // submit BUTTON CLICK (which fires BEFORE submit) to snapshot the editId, then poll
+  // for the saved visit afterwards.
+  function wireEditSync(){
+    var form = document.getElementById('vet-form'); if(!form) return;
+    if(form.dataset.v3533Edit) return; form.dataset.v3533Edit = '1';
+    var submitBtn = form.querySelector('button[type="submit"]');
+    if(!submitBtn) return;
+    // Click capture — runs before all click handlers and before submit fires
+    submitBtn.addEventListener('click', function(){
+      var eid = form.dataset.editId;
+      if(!eid) return;
+      // Poll briefly for the visit to reflect the new values, then sync
+      var tries = 0;
+      var snapshotCost = document.getElementById('vet-cost') ? document.getElementById('vet-cost').value : '';
+      var snapshotWeight = document.getElementById('vet-weight') ? document.getElementById('vet-weight').value : '';
+      var iv = setInterval(function(){
+        tries++;
+        var v = _getList('vet-visits').find(function(x){ return String(x.__id) === String(eid); });
+        if(v){
+          // Check if visit reflects the snapshotted form values (i.e. save has happened)
+          var costMatch = (String(v.cost||'') === String(snapshotCost||'')) ||
+                          (Math.abs(Number(v.cost||0) - parseFloat(snapshotCost||'0')) < 0.005);
+          var weightMatch = String(v.weight||'') === String(snapshotWeight||'');
+          if(costMatch && weightMatch){
+            clearInterval(iv);
+            syncAutoLogsForVisit(v);
+            return;
+          }
+        }
+        if(tries >= 10){ clearInterval(iv); if(v) syncAutoLogsForVisit(v); }
+      }, 50);
+    }, true);
+  }
+
+  // ---------- Cleanup on DELETE ----------
+  function cleanupLinkedLogs(visitId){
+    if(!visitId) return;
+    var expenses = _getList('expenses');
+    var newExp = expenses.filter(function(e){ return String(e.__vetVisitId||'') !== String(visitId); });
+    if(newExp.length !== expenses.length) _save('expenses', newExp);
+    var weights = _getList('weights');
+    var newW = weights.filter(function(w){ return String(w.__vetVisitId||'') !== String(visitId); });
+    if(newW.length !== weights.length) _save('weights', newW);
+    if(typeof refreshAll === 'function') refreshAll();
+  }
+
+  function wrapDeleteVisit(){
+    var orig = window.deleteVisit;
+    if(!orig || orig.__v3533) return;
+    window.deleteVisit = function(id){
+      var before = _getList('vet-visits').length;
+      var origConfirm = window.confirm;
+      var confirmed = null;
+      window.confirm = function(msg){ var ans = origConfirm.call(window, msg); confirmed = ans; return ans; };
+      try { orig(id); } finally { window.confirm = origConfirm; }
+      // If the visit is gone, the user confirmed
+      var after = _getList('vet-visits').length;
+      if(after < before || confirmed === true) cleanupLinkedLogs(id);
+    };
+    window.deleteVisit.__v3533 = true;
+  }
+
+  function wrapCancelAppt(){
+    var orig = window.pfCancelAppt;
+    if(!orig || orig.__v3533) return;
+    window.pfCancelAppt = function(id){
+      var before = _getList('vet-visits').length;
+      var origConfirm = window.confirm;
+      var confirmed = null;
+      window.confirm = function(msg){ var ans = origConfirm.call(window, msg); confirmed = ans; return ans; };
+      try { orig(id); } finally { window.confirm = origConfirm; }
+      var after = _getList('vet-visits').length;
+      if(after < before || confirmed === true) cleanupLinkedLogs(id);
+    };
+    window.pfCancelAppt.__v3533 = true;
+  }
+
+  // ---------- Boot ----------
+  function boot(){
+    if(typeof window.deleteVisit !== 'function' || !document.getElementById('vet-form')){
+      return setTimeout(boot, 80);
+    }
+    backfillLinks();
+    tagNewAutoLogs();
+    wireEditSync();
+    wrapDeleteVisit();
+    wrapCancelAppt();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
