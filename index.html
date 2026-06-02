@@ -2876,3 +2876,290 @@ try {
   }
 })();
 </script>
+<script>
+/* === Pawfolio v3.5.31 — Vet Visits redesign polish === */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3531) return; window.__pawfolio_v3531 = true;
+
+  function $(id){ return document.getElementById(id); }
+  function todayISO(){ var d=new Date(); var m=String(d.getMonth()+1).padStart(2,'0'); var day=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+m+'-'+day; }
+  function isFutureOrToday(s){ return !!s && s >= todayISO(); }
+  function fmtTime(t){
+    if(!t) return ''; var p=t.split(':'); if(p.length<2) return t;
+    var h=parseInt(p[0],10); var m=p[1]; var ampm=h>=12?'PM':'AM'; var h12=((h+11)%12)+1;
+    return h12+':'+m+' '+ampm;
+  }
+  function fmtDateLocal(d){
+    if(!d) return '';
+    try { return new Date(d+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
+    catch(e){ return d; }
+  }
+  function fmtMoney(n){
+    var num = Number(n)||0;
+    if(typeof window.fmt === 'function') return window.fmt(num);
+    return '$'+num.toFixed(2);
+  }
+
+  function buildTimeOptions(){
+    var opts = ['<option value="">--</option>'];
+    for(var h=6; h<=21; h++){
+      for(var m=0; m<60; m+=15){
+        var v = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+        opts.push('<option value="'+v+'">'+fmtTime(v)+'</option>');
+      }
+    }
+    return opts.join('');
+  }
+  function swapTimeInputForSelect(inputId){
+    var el = $(inputId); if(!el) return;
+    if(el.tagName === 'SELECT') return;
+    var sel = document.createElement('select');
+    sel.id = inputId;
+    sel.className = el.className;
+    sel.innerHTML = buildTimeOptions();
+    if(el.value){ sel.value = el.value; }
+    el.parentNode.replaceChild(sel, el);
+  }
+  function applyTimeSelects(){
+    swapTimeInputForSelect('vet-time');
+    swapTimeInputForSelect('vet-next-time');
+  }
+
+  function setupFormHeader(){
+    var form = $('vet-form'); if(!form) return;
+    var card = form.closest('.card'); if(!card) return;
+    var titleEl = card.querySelector('h3'); if(!titleEl) return;
+    if(!titleEl.id) titleEl.id = 'vet-form-title';
+    if(!$('vet-form-hint')){
+      var hint = document.createElement('p');
+      hint.id = 'vet-form-hint';
+      hint.className = 'font-body text-xs text-secondary';
+      hint.style.cssText = 'margin:-8px 0 14px;font-style:italic;';
+      hint.textContent = 'Pick a future date to schedule an appointment, or a past date to log a visit.';
+      titleEl.insertAdjacentElement('afterend', hint);
+    }
+    if(!$('vet-edit-banner')){
+      var banner = document.createElement('div');
+      banner.id = 'vet-edit-banner';
+      banner.style.cssText = 'display:none;background:linear-gradient(135deg,rgba(91,91,214,0.12),rgba(91,91,214,0.04));border:1px solid #5B5BD6;border-radius:8px;padding:10px 14px;margin:0 0 14px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;';
+      banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">'+
+        '<span style="background:#5B5BD6;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;flex-shrink:0;">EDITING</span>'+
+        '<span id="vet-edit-banner-label" class="font-body text-sm font-medium text-primary" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>'+
+        '</div>'+
+        '<button type="button" id="vet-edit-cancel" style="background:transparent;border:1px solid #5B5BD6;color:#5B5BD6;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer;flex-shrink:0;">Cancel edit</button>';
+      var hint = $('vet-form-hint');
+      (hint || titleEl).insertAdjacentElement('afterend', banner);
+      $('vet-edit-cancel').addEventListener('click', cancelEdit);
+    }
+  }
+
+  function cancelEdit(){
+    var form = $('vet-form'); if(!form) return;
+    delete form.dataset.editId;
+    delete form.dataset.forceLogMode;
+    form.reset();
+    if($('vet-time')) $('vet-time').value='';
+    if($('vet-next-time')) $('vet-next-time').value='';
+    var w=$('vet-next-wrap'); if(w) w.style.display='none';
+    var tw=$('vet-next-time-wrap'); if(tw) tw.style.display='none';
+    var fb=$('vet-followup-btn'); if(fb) fb.textContent='+ Add follow-up appointment';
+    var banner = $('vet-edit-banner'); if(banner) banner.style.display='none';
+    document.querySelectorAll('.pf-editing-card').forEach(function(c){
+      c.classList.remove('pf-editing-card');
+      c.style.boxShadow=''; c.style.borderColor='';
+    });
+    applyTitleAndMode();
+    if(typeof newRenderVetVisits==='function') newRenderVetVisits();
+  }
+
+  function applyTitleAndMode(){
+    var form = $('vet-form'); if(!form) return;
+    var date = $('vet-date') ? $('vet-date').value : '';
+    var isSched = isFutureOrToday(date) && !form.dataset.forceLogMode;
+    var titleEl = $('vet-form-title');
+    if(titleEl){
+      if(form.dataset.editId){
+        titleEl.textContent = isSched ? 'Edit Scheduled Appointment' : 'Edit Visit Log';
+      } else {
+        titleEl.textContent = isSched ? 'Schedule Vet Appointment' : 'Log a Vet Visit';
+      }
+    }
+    var submit = document.querySelector('#vet-form button[type="submit"]');
+    if(submit){
+      if(form.dataset.editId){
+        submit.textContent = isSched ? 'Update Appointment' : 'Update Visit Log';
+      } else {
+        submit.textContent = isSched ? 'Schedule Appointment' : 'Save Visit Log';
+      }
+    }
+    var banner = $('vet-edit-banner');
+    var label = $('vet-edit-banner-label');
+    if(banner){
+      if(form.dataset.editId){
+        try {
+          var v = (getList('vet-visits')||[]).find(function(x){return String(x.__id)===String(form.dataset.editId);});
+          if(v && label){
+            label.textContent = (v.petName||'') + ' — ' + (v.type||'Visit') + ' — ' + fmtDateLocal(v.date);
+          }
+        } catch(e){}
+        banner.style.display='flex';
+      } else {
+        banner.style.display='none';
+      }
+    }
+    var hint = $('vet-form-hint');
+    if(hint) hint.style.display = form.dataset.editId ? 'none' : '';
+  }
+
+  function cardHTML(v, isUpcoming, editId){
+    var pid = v.__id;
+    var isEditing = editId && String(editId)===String(pid);
+    var statusBadge = isUpcoming
+      ? '<span style="background:#f6a623;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
+      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">'+(v.type||'Visit')+'</span>';
+    var dateLine = fmtDateLocal(v.date) + (v.time ? ' · '+fmtTime(v.time) : '') + (v.vet ? ' · '+v.vet : '');
+    var body = [];
+    body.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">'+
+              '<span class="font-heading font-bold text-primary">'+(v.petName||'')+'</span>'+statusBadge+
+              (isEditing?'<span style="background:#5B5BD6;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;">EDITING</span>':'')+
+              '</div>');
+    body.push('<p class="font-body text-sm text-secondary">'+dateLine+'</p>');
+    if(v.reason) body.push('<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+v.reason+'</p>');
+    if(!isUpcoming && v.diagnosis) body.push('<p class="font-body text-sm text-secondary mt-1">'+v.diagnosis+'</p>');
+    if(v.next) body.push('<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Follow-up: '+fmtDateLocal(v.next)+(v.nextTime?' · '+fmtTime(v.nextTime):'')+'</p>');
+    if(!isUpcoming){
+      var meta = [];
+      if(v.cost) meta.push('<span style="background:rgba(91,91,214,0.08);color:#5B5BD6;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;">'+fmtMoney(v.cost)+'</span>');
+      if(v.weight) meta.push('<span style="background:rgba(0,0,0,0.04);color:var(--text-secondary);font-size:12px;font-weight:500;padding:3px 10px;border-radius:12px;">'+v.weight+' lbs</span>');
+      if(meta.length) body.push('<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'+meta.join('')+'</div>');
+    }
+    var btn='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
+    var btnPrimary='background:rgba(91,91,214,0.08);border:1px solid #5B5BD6;color:#5B5BD6;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
+    var btnDanger='background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;';
+    var actions = [];
+    actions.push('<button type="button" onclick="pfEditVisit('+pid+')" style="'+btn+'">✎ Edit</button>');
+    if(isUpcoming){
+      actions.push('<button type="button" onclick="pfFillInVisitLog('+pid+')" style="'+btnPrimary+'">Fill in visit log</button>');
+      actions.push('<button type="button" onclick="pfCancelAppt('+pid+')" style="'+btnDanger+'">✕ Cancel</button>');
+    } else {
+      actions.push('<button type="button" onclick="pfAttachRecord('+pid+')" style="'+btn+'">📎 Attach receipt/record</button>');
+      actions.push('<button type="button" onclick="window.deleteVisit('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
+    }
+    var cardClass = 'card p-4' + (isEditing?' pf-editing-card':'');
+    var cardStyle = 'position:relative;'+(isEditing?'box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;':'');
+    return '<div class="'+cardClass+'" style="'+cardStyle+'">'+
+             '<div>'+body.join('')+'</div>'+
+             '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">'+
+               actions.join('')+
+             '</div>'+
+           '</div>';
+  }
+
+  function newRenderVetVisits(){
+    var list = $('vet-visits-list'); if(!list) return;
+    var all = (typeof getList==='function') ? getList('vet-visits') : [];
+    var today = todayISO();
+    var editId = $('vet-form') ? $('vet-form').dataset.editId : '';
+    var upcoming = all.filter(function(v){ return v.date && v.date >= today; })
+                     .sort(function(a,b){ return (a.date+(a.time||'')).localeCompare(b.date+(b.time||'')); });
+    var past = all.filter(function(v){ return !v.date || v.date < today; })
+                  .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    if(!all.length){
+      list.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>';
+      return;
+    }
+    var html='';
+    if(upcoming.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Upcoming Appointments</h3>';
+      html += '<div class="space-y-3" style="margin-bottom:18px;">'+ upcoming.map(function(v){return cardHTML(v,true,editId);}).join('') +'</div>';
+    }
+    if(past.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Past Visits</h3>';
+      html += '<div class="space-y-3">'+ past.map(function(v){return cardHTML(v,false,editId);}).join('') +'</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function enhanceOverviewReminders(){
+    var el = $('overview-reminders'); if(!el) return;
+    var visits = (typeof getList==='function') ? (getList('vet-visits')||[]) : [];
+    el.querySelectorAll('div').forEach(function(row){
+      if(row.dataset.timeInjected) return;
+      var typeLine = row.querySelector('p.font-body.text-xs.text-secondary');
+      if(!typeLine || !/Vet Appointment/i.test(typeLine.textContent)) return;
+      var headLine = row.querySelector('p.font-body.text-sm.font-medium');
+      if(!headLine) return;
+      var parts = headLine.textContent.split('—');
+      if(parts.length<2) return;
+      var pet = parts[0].trim();
+      var reason = parts.slice(1).join('—').trim();
+      var match = null;
+      for(var i=0;i<visits.length;i++){
+        var v=visits[i];
+        if((v.petName||'').trim() !== pet) continue;
+        if(((v.reason||'Follow-up').trim()) !== reason) continue;
+        if(v.time){ match = v.time; break; }
+        if(v.nextTime){ match = v.nextTime; break; }
+      }
+      if(!match) return;
+      var html = typeLine.innerHTML;
+      var t12 = fmtTime(match);
+      typeLine.innerHTML = html.replace(/(\s·\s*<span)/, ' · '+t12+'$1');
+      row.dataset.timeInjected = '1';
+    });
+  }
+
+  function wrapEditFunctions(){
+    var origEdit = window.pfEditVisit;
+    if(origEdit && !origEdit.__v3531){
+      window.pfEditVisit = function(id){
+        origEdit(id);
+        try {
+          var v = (getList('vet-visits')||[]).find(function(x){return String(x.__id)===String(id);});
+          if(v){
+            if($('vet-time')) $('vet-time').value = v.time || '';
+            if($('vet-next-time')) $('vet-next-time').value = v.nextTime || '';
+          }
+        } catch(e){}
+        applyTitleAndMode();
+        if(typeof newRenderVetVisits==='function') newRenderVetVisits();
+        var form = $('vet-form'); if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
+      };
+      window.pfEditVisit.__v3531 = true;
+    }
+  }
+
+  function boot(){
+    if(!$('vet-form')) return setTimeout(boot, 60);
+    applyTimeSelects();
+    setupFormHeader();
+    var dateEl = $('vet-date');
+    if(dateEl && !dateEl.dataset.v3531){ dateEl.dataset.v3531='1'; dateEl.addEventListener('change', applyTitleAndMode); }
+    var form = $('vet-form');
+    if(form && !form.dataset.v3531SubmitWrap){
+      form.dataset.v3531SubmitWrap='1';
+      form.addEventListener('submit', function(){
+        setTimeout(function(){
+          applyTitleAndMode();
+          if(typeof newRenderVetVisits==='function') newRenderVetVisits();
+        }, 120);
+      });
+    }
+    window.renderVetVisits = newRenderVetVisits;
+    if(typeof window.renderOverview === 'function' && !window.renderOverview.__v3531){
+      var origRO = window.renderOverview;
+      window.renderOverview = function(){
+        origRO.apply(this, arguments);
+        setTimeout(enhanceOverviewReminders, 20);
+      };
+      window.renderOverview.__v3531 = true;
+    }
+    wrapEditFunctions();
+    applyTitleAndMode();
+    if(typeof refreshAll==='function') refreshAll();
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
