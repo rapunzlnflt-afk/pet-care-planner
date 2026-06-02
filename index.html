@@ -2387,6 +2387,73 @@ refreshAll();
       });
     }
   </script>
+  <script>
+/* === Pawfolio v3.5.34 — Desktop: narrowed app frame + duplicate-time reminder fix ===
+   Part A: re-run v3.5.32's clean rebuild after renderOverview to prevent duplicate reminder times.
+   Part B: CSS — desktop only (>= 1024px) narrows the app to 1180px so the background shows on the sides.
+
+   TO CHANGE THE SIDE COLOR LATER:
+   Edit the line below labeled "--pawfolio-side-bg".
+   Try any hex you like, e.g. #532c17 (mud brown), #240303 (dark wine), #f7e9d4 (cream), etc.
+*/
+(function(){
+  if (window.__pawfolio_v3534) return; window.__pawfolio_v3534 = true;
+
+  // -- Part A: chain rebuildReminders onto renderOverview --
+  if (typeof window.renderOverview === 'function' && typeof window.rebuildReminders === 'function') {
+    var _ro = window.renderOverview;
+    window.renderOverview = function(){
+      _ro.apply(this, arguments);
+      try { window.rebuildReminders(); } catch(e){}
+    };
+  }
+
+  // -- Part B: desktop CSS --
+  var css = `
+:root {
+  /* ↓↓↓ CHANGE THIS HEX TO ANY COLOR YOU LIKE ↓↓↓ */
+  --pawfolio-side-bg: #f0f4ff;
+  /* ↑↑↑ that's the color shown on the left/right of the app on desktop ↑↑↑ */
+}
+
+@media (min-width: 1024px) {
+  html, body {
+    background: var(--pawfolio-side-bg) !important;
+    min-height: 100vh;
+  }
+
+  #main-app {
+    max-width: 1180px !important;
+    margin: 24px auto !important;
+    box-shadow: 0 14px 52px rgba(0, 0, 0, 0.10), 0 4px 18px rgba(0, 0, 0, 0.06);
+    border-radius: 18px;
+    overflow: hidden;
+    min-height: calc(100vh - 48px) !important;
+    background: var(--bg-light);
+  }
+
+  #main-app > aside {
+    position: relative !important;
+    top: auto !important;
+    height: auto !important;
+  }
+
+  /* Reminder day-chip next to text on desktop */
+  #tab-overview #overview-reminders > div[onclick] {
+    justify-content: flex-start !important;
+    gap: 14px;
+  }
+  #tab-overview #overview-reminders > div[onclick] > div:last-child {
+    margin-left: auto;
+  }
+}
+`;
+  var style = document.createElement('style');
+  style.id = 'pawfolio-v3534-style';
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+</script>
  </body>
 </html>
 
