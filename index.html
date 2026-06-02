@@ -2532,3 +2532,347 @@ try {
 } catch(e){ console.warn('Pawfolio v3.5.22 patch failed (non-fatal):',e); }
 })();
 </script>
+<script>
+/* === Pawfolio v3.5.30 — Vet Visits redesign ===
+   Adds: time field, schedule vs log mode, edit/reschedule, fill-in flow,
+         follow-up button, attach-record button (prefills Doc Vault).
+   Safe: appended patch only. No changes to existing data layer.
+   Storage shape additions:
+     - vet-visits[i].time           (HH:MM, optional)
+     - vet-visits[i].status         ('scheduled' | 'logged' — derived if missing)
+     - vet-visits[i].nextTime       (already supported by v3.5 patch)
+*/
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3530) return; window.__pawfolio_v3530 = true;
+
+  // ---------- helpers ----------
+  function $(id){ return document.getElementById(id); }
+  function todayISO(){ var d=new Date(); var m=String(d.getMonth()+1).padStart(2,'0'); var day=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+m+'-'+day; }
+  function isFutureOrToday(dateStr){ if(!dateStr) return false; return dateStr >= todayISO(); }
+  function fmtTime(t){
+    if(!t) return '';
+    var p=t.split(':'); if(p.length<2) return t;
+    var h=parseInt(p[0],10); var m=p[1];
+    var ampm=h>=12?'PM':'AM'; var h12=((h+11)%12)+1;
+    return h12+':'+m+' '+ampm;
+  }
+  function fmtDateLocal(d){
+    if(!d) return '';
+    try { return new Date(d+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
+    catch(e){ return d; }
+  }
+
+  // ---------- 1. Inject time field into vet form (next to vet-date) ----------
+  function injectTimeField(){
+    if($('vet-time')) return;
+    var dateInput = $('vet-date'); if(!dateInput) return;
+    var dateWrap = dateInput.parentNode;       // <div>
+    var grid = dateWrap.parentNode;            // <div style="display:grid;grid-template-columns:1fr 1fr;...">
+    // Convert grid to 3 cols on desktop, stack on narrow
+    grid.style.gridTemplateColumns = '1fr 1fr 1fr';
+    var timeWrap = document.createElement('div');
+    timeWrap.innerHTML = '<label class="block font-body text-sm text-secondary mb-1">Time</label>'+
+                         '<input type="time" id="vet-time" step="900">';
+    grid.appendChild(timeWrap);
+    // Also snap the follow-up time field (added by older v3.5 patch) to 15-min increments
+    var fu = $('vet-next-time'); if(fu){ fu.step = '900'; }
+    // Soft-snap typed values to nearest 15 min for both fields
+    ['vet-time','vet-next-time'].forEach(function(id){
+      var el = $(id); if(!el || el.dataset.snapWired) return; el.dataset.snapWired='1';
+      el.addEventListener('change', function(){
+        var v = el.value; if(!v) return;
+        var p = v.split(':'); if(p.length<2) return;
+        var h = parseInt(p[0],10), m = parseInt(p[1],10);
+        if(isNaN(h)||isNaN(m)) return;
+        var snapped = Math.round(m/15)*15;
+        if(snapped===60){ snapped=0; h=(h+1)%24; }
+        var nv = String(h).padStart(2,'0')+':'+String(snapped).padStart(2,'0');
+        if(nv!==v) el.value = nv;
+      });
+    });
+  }
+
+  // ---------- 2. Hide the always-on "Next Appointment Date" row + add Follow-up button ----------
+  function reworkNextAppt(){
+    var nextDate = $('vet-next'); if(!nextDate) return;
+    var nextWrap = nextDate.closest('div'); if(!nextWrap) return;
+    // The outer container is the parent div containing the label+input; hide it by default
+    nextWrap.id = 'vet-next-wrap';
+    nextWrap.style.display = 'none';
+    // Also hide the time row added by older v3.5 patch (vet-next-time lives inside its own row)
+    var nextTime = $('vet-next-time');
+    if(nextTime){
+      var t = nextTime.closest('div');
+      if(t && t!==nextWrap){ t.id='vet-next-time-wrap'; t.style.display='none'; }
+    }
+    // Add Follow-up toggle button just above the submit button
+    if(!$('vet-followup-btn')){
+      var submit = document.querySelector('#vet-form button[type="submit"]');
+      if(submit){
+        var btn = document.createElement('button');
+        btn.type='button'; btn.id='vet-followup-btn';
+        btn.style.cssText='background:transparent;border:1px dashed var(--accent-color);color:var(--accent-color);padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-right:10px;';
+        btn.textContent='+ Add follow-up appointment';
+        btn.addEventListener('click', function(){
+          var w=$('vet-next-wrap'); var tw=$('vet-next-time-wrap');
+          var showing = w && w.style.display !== 'none';
+          if(showing){
+            w.style.display='none'; if(tw) tw.style.display='none';
+            btn.textContent='+ Add follow-up appointment';
+            $('vet-next').value=''; if($('vet-next-time')) $('vet-next-time').value='';
+          } else {
+            if(w) w.style.display=''; if(tw) tw.style.display='';
+            btn.textContent='− Remove follow-up';
+          }
+        });
+        submit.parentNode.insertBefore(btn, submit);
+      }
+    }
+  }
+
+  // ---------- 3. Mode switcher (Schedule vs Log) based on date ----------
+  function applyMode(){
+    var date = $('vet-date') ? $('vet-date').value : '';
+    var form = $('vet-form'); if(!form) return;
+    var isSched = isFutureOrToday(date) && !form.dataset.forceLogMode;
+    // Fields to hide in schedule mode
+    var logOnlyIds = ['vet-diagnosis','vet-weight','vet-cost'];
+    logOnlyIds.forEach(function(id){
+      var el=$(id); if(!el) return;
+      var wrap = el.closest('div'); if(!wrap) return;
+      // walk up to the labeled wrapper (the immediate div containing label+input)
+      wrap.style.display = isSched ? 'none' : '';
+    });
+    // Submit button label
+    var submit = document.querySelector('#vet-form button[type="submit"]');
+    if(submit) submit.textContent = isSched ? 'Schedule Appointment' : (form.dataset.editId ? 'Update Visit Log' : 'Save Visit Log');
+    // Follow-up button only meaningful for past/today logs (a future appt doesn't need its own follow-up)
+    var fb = $('vet-followup-btn'); if(fb) fb.style.display = isSched ? 'none' : '';
+    if(isSched){
+      var w=$('vet-next-wrap'); var tw=$('vet-next-time-wrap');
+      if(w) w.style.display='none'; if(tw) tw.style.display='none';
+      if(fb) fb.textContent='+ Add follow-up appointment';
+    }
+  }
+
+  // ---------- 4. Intercept form submit to add time + status + edit-in-place ----------
+  function wireForm(){
+    var form = $('vet-form'); if(!form) return;
+    if(form.dataset.v3530Wired) return; form.dataset.v3530Wired='1';
+    // listen for date changes to flip mode
+    var dateEl = $('vet-date');
+    if(dateEl) dateEl.addEventListener('change', applyMode);
+    // Submit: capture phase, BEFORE the original handler. We only intercept when editing.
+    form.addEventListener('submit', function(e){
+      var editId = form.dataset.editId;
+      if(!editId) {
+        // not editing — let the original handler run, then post-process to attach time+status
+        setTimeout(function(){
+          var visits = getList('vet-visits');
+          if(!visits.length) return;
+          var last = visits[visits.length-1];
+          if(!last) return;
+          var changed = false;
+          var t = $('vet-time') ? $('vet-time').value : '';
+          if(t && !last.time){ last.time = t; changed=true; }
+          if(!last.status){ last.status = isFutureOrToday(last.date) ? 'scheduled' : 'logged'; changed=true; }
+          if(changed){ saveList('vet-visits', visits); refreshAll(); }
+          // Reset time field
+          if($('vet-time')) $('vet-time').value='';
+          // Hide follow-up section back
+          var w=$('vet-next-wrap'); if(w) w.style.display='none';
+          var tw=$('vet-next-time-wrap'); if(tw) tw.style.display='none';
+          var fb=$('vet-followup-btn'); if(fb) fb.textContent='+ Add follow-up appointment';
+          delete form.dataset.forceLogMode;
+          applyMode();
+        }, 30);
+        return;
+      }
+      // editing — block default, update in place
+      e.preventDefault(); e.stopImmediatePropagation();
+      var visits = getList('vet-visits');
+      var idx = visits.findIndex(function(v){ return String(v.__id)===String(editId); });
+      if(idx<0){ delete form.dataset.editId; return; }
+      var get = function(id){ var el=$(id); return el?el.value:''; };
+      var petId = parseFloat(get('vet-pet'));
+      var pets = getList('pets'); var pet = pets.find(function(p){return p.__id===petId;});
+      var updated = Object.assign({}, visits[idx], {
+        petId: petId,
+        petName: pet ? pet.name : visits[idx].petName,
+        date: get('vet-date'),
+        time: get('vet-time'),
+        vet: get('vet-name'),
+        type: get('vet-type'),
+        reason: get('vet-reason'),
+        diagnosis: get('vet-diagnosis'),
+        weight: get('vet-weight'),
+        cost: parseFloat(get('vet-cost')) || 0,
+        next: get('vet-next'),
+        nextTime: get('vet-next-time') || ''
+      });
+      updated.status = isFutureOrToday(updated.date) ? 'scheduled' : 'logged';
+      visits[idx] = updated;
+      saveList('vet-visits', visits);
+      delete form.dataset.editId;
+      delete form.dataset.forceLogMode;
+      form.reset();
+      if($('vet-time')) $('vet-time').value='';
+      var w=$('vet-next-wrap'); if(w) w.style.display='none';
+      var tw=$('vet-next-time-wrap'); if(tw) tw.style.display='none';
+      var fb=$('vet-followup-btn'); if(fb) fb.textContent='+ Add follow-up appointment';
+      applyMode();
+      refreshAll();
+      // scroll back down to the cards
+      var list = $('vet-visits-list'); if(list) list.scrollIntoView({behavior:'smooth',block:'start'});
+    }, true); // capture
+  }
+
+  // ---------- 5. Edit + Fill-in-log + Attach Record + Cancel actions ----------
+  window.pfEditVisit = function(id){
+    var visits = getList('vet-visits');
+    var v = visits.find(function(x){ return String(x.__id)===String(id); });
+    if(!v) return;
+    var form = $('vet-form'); if(!form) return;
+    form.dataset.editId = String(id);
+    // Pre-fill
+    if($('vet-pet')) $('vet-pet').value = v.petId || '';
+    if($('vet-date')) $('vet-date').value = v.date || '';
+    if($('vet-time')) $('vet-time').value = v.time || '';
+    if($('vet-name')) $('vet-name').value = v.vet || '';
+    if($('vet-type')) $('vet-type').value = v.type || 'Wellness Exam';
+    if($('vet-reason')) $('vet-reason').value = v.reason || '';
+    if($('vet-diagnosis')) $('vet-diagnosis').value = v.diagnosis || '';
+    if($('vet-weight')) $('vet-weight').value = v.weight || '';
+    if($('vet-cost')) $('vet-cost').value = v.cost || '';
+    if($('vet-next')) $('vet-next').value = v.next || '';
+    if($('vet-next-time')) $('vet-next-time').value = v.nextTime || '';
+    // Reveal follow-up if present
+    if(v.next){
+      var w=$('vet-next-wrap'); if(w) w.style.display='';
+      var tw=$('vet-next-time-wrap'); if(tw) tw.style.display='';
+      var fb=$('vet-followup-btn'); if(fb) fb.textContent='− Remove follow-up';
+    }
+    delete form.dataset.forceLogMode;
+    applyMode();
+    form.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.pfFillInVisitLog = function(id){
+    // Convert an upcoming entry into a log: opens edit, forces log mode (date stays, fields revealed)
+    var visits = getList('vet-visits');
+    var v = visits.find(function(x){ return String(x.__id)===String(id); });
+    if(!v) return;
+    window.pfEditVisit(id);
+    var form = $('vet-form');
+    form.dataset.forceLogMode = '1';
+    applyMode();
+  };
+
+  window.pfCancelAppt = function(id){
+    if(!confirm('Cancel this scheduled appointment?')) return;
+    deleteItem('vet-visits', id);
+    refreshAll();
+  };
+
+  window.pfAttachRecord = function(id){
+    var visits = getList('vet-visits');
+    var v = visits.find(function(x){ return String(x.__id)===String(id); });
+    if(!v) return;
+    // Switch to Document Vault tab
+    if(typeof window.goToTab === 'function') window.goToTab('document-vault');
+    // Pre-fill after tab switch (next tick)
+    setTimeout(function(){
+      var pet=$('doc-pet'); if(pet && v.petId){ pet.value = v.petId; }
+      var typeEl=$('doc-type'); if(typeEl){ typeEl.value='Vet Records'; }
+      var nameEl=$('doc-name'); if(nameEl){
+        var d = fmtDateLocal(v.date);
+        nameEl.value = (v.petName||'') + ' — ' + (v.type||'Vet Visit') + ' — ' + d;
+      }
+      var notesEl=$('doc-notes'); if(notesEl){ notesEl.value = 'From vet visit on '+(v.date||''); }
+      var linkEl=$('doc-link'); if(linkEl){ linkEl.value=''; linkEl.focus(); }
+      var form = $('doc-form'); if(form) form.scrollIntoView({behavior:'smooth',block:'start'});
+    }, 60);
+  };
+
+  // ---------- 6. Replace renderVetVisits with grouped Upcoming / Past + new actions ----------
+  function cardHTML(v, isUpcoming){
+    var pid = v.__id;
+    var statusBadge = isUpcoming
+      ? '<span style="background:#f6a623;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
+      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">'+ (v.type||'Visit') +'</span>';
+    var dateLine = fmtDateLocal(v.date) + (v.time ? ' · '+fmtTime(v.time) : '') + (v.vet ? ' · '+v.vet : '');
+    var leftBits = [];
+    leftBits.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'+
+                  '<span class="font-heading font-bold text-primary">'+(v.petName||'')+'</span>'+statusBadge+'</div>');
+    leftBits.push('<p class="font-body text-sm text-secondary">'+dateLine+'</p>');
+    if(v.reason) leftBits.push('<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+v.reason+'</p>');
+    if(!isUpcoming && v.diagnosis) leftBits.push('<p class="font-body text-sm text-secondary mt-1">'+v.diagnosis+'</p>');
+    if(v.next) leftBits.push('<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Follow-up: '+fmtDateLocal(v.next)+(v.nextTime?' · '+fmtTime(v.nextTime):'')+'</p>');
+
+    var rightBits = [];
+    if(!isUpcoming && v.cost) rightBits.push('<span class="font-heading font-bold text-primary">'+(typeof fmt==='function'?fmt(v.cost):('$'+Number(v.cost).toFixed(2)))+'</span>');
+    if(!isUpcoming && v.weight) rightBits.push('<span class="font-body text-xs text-secondary">'+v.weight+' lbs</span>');
+
+    var actionBtnStyle='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
+    var actions = [];
+    actions.push('<button onclick="pfEditVisit('+pid+')" title="Edit" style="'+actionBtnStyle+'">✎ Edit</button>');
+    if(isUpcoming){
+      actions.push('<button onclick="pfFillInVisitLog('+pid+')" title="Fill in visit log" style="'+actionBtnStyle+'background:rgba(91,91,214,0.08);color:#5B5BD6;border-color:#5B5BD6;">Fill in visit log</button>');
+      actions.push('<button onclick="pfCancelAppt('+pid+')" title="Cancel" class="delete-x">✕</button>');
+    } else {
+      actions.push('<button onclick="pfAttachRecord('+pid+')" title="Attach receipt or record" style="'+actionBtnStyle+'">📎 Attach receipt/record</button>');
+      actions.push('<button onclick="deleteVisit('+pid+')" title="Delete" class="delete-x">✕</button>');
+    }
+
+    return '<div class="card p-4">'+
+             '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">'+
+               '<div style="flex:1;min-width:0;">'+leftBits.join('')+'</div>'+
+               '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'+rightBits.join('')+'</div>'+
+             '</div>'+
+             '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end;">'+actions.join('')+'</div>'+
+           '</div>';
+  }
+
+  function newRenderVetVisits(){
+    var list = $('vet-visits-list'); if(!list) return;
+    var all = getList('vet-visits');
+    var today = todayISO();
+    var upcoming = all.filter(function(v){ return v.date && v.date >= today; })
+                     .sort(function(a,b){ return (a.date+(a.time||'')).localeCompare(b.date+(b.time||'')); });
+    var past = all.filter(function(v){ return !v.date || v.date < today; })
+                  .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    if(!all.length){
+      list.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>';
+      return;
+    }
+    var html='';
+    if(upcoming.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Upcoming Appointments</h3>';
+      html += '<div class="space-y-3" style="margin-bottom:18px;">'+ upcoming.map(function(v){return cardHTML(v,true);}).join('') +'</div>';
+    }
+    if(past.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Past Visits</h3>';
+      html += '<div class="space-y-3">'+ past.map(function(v){return cardHTML(v,false);}).join('') +'</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  // ---------- 7. Boot ----------
+  function boot(){
+    if(!document.getElementById('vet-form')) return setTimeout(boot, 60);
+    injectTimeField();
+    reworkNextAppt();
+    wireForm();
+    applyMode();
+    // Replace renderVetVisits with our grouped version
+    window.renderVetVisits = newRenderVetVisits;
+    refreshAll();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
