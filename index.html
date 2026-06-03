@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.5.29">
+                          <meta name="app-version" content="3.5.38">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -67,6 +67,18 @@
       main { padding: 68px 12px 32px !important; width: 100% !important; }
       [style*="grid-template-columns:1fr 1fr"], [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:repeat(2"], [style*="grid-template-columns:repeat(3"], [style*="display:grid"]:not(.stats-row) { grid-template-columns: 1fr !important; }
       .card { padding: 14px !important; }
+      .card .text-xs,
+      .card .text-sm,
+      .card [class*="text-xs"],
+      .card [class*="text-sm"] { font-size: 17px !important; line-height: 1.5 !important; }
+      .card p[style*="font-size:11px"], .card span[style*="font-size:11px"], .card div[style*="font-size:11px"],
+      .card p[style*="font-size: 11px"], .card span[style*="font-size: 11px"], .card div[style*="font-size: 11px"],
+      .card p[style*="font-size:12px"], .card span[style*="font-size:12px"], .card div[style*="font-size:12px"],
+      .card p[style*="font-size: 12px"], .card span[style*="font-size: 12px"], .card div[style*="font-size: 12px"],
+      .card p[style*="font-size:13px"], .card span[style*="font-size:13px"], .card div[style*="font-size:13px"],
+      .card p[style*="font-size: 13px"], .card span[style*="font-size: 13px"], .card div[style*="font-size: 13px"] { font-size: 17px !important; line-height: 1.5 !important; }
+      .card .stat-label { font-size: 11px !important; letter-spacing: 0 !important; }
+      .stat-label { font-size: 11px !important; letter-spacing: 0 !important; }
     }
 
     /* Dark mode */
