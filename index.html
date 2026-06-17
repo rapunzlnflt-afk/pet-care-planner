@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.1">
+                          <meta name="app-version" content="3.7.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2596,7 +2596,7 @@ refreshAll();
     var PENCIL_RE = /✏|🖊|pencil|edit/i;
     var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
     function isVaultActionBtn(el){
-      return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del')));
+      return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del')||el.getAttribute('data-editdoc')));
     }
     function isPencilBtn(el){
       if (isVaultActionBtn(el)) return false;
@@ -2687,7 +2687,7 @@ try {
   var PENCIL_RE = /✏|🖊|pencil|edit/i;
   var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
   function isBtn(el){ if(!el) return false; var tn=el.tagName; return tn==='BUTTON'||tn==='A'; }
-  function isVaultActionBtn2(el){ return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del'))); }
+  function isVaultActionBtn2(el){ return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del')||el.getAttribute('data-editdoc'))); }
   function isX(el){ if(isVaultActionBtn2(el)) return false; if(!isBtn(el)) return false; return X_RE.test((el.textContent||'').trim()); }
   function isPencil(el){
     if(isVaultActionBtn2(el)) return false;
@@ -4785,6 +4785,8 @@ try {
       if (d.imgKey || d.thumb) actions.push('<button type="button" data-view="' + d.__id + '" style="' + btnBlue + '">View</button>');
       // Share is ALWAYS available: shares the photo if present, otherwise shares/opens the cloud link.
       actions.push('<button type="button" data-share="' + d.__id + '" style="' + btnBlueFill + '">\uD83D\uDCE4 ' + (d.imgKey ? 'Share to cloud' : (d.link ? 'Share link' : 'Add cloud link')) + '</button>');
+      // Edit the document details (and add a photo if one was never taken).
+      actions.push('<button type="button" data-editdoc="' + d.__id + '" style="' + btnBlue + '">Edit</button>');
       if (d.imgKey && !d.cloudOnly) actions.push('<button type="button" data-cloudonly="' + d.__id + '" style="' + btnGreen + '">Make cloud-only</button>');
       actions.push('<button type="button" data-link="' + d.__id + '" style="' + btnBlue + '">' + (d.link ? 'Edit link' : 'Add link') + '</button>');
       var linkHtml = d.link ? '<a href="' + d.link + '" target="_blank" rel="noopener" class="font-body text-sm" style="color:var(--accent-color);">View in cloud \u2192</a>' : '';
@@ -4792,10 +4794,10 @@ try {
         '<div class="card p-4">' +
           '<div style="display:flex;gap:12px;align-items:flex-start;">' +
             thumbHtml +
-            '<div style="flex:1;min-width:0;">' +
-              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">' +
-                '<span class="font-heading font-bold text-primary">' + (d.name||'Untitled') + '</span>' +
-                '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">' + (d.type||'') + '</span>' +
+            '<div style="flex:1;min-width:0;padding-right:24px;">' +
+              '<div class="font-heading font-bold text-primary" style="line-height:1.25;margin-bottom:5px;word-break:break-word;">' + (d.name||'Untitled') + '</div>' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px;">' +
+                (d.type ? '<span style="display:inline-block;background:#eef0fb;color:#4b4ba6;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px;letter-spacing:.2px;">' + d.type + '</span>' : '') +
                 cloudBadge +
               '</div>' +
               '<p class="font-body text-sm text-secondary" style="margin-bottom:4px;">' + (d.petName||'') + (d.notes ? ' \u00b7 ' + d.notes : '') + '</p>' +
@@ -4850,28 +4852,134 @@ try {
         if (doc){ doc.link = val; saveDocs(docs); renderDocsEnhanced(); }
       });
     });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-editdoc]'), function(b){
+      b.addEventListener('click', function(){ editDoc(b.getAttribute('data-editdoc')); });
+    });
     Array.prototype.forEach.call(el.querySelectorAll('[data-del]'), function(b){
       b.addEventListener('click', function(){ deleteDocFull(b.getAttribute('data-del')); });
     });
   }
 
-  function viewDoc(id){
-    var doc = findDoc(id); if (!doc) return;
-    function open(src){
-      var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
-      ov.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);">';
-      ov.addEventListener('click', function(){ ov.remove(); if (src.indexOf('blob:')===0){ try{URL.revokeObjectURL(src);}catch(e){} } });
-      document.body.appendChild(ov);
-    }
+  function openImageOverlay(src){
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);">';
+    ov.addEventListener('click', function(){ ov.remove(); if (src.indexOf('blob:')===0){ try{URL.revokeObjectURL(src);}catch(e){} } });
+    document.body.appendChild(ov);
+  }
+  // Open the on-device photo (falls back to thumbnail).
+  function openInAppPhoto(doc){
     if (doc.imgKey){
       idbGet(doc.imgKey).then(function(blob){
-        if (blob){ open(URL.createObjectURL(blob)); }
-        else if (doc.thumb){ open(doc.thumb); }
+        if (blob){ openImageOverlay(URL.createObjectURL(blob)); }
+        else if (doc.thumb){ openImageOverlay(doc.thumb); }
         else if (doc.link){ window.open(doc.link, '_blank'); }
-      }).catch(function(){ if (doc.thumb) open(doc.thumb); });
-    } else if (doc.thumb){ open(doc.thumb); }
+      }).catch(function(){ if (doc.thumb) openImageOverlay(doc.thumb); });
+    } else if (doc.thumb){ openImageOverlay(doc.thumb); }
     else if (doc.link){ window.open(doc.link, '_blank'); }
+  }
+  // Small chooser shown when a doc has BOTH an on-device photo and a cloud link.
+  function showViewChooser(doc){
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:14px;max-width:340px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+    card.innerHTML =
+      '<div style="font-family:inherit;font-weight:700;font-size:16px;color:#1f2937;margin-bottom:4px;">Open this document</div>' +
+      '<div style="font-size:13px;color:#6b7280;line-height:1.45;margin-bottom:16px;">This document is saved both on this device and in your cloud. Which copy do you want to open?</div>' +
+      '<button type="button" data-pick="app" style="display:block;width:100%;background:#5B5BD6;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">\uD83D\uDCF1 On-device photo (fastest)</button>' +
+      '<button type="button" data-pick="cloud" style="display:block;width:100%;background:#fff;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">\u2601\uFE0F Cloud copy (opens link)</button>' +
+      '<button type="button" data-pick="cancel" style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:7px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>';
+    ov.appendChild(card);
+    function close(){ ov.remove(); }
+    ov.addEventListener('click', function(e){ if (e.target === ov) close(); });
+    card.querySelector('[data-pick="app"]').addEventListener('click', function(){ close(); openInAppPhoto(doc); });
+    card.querySelector('[data-pick="cloud"]').addEventListener('click', function(){ close(); window.open(doc.link, '_blank'); });
+    card.querySelector('[data-pick="cancel"]').addEventListener('click', close);
+    document.body.appendChild(ov);
+  }
+  function viewDoc(id){
+    var doc = findDoc(id); if (!doc) return;
+    var hasAppPhoto = !!(doc.imgKey || doc.thumb);
+    // Both an on-device photo and a cloud link -> let the user pick.
+    if (hasAppPhoto && doc.link){ showViewChooser(doc); return; }
+    if (hasAppPhoto){ openInAppPhoto(doc); return; }
+    if (doc.link){ window.open(doc.link, '_blank'); }
+  }
+
+  // ---------- Edit an existing document (loads it back into the Add Document form) ----------
+  function getDocEditId(){ var h = $('doc-edit-id'); return h ? h.value : ''; }
+  function setDocEditId(v){
+    var h = $('doc-edit-id');
+    if (!h){ var form = $('doc-form'); if (!form) return; h = document.createElement('input'); h.type = 'hidden'; h.id = 'doc-edit-id'; form.appendChild(h); }
+    h.value = v || '';
+  }
+  function setDocFormMode(editing){
+    var btn = document.querySelector('#doc-form button[type="submit"]');
+    if (btn) btn.textContent = editing ? 'Update Document' : 'Save Document';
+    var heading = null, card = $('doc-form'); card = card && card.closest('.card');
+    if (card){ heading = card.querySelector('h3'); }
+    if (heading) heading.textContent = editing ? 'Edit Document' : 'Add Document';
+  }
+  function editDoc(id){
+    var doc = findDoc(id); if (!doc) return;
+    pending = null; renderPendingPreview();
+    var set = function(eid, val){ var e = $(eid); if (e) e.value = (val == null ? '' : val); };
+    set('doc-pet', doc.petId != null ? doc.petId : '');
+    set('doc-type', doc.type || '');
+    set('doc-name', doc.name || '');
+    set('doc-link', doc.link || '');
+    set('doc-notes', doc.notes || '');
+    setDocEditId(String(doc.__id));
+    setDocFormMode(true);
+    var form = $('doc-form'); if (form){ form.scrollIntoView({ behavior:'smooth', block:'start' }); }
+    var nameEl = $('doc-name'); if (nameEl){ try{ nameEl.focus(); }catch(e){} }
+  }
+  // Intercept submit in EDIT mode so we update the existing doc instead of adding a new one.
+  function wrapDocEditSubmit(){
+    var form = $('doc-form'); if (!form || form.__v371editwrapped) return;
+    form.__v371editwrapped = true;
+    form.addEventListener('submit', function(e){
+      var id = getDocEditId();
+      if (!id) return; // not editing -> let the normal add flow run
+      e.preventDefault();
+      e.stopImmediatePropagation(); // block the original addItem handler
+      var docs = window.getList('documents') || [];
+      var doc = null; for (var i=0;i<docs.length;i++){ if (String(docs[i].__id) === String(id)){ doc = docs[i]; break; } }
+      if (!doc){ setDocEditId(''); setDocFormMode(false); return; }
+      var petVal = $('doc-pet') ? $('doc-pet').value : '';
+      var petId = petVal ? parseFloat(petVal) : null;
+      var pet = petId ? (window.getList('pets')||[]).find(function(p){ return p.__id === petId; }) : null;
+      doc.petId = petId;
+      doc.petName = pet ? pet.name : 'General';
+      doc.type = $('doc-type') ? $('doc-type').value : doc.type;
+      doc.name = $('doc-name') ? $('doc-name').value : doc.name;
+      doc.link = $('doc-link') ? $('doc-link').value : doc.link;
+      doc.notes = $('doc-notes') ? $('doc-notes').value : doc.notes;
+      var finish = function(){
+        window.saveList('documents', docs);
+        setDocEditId('');
+        setDocFormMode(false);
+        try{ form.reset(); }catch(e){}
+        setDocEditId(''); // reset() can repopulate via defaults; clear again
+        renderDocsEnhanced();
+        updateStorageMeter();
+      };
+      // If the user captured/chose a NEW photo while editing, store it now.
+      if (pending){
+        var captured = pending; pending = null; renderPendingPreview();
+        var key = 'doc-' + doc.__id;
+        idbPut(key, captured.blob).then(function(){
+          doc.imgKey = key; doc.thumb = captured.thumbDataUrl; doc.imgBytes = captured.blob.size; doc.cloudOnly = false;
+          finish();
+        }).catch(function(){
+          alert('Your changes were saved, but the new photo could not be stored (device storage may be full).');
+          finish();
+        });
+      } else {
+        finish();
+      }
+    }, true); // capture phase so it runs before the original add handler
   }
 
   function shareDoc(id){
@@ -5007,6 +5115,7 @@ try {
     if (!$('tab-document-vault') || !$('doc-form')){ return setTimeout(boot, 120); }
     injectStorageMeter();
     injectCaptureUI();
+    wrapDocEditSubmit();
     wrapDocSubmit();
     hookRender();
     renderDocsEnhanced();
