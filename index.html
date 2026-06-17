@@ -4109,10 +4109,36 @@ try {
   'use strict';
   if (window.__pawfolio_v360_notify) return; window.__pawfolio_v360_notify = true;
 
-  var LEAD_MS   = [24*60*60*1000, 60*60*1000]; // remind 1 day before and 1 hour before
   var FIRED_KEY = 'pawfolioFiredReminders';    // de-dupe ledger
   var PREF_KEY  = 'pawfolioRemindersEnabled';
+  var LEAD_KEY  = 'pawfolioReminderLeads';     // chosen lead times (CSV of ms)
   var $ = function(id){ return document.getElementById(id); };
+
+  // Selectable lead times. value = milliseconds before the appointment.
+  var LEAD_OPTIONS = [
+    { ms: 7*24*60*60*1000, label: '1 week before' },
+    { ms: 3*24*60*60*1000, label: '3 days before' },
+    { ms: 24*60*60*1000,   label: '1 day before' },
+    { ms: 2*60*60*1000,    label: '2 hours before' },
+    { ms: 60*60*1000,      label: '1 hour before' },
+    { ms: 30*60*1000,      label: '30 minutes before' }
+  ];
+  var DEFAULT_LEADS = [24*60*60*1000, 60*60*1000]; // 1 day + 1 hour
+
+  function getLeads(){
+    var raw = localStorage.getItem(LEAD_KEY);
+    if(raw === null) return DEFAULT_LEADS.slice();
+    var arr = raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n > 0; });
+    return arr.length ? arr : []; // empty = user turned all off
+  }
+  function setLeads(arr){
+    localStorage.setItem(LEAD_KEY, arr.join(','));
+  }
+  // Human label for a lead, used in the notification title.
+  function leadLabel(ms){
+    var found = LEAD_OPTIONS.filter(function(o){ return o.ms === ms; })[0];
+    return found ? found.label.replace(' before','') : 'soon';
+  }
 
   function getList(k){
     try { return (typeof window.getList === 'function') ? (window.getList(k) || []) : JSON.parse(localStorage.getItem(k) || '[]'); }
@@ -4176,17 +4202,17 @@ try {
       if(!isUpcomingAppt(v)) return;
       var dt = apptDateTime(v);
       var when = dt.getTime();
-      LEAD_MS.forEach(function(lead){
+      getLeads().forEach(function(lead){
         var fireAt = when - lead;
         var key = String(v.__id) + ':' + lead;
         // Window: from fireAt up until the appointment itself. Avoid stale fires after the appt.
         if(now >= fireAt && now < when && !fired[key]){
-          var leadLabel = lead >= 24*60*60*1000 ? 'tomorrow' : 'in about an hour';
+          var label = leadLabel(lead);
           var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' · ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
           var pet = v.petName || 'Your pet';
           var reason = v.reason ? (' — ' + v.reason) : (v.type ? (' — ' + v.type) : '');
           showNotification(
-            '🐾 Vet appointment ' + leadLabel,
+            '🐾 Vet appointment in ' + label,
             pet + reason + '\n' + whenLabel + (v.vet ? ' · ' + v.vet : ''),
             'vet-' + key,
             './index.html'
@@ -4198,7 +4224,7 @@ try {
     });
     // Garbage-collect ledger entries for past/removed appts
     var liveKeys = {};
-    getList('vet-visits').forEach(function(v){ LEAD_MS.forEach(function(lead){ liveKeys[String(v.__id)+':'+lead] = 1; }); });
+    getList('vet-visits').forEach(function(v){ getLeads().forEach(function(lead){ liveKeys[String(v.__id)+':'+lead] = 1; }); });
     Object.keys(fired).forEach(function(k){ if(!liveKeys[k]){ delete fired[k]; changed = true; } });
     if(changed) saveFired(fired);
   }
@@ -4214,7 +4240,7 @@ try {
     getList('vet-visits').forEach(function(v){
       if(!isUpcomingAppt(v)) return;
       var when = apptDateTime(v).getTime();
-      LEAD_MS.forEach(function(lead){
+      getLeads().forEach(function(lead){
         var fireAt = when - lead;
         var delay = fireAt - now;
         // Only schedule timers within the next 24h (setTimeout is unreliable beyond that)
@@ -4268,27 +4294,73 @@ try {
     });
   }
 
+  // Track whether the timing panel is expanded (in-memory, per session)
+  var timingOpen = false;
+
+  // Compact summary of the currently-selected lead times, e.g. "1 day, 1 hour before"
+  function leadsSummary(){
+    var leads = getLeads();
+    if(!leads.length) return 'no lead times selected';
+    var sorted = leads.slice().sort(function(a,b){ return b - a; });
+    return sorted.map(function(ms){ return leadLabel(ms); }).join(', ') + ' before';
+  }
+
+  function timingPanelHTML(){
+    var leads = getLeads();
+    var rows = LEAD_OPTIONS.map(function(o){
+      var checked = leads.indexOf(o.ms) !== -1 ? ' checked' : '';
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer;" class="font-body text-secondary">' +
+               '<input type="checkbox" class="vet-lead-cb" value="' + o.ms + '"' + checked + ' style="width:16px;height:16px;accent-color:#5B5BD6;cursor:pointer;">' +
+               '<span>' + o.label + '</span>' +
+             '</label>';
+    }).join('');
+    return '<div id="vet-timing-panel" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' +
+             '<p class="font-body text-xs text-secondary" style="margin-bottom:4px;">Remind me:</p>' +
+             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;">' + rows + '</div>' +
+           '</div>';
+  }
+
+  // A slim one-line bar: bell + short status on the left, a toggle on the right.
   function settingsHTML(){
     var perm = supported() ? Notification.permission : 'unsupported';
     var on = isEnabled();
-    var statusLine, btn = '';
+    var label, control = '', bell, sub = '';
+
     if(perm === 'unsupported'){
-      statusLine = 'Not supported on this browser. For reminders, install Pawfolio to your Home Screen (iOS Safari) or use Chrome on Android.';
+      bell = '\uD83D\uDD15';
+      label = 'Reminders not supported on this browser';
+      sub = '<span class="font-body text-xs text-secondary">Install to Home Screen (iOS) or use Chrome (Android).</span>';
     } else if(perm === 'denied'){
-      statusLine = 'Notifications are blocked. To turn them on, allow notifications for this site in your browser settings, then reload.';
+      bell = '\uD83D\uDD15';
+      label = 'Reminders blocked';
+      sub = '<span class="font-body text-xs text-secondary">Allow notifications for this site in browser settings, then reload.</span>';
     } else if(perm === 'granted' && on){
-      statusLine = '✓ On — you\'ll get a reminder the day before and an hour before each appointment.';
-      btn = '<button type="button" id="vet-notif-off" style="background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Turn off reminders</button>';
+      bell = '\uD83D\uDD14';
+      label = 'Appointment reminders on';
+      sub = '<button type="button" id="vet-timing-toggle" style="background:none;border:none;padding:0;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + leadsSummary() + '</button>';
+      control = '<button type="button" id="vet-notif-off" title="Turn off reminders" aria-label="Turn off reminders" ' +
+                'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;">' +
+                '<span style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
     } else {
-      statusLine = 'Get a banner reminder before each scheduled vet appointment — even when the app isn\'t open.';
-      btn = '<button type="button" id="vet-notif-on" style="background:#5B5BD6;border:1px solid #5B5BD6;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔔 Enable appointment reminders</button>';
+      bell = '\uD83D\uDD15';
+      label = 'Appointment reminders off';
+      sub = '<span class="font-body text-xs text-secondary">Get a banner before each scheduled vet visit.</span>';
+      control = '<button type="button" id="vet-notif-on" title="Turn on reminders" aria-label="Turn on reminders" ' +
+                'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;">' +
+                '<span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
     }
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
-             '<div style="flex:1;min-width:200px;">' +
-               '<h3 class="font-heading text-base font-bold text-primary" style="margin-bottom:4px;">Appointment Reminders</h3>' +
-               '<p class="font-body text-sm text-secondary">' + statusLine + '</p>' +
-             '</div>' + btn +
-           '</div>';
+
+    var bar = '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<span style="font-size:18px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div class="font-heading text-sm font-bold text-primary" style="line-height:1.2;">' + label + '</div>' +
+                  '<div style="line-height:1.2;">' + sub + '</div>' +
+                '</div>' +
+                control +
+              '</div>';
+
+    var panel = (perm === 'granted' && on && timingOpen) ? timingPanelHTML() : '';
+    return bar + panel;
   }
 
   function renderSettings(){
@@ -4296,7 +4368,20 @@ try {
     if(!host) return;
     host.innerHTML = settingsHTML();
     var onBtn = $('vet-notif-on'); if(onBtn) onBtn.addEventListener('click', requestPermission);
-    var offBtn = $('vet-notif-off'); if(offBtn) offBtn.addEventListener('click', function(){ setEnabled(false); });
+    var offBtn = $('vet-notif-off'); if(offBtn) offBtn.addEventListener('click', function(){ timingOpen = false; setEnabled(false); });
+    var tToggle = $('vet-timing-toggle'); if(tToggle) tToggle.addEventListener('click', function(){ timingOpen = !timingOpen; renderSettings(); });
+    var cbs = host.querySelectorAll('.vet-lead-cb');
+    Array.prototype.forEach.call(cbs, function(cb){
+      cb.addEventListener('change', function(){
+        var chosen = [];
+        Array.prototype.forEach.call(host.querySelectorAll('.vet-lead-cb'), function(c){
+          if(c.checked) chosen.push(parseInt(c.value,10));
+        });
+        setLeads(chosen);
+        renderSettings();
+        refreshSchedules();
+      });
+    });
   }
 
   function injectSettingsCard(){
@@ -4305,8 +4390,8 @@ try {
     var h2 = section.querySelector('h2');
     var card = document.createElement('div');
     card.id = 'vet-notif-card';
-    card.className = 'card p-5 mb-5';
-    card.style.cssText = 'border-top:4px solid #f6a623;';
+    card.className = 'card mb-4';
+    card.style.cssText = 'padding:12px 14px;border-left:3px solid #f6a623;';
     if(h2){ h2.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
     renderSettings();
