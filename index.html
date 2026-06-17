@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.2">
+                          <meta name="app-version" content="3.7.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4767,11 +4767,16 @@ try {
   var _objectUrls = [];
   function revokeUrls(){ _objectUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(e){} }); _objectUrls = []; }
 
+  var _maxSeenDocId = 0;
   function renderDocsEnhanced(){
     var el = $('documents-list'); if (!el) return;
     var docs = window.getList('documents') || [];
     revokeUrls();
     if (!docs.length){ el.innerHTML = '<p class="font-body text-sm text-secondary italic">No documents added yet.</p>'; return; }
+    // Auto-expand a brand-new document so the user sees its actions right after adding.
+    var maxId = docs.reduce(function(m,d){ return (Number(d.__id) > m) ? Number(d.__id) : m; }, 0);
+    if (_maxSeenDocId && maxId > _maxSeenDocId){ setDocCollapsed(maxId, false); }
+    _maxSeenDocId = maxId;
     el.innerHTML = docs.map(function(d){
       var thumbHtml = d.thumb
         ? '<img src="' + d.thumb + '" alt="' + (d.name||'document') + '" data-view="' + d.__id + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb);cursor:pointer;flex:0 0 auto;">'
@@ -4790,25 +4795,30 @@ try {
       if (d.imgKey && !d.cloudOnly) actions.push('<button type="button" data-cloudonly="' + d.__id + '" style="' + btnGreen + '">Make cloud-only</button>');
       actions.push('<button type="button" data-link="' + d.__id + '" style="' + btnBlue + '">' + (d.link ? 'Edit link' : 'Add link') + '</button>');
       var linkHtml = d.link ? '<a href="' + d.link + '" target="_blank" rel="noopener" class="font-body text-sm" style="color:var(--accent-color);">View in cloud \u2192</a>' : '';
+      var collapsed = isDocCollapsed(d.__id);
+      var chevron = '<span data-chev="' + d.__id + '" style="display:inline-block;transition:transform .15s;transform:rotate(' + (collapsed ? '0' : '90') + 'deg);color:#9ca3af;font-size:13px;flex:0 0 auto;">\u25B6</span>';
       return '' +
         '<div class="card p-4">' +
-          '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+          '<div data-toggle="' + d.__id + '" style="display:flex;gap:12px;align-items:center;cursor:pointer;">' +
             thumbHtml +
             '<div style="flex:1;min-width:0;padding-right:24px;">' +
               '<div class="font-heading font-bold text-primary" style="line-height:1.25;margin-bottom:5px;word-break:break-word;">' + (d.name||'Untitled') + '</div>' +
-              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px;">' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
                 (d.type ? '<span style="display:inline-block;background:#eef0fb;color:#4b4ba6;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px;letter-spacing:.2px;">' + d.type + '</span>' : '') +
                 cloudBadge +
               '</div>' +
-              '<p class="font-body text-sm text-secondary" style="margin-bottom:4px;">' + (d.petName||'') + (d.notes ? ' \u00b7 ' + d.notes : '') + '</p>' +
-              linkHtml +
-              '<div data-paste="' + d.__id + '" style="display:none;margin-top:8px;">' +
-                '<input type="url" placeholder="Paste the Drive/Dropbox link here" class="font-body text-sm" style="width:100%;padding:7px 10px;border:1px solid var(--border,#cbd5e1);border-radius:6px;margin-bottom:6px;">' +
-                '<button type="button" data-savelink="' + d.__id + '" style="background:#5B5BD6;border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Save link</button>' +
-              '</div>' +
-              '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">' + actions.join('') + '</div>' +
             '</div>' +
+            chevron +
             '<button class="delete-x" data-del="' + d.__id + '" title="Delete" style="flex:0 0 auto;">\u2715</button>' +
+          '</div>' +
+          '<div data-body="' + d.__id + '" style="display:' + (collapsed ? 'none' : 'block') + ';margin-top:10px;padding-top:10px;border-top:1px solid var(--border,#eef0f4);">' +
+            '<p class="font-body text-sm text-secondary" style="margin-bottom:4px;">' + (d.petName||'') + (d.notes ? ' \u00b7 ' + d.notes : '') + '</p>' +
+            linkHtml +
+            '<div data-paste="' + d.__id + '" style="display:none;margin-top:8px;">' +
+              '<input type="url" placeholder="Paste the Drive/Dropbox link here" class="font-body text-sm" style="width:100%;padding:7px 10px;border:1px solid var(--border,#cbd5e1);border-radius:6px;margin-bottom:6px;">' +
+              '<button type="button" data-savelink="' + d.__id + '" style="background:#5B5BD6;border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Save link</button>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">' + actions.join('') + '</div>' +
           '</div>' +
         '</div>';
     }).join('');
@@ -4822,11 +4832,44 @@ try {
   }
   function saveDocs(docs){ window.saveList('documents', docs); }
 
+  // ---------- Collapsible card state (persisted) ----------
+  // We store the set of EXPANDED ids; default is collapsed for a tidy list.
+  var COLLAPSE_KEY = 'pawfolioVaultExpanded';
+  function getExpandedSet(){
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]') || []; } catch(e){ return []; }
+  }
+  function isDocCollapsed(id){ return getExpandedSet().indexOf(String(id)) === -1; }
+  function setDocCollapsed(id, collapsed){
+    var set = getExpandedSet(); var s = String(id); var i = set.indexOf(s);
+    if (collapsed){ if (i !== -1) set.splice(i, 1); }
+    else { if (i === -1) set.push(s); }
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(set)); } catch(e){}
+  }
+  function toggleDocCollapsed(id){
+    var el = $('documents-list'); if (!el) return;
+    var body = el.querySelector('[data-body="' + id + '"]');
+    var chev = el.querySelector('[data-chev="' + id + '"]');
+    if (!body) return;
+    var nowCollapsed = body.style.display !== 'none';
+    body.style.display = nowCollapsed ? 'none' : 'block';
+    if (chev) chev.style.transform = 'rotate(' + (nowCollapsed ? '0' : '90') + 'deg)';
+    setDocCollapsed(id, nowCollapsed);
+  }
+
   function wireDocActions(){
     var el = $('documents-list'); if (!el) return;
+    // Expand/collapse the card by tapping its header (but not the thumbnail or delete X).
+    Array.prototype.forEach.call(el.querySelectorAll('[data-toggle]'), function(node){
+      node.addEventListener('click', function(e){
+        var t = e.target;
+        // Ignore taps on the thumbnail (opens photo) and the delete X.
+        if (t.closest && (t.closest('[data-view]') || t.closest('[data-del]'))) return;
+        toggleDocCollapsed(node.getAttribute('data-toggle'));
+      });
+    });
     // View (thumb or button)
     Array.prototype.forEach.call(el.querySelectorAll('[data-view]'), function(node){
-      node.addEventListener('click', function(){ viewDoc(node.getAttribute('data-view')); });
+      node.addEventListener('click', function(e){ e.stopPropagation(); viewDoc(node.getAttribute('data-view')); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('[data-share]'), function(b){
       b.addEventListener('click', function(){ shareDoc(b.getAttribute('data-share')); });
@@ -5027,25 +5070,68 @@ try {
     var docs = window.getList('documents') || [];
     var doc = null; for (var i=0;i<docs.length;i++){ if (String(docs[i].__id)===String(id)){ doc = docs[i]; break; } }
     if (!doc || !doc.imgKey) return;
-    if (!doc.link){
-      if (!confirm('Make this cloud-only? This removes the full photo from this device to save space. Tip: add the cloud link first so you can still open it. Continue anyway?')) return;
-    } else {
-      if (!confirm('Remove the full photo from this device? The small preview and your cloud link stay. This frees up storage.')) return;
-    }
-    var key = doc.imgKey;
-    idbDelete(key).then(function(){
-      doc.cloudOnly = true; doc.imgKey = null; doc.imgBytes = 0;
-      saveDocs(docs); renderDocsEnhanced(); updateStorageMeter();
+    var msg = doc.link
+      ? 'The full photo will be removed from this device. The small preview and your cloud link stay, so you can still open it. This frees up storage.'
+      : 'This removes the full photo from this device to save space. You have NOT saved a cloud link yet, so you would lose the full-size copy. Tip: add the cloud link first.';
+    showConfirmModal({
+      title: 'Make this cloud-only?',
+      message: msg,
+      confirmLabel: doc.link ? 'Make cloud-only' : 'Remove photo anyway',
+      cancelLabel: 'Cancel',
+      danger: !doc.link,
+      onConfirm: function(){
+        var key = doc.imgKey;
+        idbDelete(key).then(function(){
+          doc.cloudOnly = true; doc.imgKey = null; doc.imgBytes = 0;
+          saveDocs(docs); renderDocsEnhanced(); updateStorageMeter();
+        });
+      }
     });
+  }
+
+  // Styled in-app confirmation modal (replaces the browser's plain confirm()).
+  // opts: { title, message, confirmLabel, cancelLabel, danger:bool, onConfirm:fn }
+  function showConfirmModal(opts){
+    opts = opts || {};
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px;';
+    var accent = opts.danger ? '#e53e3e' : '#5B5BD6';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:14px;max-width:340px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+    card.innerHTML =
+      '<div style="font-family:inherit;font-weight:700;font-size:16px;color:#1f2937;margin-bottom:6px;">' + (opts.title || 'Are you sure?') + '</div>' +
+      '<div style="font-size:13px;color:#6b7280;line-height:1.45;margin-bottom:18px;">' + (opts.message || '') + '</div>' +
+      '<button type="button" data-confirm style="display:block;width:100%;background:' + accent + ';color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">' + (opts.confirmLabel || 'Confirm') + '</button>' +
+      '<button type="button" data-cancel style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:8px;font-size:13px;font-weight:600;cursor:pointer;">' + (opts.cancelLabel || 'Cancel') + '</button>';
+    ov.appendChild(card);
+    function close(){ ov.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e){ if (e.key === 'Escape') close(); }
+    ov.addEventListener('click', function(e){ if (e.target === ov) close(); });
+    card.querySelector('[data-confirm]').addEventListener('click', function(){ close(); if (typeof opts.onConfirm === 'function') opts.onConfirm(); });
+    card.querySelector('[data-cancel]').addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+    // Focus the confirm button for keyboard users.
+    var cb = card.querySelector('[data-confirm]'); if (cb){ try{ cb.focus(); }catch(e){} }
   }
 
   function deleteDocFull(id){
     var doc = findDoc(id);
-    if (!confirm('Delete this document' + (doc && doc.imgKey ? ' and its photo' : '') + '? This cannot be undone.')) return;
-    var key = doc && doc.imgKey;
-    if (typeof window.deleteItem === 'function'){ window.deleteItem('documents', isNaN(id) ? id : Number(id)); }
-    var after = function(){ renderDocsEnhanced(); updateStorageMeter(); if (typeof window.refreshAll==='function'){ /* keep other tabs in sync */ } };
-    if (key){ idbDelete(key).then(after).catch(after); } else { after(); }
+    var hasPhoto = !!(doc && doc.imgKey);
+    showConfirmModal({
+      title: 'Delete this document?',
+      message: (hasPhoto ? 'This document and its photo will be permanently removed from this device. ' : 'This document will be permanently removed. ') +
+               (doc && doc.link ? 'Your cloud copy (the saved link) is NOT affected.' : 'This cannot be undone.'),
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep it',
+      danger: true,
+      onConfirm: function(){
+        var key = doc && doc.imgKey;
+        if (typeof window.deleteItem === 'function'){ window.deleteItem('documents', isNaN(id) ? id : Number(id)); }
+        var after = function(){ renderDocsEnhanced(); updateStorageMeter(); if (typeof window.refreshAll==='function'){ /* keep other tabs in sync */ } };
+        if (key){ idbDelete(key).then(after).catch(after); } else { after(); }
+      }
+    });
   }
 
   // ---------- Storage meter + near-full warning ----------
