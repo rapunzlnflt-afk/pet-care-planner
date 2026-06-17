@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.6">
+                          <meta name="app-version" content="3.7.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5499,6 +5499,62 @@ try {
     return u;
   }
 
+  // ---------- Input formatting helpers ----------
+  // Format a phone with dashes as typed. Keeps a leading + for international.
+  // US-style grouping (3-3-4) when no +; for + numbers, group digits 3-3-4 after country code-ish.
+  function formatPhone(raw){
+    var s = String(raw || '');
+    var plus = s.trim().charAt(0) === '+' ? '+' : '';
+    var digits = s.replace(/[^0-9]/g, '');
+    if (!digits) return plus;
+    if (plus){
+      // International: group as +CC and then 3-3-4-ish chunks of the rest.
+      // Keep it simple/predictable: + then dash-separated groups of up to 3,3,4,4...
+      var out = '';
+      var rest = digits;
+      // first group = country code (1-3 digits): take 1 if rest>10 else nothing special
+      var cc = rest.length > 10 ? rest.slice(0, rest.length - 10) : '';
+      if (cc){ out += cc + '-'; rest = rest.slice(cc.length); }
+      // group rest as 3-3-4
+      var parts = [];
+      if (rest.length > 0) parts.push(rest.slice(0,3));
+      if (rest.length > 3) parts.push(rest.slice(3,6));
+      if (rest.length > 6) parts.push(rest.slice(6,10));
+      if (rest.length > 10) parts.push(rest.slice(10));
+      return plus + out + parts.join('-');
+    }
+    // Domestic: 3-3-4
+    var a = digits.slice(0,3), b = digits.slice(3,6), c = digits.slice(6,10), d = digits.slice(10);
+    var res = a;
+    if (digits.length > 3) res += '-' + b;
+    if (digits.length > 6) res += '-' + c;
+    if (digits.length > 10) res += '-' + d;
+    return res;
+  }
+  // Title-case each word (capitalize first letter of each word). Leaves the rest as typed.
+  function titleCase(str){
+    return String(str || '').replace(/(^|[\s\-\/])([a-z])/g, function(m, sep, ch){ return sep + ch.toUpperCase(); });
+  }
+  // 2-letter uppercase state.
+  function formatState(str){
+    return String(str || '').replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0,2);
+  }
+  // Zip: digits (and optional dash for +4), up to 10 chars.
+  function formatZip(str){
+    return String(str || '').replace(/[^0-9\-]/g, '').slice(0,10);
+  }
+  // Build a single display/maps address string from parts (with fallback to legacy v.address).
+  function composeAddress(v){
+    if (v && v.address && !v.street && !v.city && !v.state && !v.zip) return String(v.address).trim();
+    var street = (v && v.street ? String(v.street).trim() : '');
+    var city = (v && v.city ? String(v.city).trim() : '');
+    var state = (v && v.state ? String(v.state).trim() : '');
+    var zip = (v && v.zip ? String(v.zip).trim() : '');
+    var cityLine = [city, state].filter(Boolean).join(', ');
+    if (zip) cityLine = (cityLine ? cityLine + ' ' : '') + zip;
+    return [street, cityLine].filter(Boolean).join(', ');
+  }
+
   // ---------- Container injection ----------
   function ensureContainer(){
     var ov = document.getElementById('tab-overview');
@@ -5510,22 +5566,52 @@ try {
     card.id = 'overview-vets-card';
     card.className = 'card p-5 mb-5';
     card.style.cssText = 'border-left:4px solid ' + ACCENT + ';';
+    var collapsed = isCardCollapsed();
     card.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
-        '<h3 class="font-heading text-base font-bold text-primary" style="margin:0;">Veterinarians</h3>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:' + (collapsed ? '0' : '12px') + ';flex-wrap:wrap;">' +
+        '<div id="vet-card-toggle" style="display:flex;align-items:center;gap:9px;cursor:pointer;flex:1 1 auto;min-width:0;">' +
+          '<span id="vet-card-chev" style="display:inline-block;transition:transform .15s;transform:rotate(' + (collapsed ? '0' : '90') + 'deg);color:#9ca3af;font-size:13px;flex:0 0 auto;">▶</span>' +
+          '<h3 class="font-heading text-base font-bold text-primary" style="margin:0;">Veterinarians</h3>' +
+        '</div>' +
         '<button id="vet-add-btn" type="button" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">+ Add vet</button>' +
       '</div>' +
-      '<div id="overview-vets-list"></div>' +
-      '<div id="vet-form-wrap" style="display:none;margin-top:14px;border-top:1px solid var(--border-color);padding-top:14px;"></div>';
+      '<div id="vet-card-body" style="display:' + (collapsed ? 'none' : 'block') + ';">' +
+        '<div id="overview-vets-list"></div>' +
+        '<div id="vet-form-wrap" style="display:none;margin-top:14px;border-top:1px solid var(--border-color);padding-top:14px;"></div>' +
+      '</div>';
 
-    // Insert right after the pet summary cards (#overview-pets), else append.
-    var anchor = document.getElementById('overview-pets');
-    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+    // Insert right after the quick-stats tiles (.stats-row), else fall back to after pet summary, else append.
+    var statsRow = ov.querySelector('.stats-row');
+    var petAnchor = document.getElementById('overview-pets');
+    if (statsRow && statsRow.parentNode) statsRow.parentNode.insertBefore(card, statsRow.nextSibling);
+    else if (petAnchor && petAnchor.parentNode) petAnchor.parentNode.insertBefore(card, petAnchor.nextSibling);
     else ov.appendChild(card);
 
-    card.querySelector('#vet-add-btn').addEventListener('click', function(){ openForm(null); });
+    card.querySelector('#vet-card-toggle').addEventListener('click', function(){ toggleCardCollapsed(); });
+    card.querySelector('#vet-add-btn').addEventListener('click', function(){
+      if (isCardCollapsed()) setCardCollapsed(false);
+      openForm(null);
+    });
     return card;
   }
+
+  // ---------- Collapsible card state (persisted) ----------
+  var VET_COLLAPSE_KEY = 'pawfolioVetsCollapsed';
+  function isCardCollapsed(){
+    try { return localStorage.getItem(VET_COLLAPSE_KEY) === '1'; } catch(e){ return false; }
+  }
+  function setCardCollapsed(collapsed){
+    try { localStorage.setItem(VET_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch(e){}
+    var card = document.getElementById('overview-vets-card');
+    if (!card) return;
+    var body = card.querySelector('#vet-card-body');
+    var chev = card.querySelector('#vet-card-chev');
+    var header = card.querySelector('#vet-card-toggle');
+    if (body) body.style.display = collapsed ? 'none' : 'block';
+    if (chev) chev.style.transform = 'rotate(' + (collapsed ? '0' : '90') + 'deg)';
+    if (header && header.parentNode) header.parentNode.style.marginBottom = collapsed ? '0' : '12px';
+  }
+  function toggleCardCollapsed(){ setCardCollapsed(!isCardCollapsed()); }
 
   // ---------- Render the list of vet cards ----------
   function renderVets(){
@@ -5541,8 +5627,9 @@ try {
 
     list.innerHTML = vets.map(function(v){
       var id = v.__id;
+      var addrStr = composeAddress(v);
       var tel = telHref(v.phone);
-      var maps = mapsHref(v.address);
+      var maps = mapsHref(addrStr);
       var web = webHref(v.website);
       var rows = '';
       if (v.phone){
@@ -5554,13 +5641,13 @@ try {
             : '<span class="font-body text-sm text-secondary">📞 ' + esc(v.phone) + '</span>') +
           '</div>';
       }
-      if (v.address){
+      if (addrStr){
         rows += '<div style="margin-top:6px;">' +
           (maps
             ? '<a href="' + maps + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:flex-start;gap:7px;color:' + ACCENT + ';text-decoration:none;font-size:14px;">' +
-                '<span style="font-size:15px;">📍</span><span>' + esc(v.address) + '</span></a>' +
+                '<span style="font-size:15px;">📍</span><span>' + esc(addrStr) + '</span></a>' +
                 '<span style="font-size:11px;color:#94a3b8;margin-left:8px;">open in maps</span>'
-            : '<span class="font-body text-sm text-secondary">📍 ' + esc(v.address) + '</span>') +
+            : '<span class="font-body text-sm text-secondary">📍 ' + esc(addrStr) + '</span>') +
           '</div>';
       }
       if (v.website && web){
@@ -5599,12 +5686,23 @@ try {
     var vets = getVets();
     var v = editId != null ? vets.filter(function(x){ return String(x.__id) === String(editId); })[0] : null;
 
+    // Backward-compat: if editing a vet that only has a legacy single `address`, prefill street with it.
+    var preStreet = v ? (v.street != null ? v.street : (v.address && !v.city && !v.state && !v.zip ? v.address : '')) : '';
+    var preCity = v ? (v.city || '') : '';
+    var preState = v ? (v.state || '') : '';
+    var preZip = v ? (v.zip || '') : '';
+
     wrap.innerHTML =
       '<p class="font-heading text-sm font-bold text-primary" style="margin:0 0 10px;">' + (v ? 'Edit vet' : 'Add a vet') + '</p>' +
       '<div style="display:flex;flex-direction:column;gap:10px;">' +
         field('vet-f-name', 'Clinic / vet name', 'e.g., Happy Paws Animal Clinic', v ? v.name : '') +
-        field('vet-f-phone', 'Phone', 'e.g., (555) 123-4567', v ? v.phone : '', 'tel') +
-        field('vet-f-address', 'Address', 'e.g., 123 Main St, Granbury, TX', v ? v.address : '') +
+        field('vet-f-phone', 'Phone', 'e.g., 555-123-4567', v ? v.phone : '', 'tel') +
+        field('vet-f-street', 'Street address', 'e.g., 123 Main St', preStreet) +
+        '<div style="display:flex;gap:10px;">' +
+          '<div style="flex:2;min-width:0;">' + fieldInner('vet-f-city', 'City', 'e.g., Granbury', preCity) + '</div>' +
+          '<div style="flex:0 0 70px;">' + fieldInner('vet-f-state', 'State', 'TX', preState) + '</div>' +
+          '<div style="flex:1;min-width:0;">' + fieldInner('vet-f-zip', 'Zip', '76048', preZip) + '</div>' +
+        '</div>' +
         field('vet-f-website', 'Website', 'e.g., happypawsvet.com', v ? v.website : '', 'url') +
       '</div>' +
       '<div style="display:flex;gap:10px;margin-top:14px;">' +
@@ -5617,20 +5715,32 @@ try {
     var nameEl = wrap.querySelector('#vet-f-name');
     if (nameEl) nameEl.focus();
 
+    // ---- Live input formatting ----
+    attachLiveFormat(wrap.querySelector('#vet-f-name'), titleCase);
+    attachLiveFormat(wrap.querySelector('#vet-f-phone'), formatPhone);
+    attachLiveFormat(wrap.querySelector('#vet-f-street'), titleCase);
+    attachLiveFormat(wrap.querySelector('#vet-f-city'), titleCase);
+    attachLiveFormat(wrap.querySelector('#vet-f-state'), formatState);
+    attachLiveFormat(wrap.querySelector('#vet-f-zip'), formatZip);
+
     wrap.querySelector('#vet-f-cancel').addEventListener('click', closeForm);
     wrap.querySelector('#vet-f-save').addEventListener('click', function(){
-      var name = val('vet-f-name').trim();
-      var phone = val('vet-f-phone').trim();
-      var address = val('vet-f-address').trim();
+      var name = titleCase(val('vet-f-name').trim());
+      var phone = formatPhone(val('vet-f-phone').trim());
+      var street = titleCase(val('vet-f-street').trim());
+      var city = titleCase(val('vet-f-city').trim());
+      var state = formatState(val('vet-f-state').trim());
+      var zip = formatZip(val('vet-f-zip').trim());
       var website = val('vet-f-website').trim();
-      if (!name && !phone && !address && !website){ closeForm(); return; }
+      if (!name && !phone && !street && !city && !state && !zip && !website){ closeForm(); return; }
       if (!name) name = 'Vet';
       var listNow = getVets();
+      var rec = { name:name, phone:phone, street:street, city:city, state:state, zip:zip, website:website, address:'' };
       if (v){
         var idx = listNow.findIndex(function(x){ return String(x.__id) === String(v.__id); });
-        if (idx >= 0) listNow[idx] = Object.assign({}, listNow[idx], { name:name, phone:phone, address:address, website:website });
+        if (idx >= 0) listNow[idx] = Object.assign({}, listNow[idx], rec);
       } else {
-        listNow.push({ __id: Date.now(), name:name, phone:phone, address:address, website:website });
+        listNow.push(Object.assign({ __id: Date.now() }, rec));
       }
       saveVets(listNow);
       closeForm();
@@ -5642,11 +5752,34 @@ try {
     if (wrap){ wrap.style.display = 'none'; wrap.innerHTML = ''; }
   }
   function field(id, label, ph, value, type){
-    return '<div>' +
-      '<label class="block font-body text-sm text-secondary mb-1" for="' + id + '">' + esc(label) + '</label>' +
+    return '<div>' + fieldInner(id, label, ph, value, type) + '</div>';
+  }
+  // Same as field() but without the outer <div>, so it can be placed inside a custom layout column.
+  function fieldInner(id, label, ph, value, type){
+    return '<label class="block font-body text-sm text-secondary mb-1" for="' + id + '">' + esc(label) + '</label>' +
       '<input id="' + id + '" type="' + (type || 'text') + '" placeholder="' + esc(ph) + '" value="' + esc(value || '') + '" ' +
-        'style="width:100%;padding:9px 11px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;" />' +
-    '</div>';
+        'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+        'style="width:100%;padding:9px 11px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;" />';
+  }
+  // Reformat an input's value live while preserving the caret position as best we can.
+  function attachLiveFormat(el, fmt){
+    if (!el) return;
+    el.addEventListener('input', function(){
+      var before = el.value;
+      var caret = el.selectionStart;
+      var formatted = fmt(before);
+      if (formatted === before) return;
+      // Count significant chars (non-formatting) up to the caret to restore position.
+      var sigBefore = before.slice(0, caret).replace(/[^0-9a-zA-Z]/g, '').length;
+      el.value = formatted;
+      // Walk the formatted string to find where that many significant chars land.
+      var seen = 0, pos = formatted.length;
+      for (var i = 0; i < formatted.length; i++){
+        if (/[0-9a-zA-Z]/.test(formatted[i])) seen++;
+        if (seen >= sigBefore){ pos = i + 1; break; }
+      }
+      try { el.setSelectionRange(pos, pos); } catch(e){}
+    });
   }
   function val(id){ var el = document.getElementById(id); return el ? el.value : ''; }
 
