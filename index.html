@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.3">
+                          <meta name="app-version" content="3.7.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2038,6 +2038,15 @@
     reader.onload = evt => {
       try {
         const data = JSON.parse(evt.target.result);
+        // New full-backup format (includes document photos in IndexedDB).
+        if (data && data.__pawfolioBackup && typeof window.pawfolioRestoreFullBackup === 'function') {
+          window.pawfolioRestoreFullBackup(data).then(res => {
+            alert('Backup restored' + (res && res.photoCount ? (' (' + res.photoCount + ' document photo' + (res.photoCount === 1 ? '' : 's') + ')') : '') + '. The page will reload.');
+            window.location.reload();
+          }).catch(() => { alert('Could not fully restore the backup. The page will reload with whatever was recovered.'); window.location.reload(); });
+          return;
+        }
+        // Legacy format: a flat object of localStorage keys.
         Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
         alert('Data imported! The page will reload.');
         window.location.reload();
@@ -4541,6 +4550,110 @@ try {
 })();
 </script>
 <script>
+/* === Pawfolio v3.7.4 STUCK-UPDATE SAFETY NET (backup-first) ===
+   Some users carry a service worker installed BEFORE auto-update existed. That old worker
+   can keep serving a stale page that never advances. The cure is to unregister the worker +
+   clear its caches, which is mildly destructive (iOS can also evict site storage), so this
+   flow ALWAYS makes a full backup FIRST (localStorage + IndexedDB document photos) and only
+   proceeds if the backup succeeds. The backup is mandatory; there is no skip path. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_stuck_updater) return; window.__pawfolio_stuck_updater = true;
+
+  var VERSION_URL = 'https://rapunzlnflt-afk.github.io/pet-care-planner/version.json';
+  var LOADED = (document.querySelector('meta[name="app-version"]') || {}).content || '0.0';
+  var SEEN_NEWER_KEY = 'pawfolioStuckSince';
+
+  function cmp(a, b){
+    var pa = String(a).split('.').map(function(n){ return parseInt(n,10)||0; });
+    var pb = String(b).split('.').map(function(n){ return parseInt(n,10)||0; });
+    for (var i=0;i<Math.max(pa.length,pb.length);i++){ var da=pa[i]||0, db=pb[i]||0; if(da>db)return 1; if(da<db)return -1; }
+    return 0;
+  }
+  function getBackupFn(){ return (typeof window.pawfolioDownloadFullBackup === 'function') ? window.pawfolioDownloadFullBackup : null; }
+
+  function clearWorkersAndCaches(){
+    var jobs = [];
+    try {
+      if ('serviceWorker' in navigator){
+        jobs.push(navigator.serviceWorker.getRegistrations().then(function(regs){
+          return Promise.all((regs||[]).map(function(r){ return r.unregister().catch(function(){}); }));
+        }).catch(function(){}));
+      }
+    } catch(e){}
+    try {
+      if (window.caches && caches.keys){
+        jobs.push(caches.keys().then(function(keys){
+          return Promise.all((keys||[]).map(function(k){ return caches.delete(k).catch(function(){}); }));
+        }).catch(function(){}));
+      }
+    } catch(e){}
+    return Promise.all(jobs);
+  }
+
+  function showBanner(){
+    if (document.getElementById('pawfolio-stuck-banner')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'pawfolio-stuck-banner';
+    wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:10050;background:#5B5BD6;color:#fff;font-family:Karla,sans-serif;padding:14px 16px;box-shadow:0 -8px 24px rgba(0,0,0,0.22);';
+    wrap.innerHTML =
+      '<div style="max-width:560px;margin:0 auto;">' +
+        '<div style="font-weight:700;font-size:15px;margin-bottom:3px;">An update is ready but couldn\u2019t finish installing</div>' +
+        '<div style="font-size:13px;line-height:1.4;opacity:0.95;margin-bottom:11px;">We\u2019ll first save a backup of all your pets, records, and document photos to your device, then finish the update. Your data will not be lost.</div>' +
+        '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+          '<button id="pawfolio-stuck-go" style="background:#fff;color:#5B5BD6;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Back up and finish update</button>' +
+          '<button id="pawfolio-stuck-later" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Later</button>' +
+          '<span id="pawfolio-stuck-status" style="font-size:12px;opacity:0.95;"></span>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+
+    var statusEl = document.getElementById('pawfolio-stuck-status');
+    var goBtn = document.getElementById('pawfolio-stuck-go');
+    document.getElementById('pawfolio-stuck-later').addEventListener('click', function(){ wrap.remove(); });
+
+    goBtn.addEventListener('click', function(){
+      var backup = getBackupFn();
+      if (!backup){ statusEl.textContent = 'Still loading\u2014please try again in a moment.'; return; }
+      goBtn.disabled = true; goBtn.style.opacity = '0.7';
+      statusEl.textContent = 'Saving your backup\u2026';
+      backup().then(function(res){
+        statusEl.textContent = 'Backup saved' + (res && res.photoCount ? (' (' + res.photoCount + ' photo' + (res.photoCount===1?'':'s') + ')') : '') + '. Finishing update\u2026';
+        try { localStorage.removeItem(SEEN_NEWER_KEY); } catch(e){}
+        return clearWorkersAndCaches();
+      }).then(function(){
+        setTimeout(function(){ window.location.reload(); }, 600);
+      }).catch(function(){
+        goBtn.disabled = false; goBtn.style.opacity = '1';
+        statusEl.textContent = 'Backup didn\u2019t save\u2014nothing was changed. Please try again.';
+      });
+    });
+  }
+
+  function evaluate(){
+    fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(function(r){ return r.ok ? r.json() : null; }).then(function(info){
+      if (!info || !info.version) return;
+      var liveNewer = cmp(info.version, LOADED) > 0;
+      if (!liveNewer){ try { localStorage.removeItem(SEEN_NEWER_KEY); } catch(e){} return; }
+      var since = null;
+      try { since = localStorage.getItem(SEEN_NEWER_KEY); } catch(e){}
+      if (!since){ try { localStorage.setItem(SEEN_NEWER_KEY, new Date().toISOString()); } catch(e){} return; }
+      var tries = 0;
+      (function waitForBackupFn(){
+        if (getBackupFn()){ showBanner(); return; }
+        if (tries++ > 40) return;
+        setTimeout(waitForBackupFn, 200);
+      })();
+    }).catch(function(){});
+  }
+
+  function start(){ setTimeout(evaluate, 4000); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+  window.addEventListener('focus', function(){ setTimeout(evaluate, 1500); });
+})();
+</script>
+<script>
 /* === Pawfolio v3.7.0 — Document Vault: camera capture + storage guardrails ===
    Lets the user snap a photo of a document, stores a COMPRESSED copy in IndexedDB
    (not localStorage), shows a thumbnail + full-size view, offers a native Share
@@ -5181,6 +5294,119 @@ try {
       label.textContent = 'Storage estimate not supported on this browser';
     }
   }
+
+  // ---------- FULL backup / restore (localStorage + IndexedDB document photos) ----------
+  // A normal export only saves localStorage. Document photos live in IndexedDB, so a true
+  // "lose nothing" backup must include them. We read every Blob, turn it into a base64 data
+  // URL, and bundle it alongside the localStorage data into one downloadable JSON file.
+  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome'];
+
+  function blobToDataUrl(blob){
+    return new Promise(function(resolve, reject){
+      var r = new FileReader();
+      r.onload = function(){ resolve(r.result); };
+      r.onerror = function(){ reject(r.error || new Error('read failed')); };
+      r.readAsDataURL(blob);
+    });
+  }
+  function dataUrlToBlob(dataUrl){
+    // data:[mime];base64,XXXX
+    var parts = String(dataUrl).split(',');
+    var meta = parts[0] || '';
+    var b64 = parts[1] || '';
+    var mime = (meta.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+    var bin = atob(b64);
+    var len = bin.length;
+    var arr = new Uint8Array(len);
+    for (var i=0;i<len;i++){ arr[i] = bin.charCodeAt(i); }
+    return new Blob([arr], { type: mime });
+  }
+
+  // Read all photo Blobs out of IndexedDB, keyed by their doc image key (e.g. 'doc-123').
+  function readAllPhotos(){
+    return openDB().then(function(db){
+      return new Promise(function(resolve){
+        var out = {};
+        var tx = db.transaction(STORE, 'readonly');
+        var store = tx.objectStore(STORE);
+        var keysReq = store.getAllKeys ? store.getAllKeys() : null;
+        if (!keysReq){
+          // Fallback: derive keys from the documents list.
+          var docs = (window.getList ? window.getList('documents') : []) || [];
+          var chain = Promise.resolve();
+          docs.forEach(function(d){
+            if (!d.imgKey) return;
+            chain = chain.then(function(){ return idbGet(d.imgKey).then(function(b){ if (b) return blobToDataUrl(b).then(function(u){ out[d.imgKey] = u; }); }); });
+          });
+          chain.then(function(){ resolve(out); }).catch(function(){ resolve(out); });
+          return;
+        }
+        keysReq.onsuccess = function(){
+          var keys = keysReq.result || [];
+          var chain = Promise.resolve();
+          keys.forEach(function(k){
+            chain = chain.then(function(){
+              return idbGet(k).then(function(b){ if (b) return blobToDataUrl(b).then(function(u){ out[String(k)] = u; }); }).catch(function(){});
+            });
+          });
+          chain.then(function(){ resolve(out); }).catch(function(){ resolve(out); });
+        };
+        keysReq.onerror = function(){ resolve(out); };
+      });
+    }).catch(function(){ return {}; });
+  }
+
+  // Build the combined backup object and trigger a download. Returns a Promise.
+  // Rejects if anything essential fails, so callers can refuse to clear data on failure.
+  function buildFullBackup(){
+    var ls = {};
+    LS_BACKUP_KEYS.forEach(function(k){ var v = localStorage.getItem(k); if (v != null) ls[k] = v; });
+    return readAllPhotos().then(function(photos){
+      var payload = {
+        __pawfolioBackup: true,
+        version: (document.querySelector('meta[name="app-version"]') || {}).content || '0.0',
+        savedAt: new Date().toISOString(),
+        localStorage: ls,
+        photos: photos   // { 'doc-123': 'data:image/jpeg;base64,...' }
+      };
+      return payload;
+    });
+  }
+
+  function downloadFullBackup(){
+    return buildFullBackup().then(function(payload){
+      var json = JSON.stringify(payload);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var stamp = new Date().toISOString().slice(0,10);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'pawfolio-full-backup-' + stamp + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ try { URL.revokeObjectURL(url); } catch(e){} }, 4000);
+      try { localStorage.setItem('petPlannerLastExport', stamp); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
+      var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
+      return { ok: true, photoCount: photoCount, bytes: json.length };
+    });
+  }
+  window.pawfolioDownloadFullBackup = downloadFullBackup;
+
+  // Restore a combined backup: write localStorage keys, then push photos back into IndexedDB.
+  function restoreFullBackup(payload){
+    if (!payload || !payload.__pawfolioBackup) return Promise.reject(new Error('not a full backup'));
+    var ls = payload.localStorage || {};
+    Object.keys(ls).forEach(function(k){ try { localStorage.setItem(k, ls[k]); } catch(e){} });
+    var photos = payload.photos || {};
+    var keys = Object.keys(photos);
+    var chain = Promise.resolve();
+    keys.forEach(function(k){
+      chain = chain.then(function(){
+        try { return idbPut(k, dataUrlToBlob(photos[k])); } catch(e){ return null; }
+      });
+    });
+    return chain.then(function(){ return { ok: true, photoCount: keys.length }; });
+  }
+  window.pawfolioRestoreFullBackup = restoreFullBackup;
 
   // ---------- Keep our enhanced list rendering in sync with the app ----------
   function hookRender(){
