@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.8">
+                          <meta name="app-version" content="3.8.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4292,6 +4292,78 @@ try {
   }
   window.pfRefreshReminders = refreshSchedules;
 
+  // v3.8.0: Expose upcoming reminder occurrences so the Web Push layer can
+  // sync them to Supabase and deliver real OS notifications when the app is
+  // fully closed. One entry per (upcoming vet appointment x selected lead).
+  // Mirrors runDueCheck()'s logic exactly so phone push matches in-app banners.
+  window.pfUpcomingReminders = function(){
+    var out = [];
+    var now = Date.now();
+    // Helper: push one entry per selected lead time for a future event.
+    function emit(opts){
+      // opts: { source, sourceId, when (ms), title(leadLabel), body, tag }
+      if(!(opts.when > now)) return;
+      getLeads().forEach(function(lead){
+        var fireAt = opts.when - lead;
+        if(fireAt <= now) return;      // already passed; in-app catch-up handles it
+        if(fireAt >= opts.when) return;
+        out.push({
+          source: opts.source,
+          source_id: opts.sourceId,
+          lead: lead,
+          fire_at: new Date(fireAt).toISOString(),
+          title: opts.titleFor(leadLabel(lead)),
+          body: opts.body,
+          tag: opts.source + '-' + opts.sourceId + ':' + lead,
+          url: './index.html'
+        });
+      });
+    }
+
+    // 1) Vet appointments / follow-ups
+    getList('vet-visits').forEach(function(v){
+      if(!isUpcomingAppt(v)) return;
+      var dt = apptDateTime(v);
+      var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' \u00b7 ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
+      var pet = v.petName || 'Your pet';
+      var reason = v.reason ? (' \u2014 ' + v.reason) : (v.type ? (' \u2014 ' + v.type) : '');
+      emit({
+        source: 'vet-visit', sourceId: v.__id, when: dt.getTime(),
+        titleFor: function(lbl){ return '\uD83D\uDC3E Vet appointment in ' + lbl; },
+        body: pet + reason + '\n' + whenLabel + (v.vet ? ' \u00b7 ' + v.vet : '')
+      });
+    });
+
+    // 2) Medication refills (refill date, anchored at 9:00am local)
+    function dateAt9(d){ if(!d) return null; var dt = new Date(d + 'T09:00:00'); return isNaN(dt.getTime()) ? null : dt; }
+    function dayLabel(dt){ return dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
+    getList('medications').forEach(function(m){
+      var dt = dateAt9(m.refill);
+      if(!dt) return;
+      var pet = m.petName || 'Your pet';
+      var detail = [m.dosage, m.frequency].filter(function(s){ return s; }).join(' \u00b7 ');
+      emit({
+        source: 'medication', sourceId: m.__id, when: dt.getTime(),
+        titleFor: function(lbl){ return '\uD83D\uDC8A Refill due in ' + lbl; },
+        body: pet + ' \u2014 ' + (m.name || 'Medication') + '\nRefill ' + dayLabel(dt) + (detail ? (' \u00b7 ' + detail) : '')
+      });
+    });
+
+    // 3) Vaccinations (next-due date, anchored at 9:00am local)
+    getList('vaccinations').forEach(function(vc){
+      var dt = dateAt9(vc.next);
+      if(!dt) return;
+      var pet = vc.petName || 'Your pet';
+      emit({
+        source: 'vaccination', sourceId: vc.__id, when: dt.getTime(),
+        titleFor: function(lbl){ return '\uD83D\uDC89 Vaccination due in ' + lbl; },
+        body: pet + ' \u2014 ' + (vc.name || 'Vaccination') + '\nDue ' + dayLabel(dt) + (vc.vet ? (' \u00b7 ' + vc.vet) : '')
+      });
+    });
+
+    return out;
+  };
+
   // Best-effort: Periodic Background Sync (Chrome/Android installed PWAs).
   function registerPeriodicSync(){
     if(!isEnabled()) return;
@@ -5836,3 +5908,377 @@ try {
 })();
 </script>
 
+
+<script>
+/* === Pawfolio v3.8.0 — Phone push notifications (server-based Web Push) ===
+   Delivers REAL OS push notifications for upcoming vet appointments even when
+   the app is fully closed and the screen is locked. Mirrors the MedRecords
+   architecture: Supabase (anonymous auth) + VAPID Web Push + an Edge Function
+   that fires due reminders every minute.
+
+   Only reminder metadata (title, body, fire time) ever leaves the device —
+   pet records stay in local storage. If the three public config values below
+   are left as placeholders, this whole layer stays dormant and the card shows
+   a friendly "not set up yet" state; the app keeps working exactly as before.
+
+   Setup lives OUTSIDE the repo — see PUSH_SETUP.md. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v380_push) return; window.__pawfolio_v380_push = true;
+
+  // ----- Public config (safe to ship; fill these in after Supabase setup) ----
+  var SUPABASE_URL      = '__SUPABASE_URL__';
+  var SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY__';
+  var VAPID_PUBLIC_KEY  = '__VAPID_PUBLIC_KEY__';
+
+  var SUPABASE_JS_CDN = 'https://esm.sh/@supabase/supabase-js@2.45.4';
+  var DEVICE_ID_KEY   = 'pawfolio-device-id';
+  var DEVICE_SYNC_KEY = 'pawfolio-device-sync-status';
+  var REMINDER_SYNC_KEY = 'pawfolio-reminder-sync-status';
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function isConfigured(){
+    return SUPABASE_URL.indexOf('__') !== 0 &&
+           SUPABASE_ANON_KEY.indexOf('__') !== 0 &&
+           VAPID_PUBLIC_KEY.indexOf('__') !== 0 &&
+           SUPABASE_URL && SUPABASE_ANON_KEY && VAPID_PUBLIC_KEY;
+  }
+  function pushSupported(){
+    return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  }
+
+  // ----- small status ledger (helps diagnose on the phone) -----
+  function readStatus(key){ try { var r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch(e){ return null; } }
+  function writeStatus(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+  function stampDevice(ok, message, stage){ writeStatus(DEVICE_SYNC_KEY, { ts:new Date().toISOString(), ok:ok, message:message, stage:stage }); }
+  function stampReminders(ok, message, count, stage){ writeStatus(REMINDER_SYNC_KEY, { ts:new Date().toISOString(), ok:ok, message:message, count:count, stage:stage }); }
+
+  function getOrCreateDeviceId(){
+    var id = null;
+    try { id = localStorage.getItem(DEVICE_ID_KEY); } catch(e){}
+    if(!id){
+      id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('dev-' + Date.now() + '-' + Math.random().toString(36).slice(2,10));
+      try { localStorage.setItem(DEVICE_ID_KEY, id); } catch(e){}
+    }
+    return id;
+  }
+
+  function urlBase64ToUint8Array(base64String){
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  // ----- Supabase client (lazy-loaded from CDN only when configured) -----
+  var _supabase = null;
+  var _loadingClient = null;
+  function getSupabase(){
+    if(!isConfigured()) return Promise.resolve(null);
+    if(_supabase) return Promise.resolve(_supabase);
+    if(_loadingClient) return _loadingClient;
+    _loadingClient = import(SUPABASE_JS_CDN).then(function(mod){
+      var createClient = mod.createClient;
+      _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      });
+      return _supabase;
+    }).catch(function(err){
+      stampDevice(false, 'supabase-js load failed: ' + (err && err.message || err), 'load');
+      _loadingClient = null;
+      throw err;
+    });
+    return _loadingClient;
+  }
+
+  function ensureAnonAuth(supabase){
+    return supabase.auth.getSession().then(function(res){
+      if(res.data && res.data.session && res.data.session.user) return res.data.session.user.id;
+      return supabase.auth.signInAnonymously().then(function(r){
+        if(r.error){
+          var hint = /anonymous/i.test(r.error.message) ? ' (enable Anonymous sign-ins in Supabase Auth settings)' : '';
+          throw new Error('Anonymous sign-in failed: ' + r.error.message + hint);
+        }
+        if(!r.data || !r.data.user) throw new Error('Anonymous sign-in returned no user');
+        return r.data.user.id;
+      });
+    });
+  }
+
+  function upsertDevice(supabase){
+    return ensureAnonAuth(supabase).then(function(userId){
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.getSubscription().then(function(sub){
+          if(sub) return sub;
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+        });
+      }).then(function(sub){
+        var json = sub.toJSON();
+        var row = {
+          user_id: userId,
+          device_id: getOrCreateDeviceId(),
+          endpoint: sub.endpoint,
+          p256dh: (json.keys && json.keys.p256dh) || null,
+          auth: (json.keys && json.keys.auth) || null,
+          user_agent: navigator.userAgent,
+          timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || null
+        };
+        return supabase.from('devices').upsert(row, { onConflict: 'user_id,device_id' }).select('id').then(function(res){
+          if(res.error) throw new Error('device upsert failed: ' + res.error.message);
+          if(!res.data || !res.data.length) throw new Error('device upsert returned no rows (RLS?)');
+          return { userId: userId, endpoint: sub.endpoint };
+        });
+      });
+    });
+  }
+
+  function isSubscribed(){
+    if(!pushSupported()) return Promise.resolve(false);
+    return navigator.serviceWorker.getRegistration().then(function(reg){
+      if(!reg) return false;
+      return reg.pushManager.getSubscription().then(function(sub){ return !!sub; });
+    }).catch(function(){ return false; });
+  }
+
+  // ----- enable / disable -----
+  function enablePush(){
+    stampDevice(true, 'enable handler invoked (v3.8.0)', 'started');
+    if(!pushSupported()){
+      alert('This browser does not support push notifications. On iPhone, add Pawfolio to your Home Screen (Share \u2192 Add to Home Screen) and open it from there.');
+      stampDevice(false, 'push not supported', 'unsupported');
+      return Promise.resolve();
+    }
+    if(!isConfigured()){
+      alert('Phone push is not set up yet for this app.');
+      stampDevice(false, 'not configured', 'config');
+      return Promise.resolve();
+    }
+    return Notification.requestPermission().then(function(perm){
+      if(perm !== 'granted'){
+        stampDevice(false, 'permission ' + perm, 'permission');
+        renderCard();
+        return;
+      }
+      return getSupabase().then(function(supabase){
+        return upsertDevice(supabase);
+      }).then(function(){
+        stampDevice(true, 'device registered', 'device-upsert');
+        try { localStorage.setItem('pawfolioPushEnabled','1'); } catch(e){}
+        renderCard();
+        return syncReminders();
+      });
+    }).catch(function(err){
+      var msg = (err && err.message) || String(err);
+      stampDevice(false, msg, 'error');
+      alert('Could not turn on phone reminders: ' + msg);
+      renderCard();
+    });
+  }
+
+  function disablePush(){
+    var done = function(){
+      try { localStorage.removeItem('pawfolioPushEnabled'); } catch(e){}
+      stampDevice(true, 'disabled on this device', 'disable');
+      renderCard();
+    };
+    if(!pushSupported()){ done(); return Promise.resolve(); }
+    return navigator.serviceWorker.getRegistration().then(function(reg){
+      var p = reg && reg.pushManager ? reg.pushManager.getSubscription() : Promise.resolve(null);
+      return p.then(function(sub){ return sub ? sub.unsubscribe().catch(function(){}) : null; });
+    }).then(function(){
+      if(!isConfigured()) return null;
+      return getSupabase().then(function(supabase){
+        if(!supabase) return null;
+        var deviceId = getOrCreateDeviceId();
+        return Promise.all([
+          supabase.from('devices').delete().eq('device_id', deviceId),
+          supabase.from('reminders').delete().eq('device_id', deviceId)
+        ]);
+      });
+    }).then(done).catch(function(err){ stampDevice(false, (err&&err.message)||String(err), 'disable'); done(); });
+  }
+
+  // ----- reminder sync (coalesced) -----
+  var inFlight = false, pendingSync = false;
+  function syncReminders(){
+    if(!isConfigured()){ stampReminders(false, 'not configured', 0, 'config'); return Promise.resolve(); }
+    return isSubscribed().then(function(sub){
+      if(!sub){ stampReminders(false, 'not subscribed', 0, 'state'); return; }
+      return getSupabase().then(function(supabase){
+        return ensureAnonAuth(supabase).then(function(){
+          var occurrences = (typeof window.pfUpcomingReminders === 'function') ? (window.pfUpcomingReminders() || []) : [];
+          var deviceId = getOrCreateDeviceId();
+          return supabase.from('reminders').delete().eq('device_id', deviceId).is('delivered_at', null).then(function(del){
+            if(del.error) throw new Error('reminder delete failed: ' + del.error.message);
+            if(!occurrences.length){ stampReminders(true, 'no upcoming reminders', 0, 'empty'); return; }
+            var rows = occurrences.map(function(o){
+              return {
+                device_id: deviceId,
+                source: o.source,
+                source_id: o.source_id,
+                pet_name: null,
+                title: o.title,
+                body: o.body,
+                fire_at: o.fire_at
+              };
+            });
+            return supabase.from('reminders').insert(rows).select('id').then(function(ins){
+              if(ins.error) throw new Error('reminder insert failed: ' + ins.error.message);
+              var count = (ins.data && ins.data.length) || rows.length;
+              stampReminders(true, 'synced ' + count + ' reminder' + (count===1?'':'s'), count, 'insert');
+            });
+          });
+        });
+      });
+    }).catch(function(err){ stampReminders(false, (err&&err.message)||String(err), 0, 'sync'); });
+  }
+
+  // Safe to call from any mutation; no-op when not subscribed; coalesced.
+  function requestSync(){
+    if(inFlight){ pendingSync = true; return; }
+    inFlight = true;
+    var run = function(){
+      return syncReminders().then(function(){
+        if(pendingSync){ pendingSync = false; return run(); }
+      });
+    };
+    run().then(function(){ inFlight = false; }, function(){ inFlight = false; });
+  }
+  window.pfSyncPushReminders = requestSync;
+
+  // ----- diagnostics (collapsible) -----
+  function diagnosticsHTML(){
+    var ds = readStatus(DEVICE_SYNC_KEY);
+    var rs = readStatus(REMINDER_SYNC_KEY);
+    var ua = navigator.userAgent || '';
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    var line = function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;"><span class="text-secondary">'+k+'</span><span class="text-primary" style="text-align:right;word-break:break-word;">'+v+'</span></div>'; };
+    var fmtStatus = function(s){ return s ? ((s.ok?'\u2713 ':'\u2717 ') + (s.message||'') + (typeof s.count==='number'?(' ('+s.count+')'):'')) : '\u2014'; };
+    return '<div id="pf-push-diag" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border,#e5e7eb);font-size:12px;display:grid;gap:4px;" class="font-body">' +
+             line('Configured', isConfigured()?'yes':'no (keys pending)') +
+             line('Push supported', pushSupported()?'yes':'no') +
+             line('Permission', ('Notification' in window)?Notification.permission:'unavailable') +
+             line('Installed (Home Screen)', standalone?'yes':'no') +
+             line('iOS', isIOS?'yes':'no') +
+             line('Last device sync', fmtStatus(ds)) +
+             line('Last reminder sync', fmtStatus(rs)) +
+           '</div>';
+  }
+
+  var diagOpen = false;
+
+  function cardHTML(){
+    var on = (function(){ try { return localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){ return false; } })();
+    var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+    var bell, label, sub, control = '';
+
+    if(!isConfigured()){
+      bell = '\uD83D\uDCF1';
+      label = 'Phone reminders \u2014 coming soon';
+      sub = '<span class="font-body text-xs text-secondary">Real push for vet visits, refills &amp; vaccinations \u2014 even when the app is closed. Setup is being finished.</span>';
+    } else if(!pushSupported() || perm === 'unsupported'){
+      bell = '\uD83D\uDD15';
+      label = 'Phone reminders not supported here';
+      sub = '<span class="font-body text-xs text-secondary">On iPhone: add to Home Screen, then open from the icon (iOS 16.4+).</span>';
+    } else if(perm === 'denied'){
+      bell = '\uD83D\uDD15';
+      label = 'Phone reminders blocked';
+      sub = '<span class="font-body text-xs text-secondary">Allow notifications for this site in browser settings, then reload.</span>';
+    } else if(on && perm === 'granted'){
+      bell = '\uD83D\uDCF2';
+      label = 'Phone reminders on';
+      sub = '<span class="font-body text-xs text-secondary">Vet visits, refills &amp; vaccinations \u2014 pushed to this phone even when Pawfolio is closed.</span>';
+      control = '<button type="button" id="pf-push-off" title="Turn off on this device" aria-label="Turn off phone reminders" ' +
+                'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;">' +
+                '<span style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
+    } else {
+      bell = '\uD83D\uDCF1';
+      label = 'Phone reminders off';
+      sub = '<span class="font-body text-xs text-secondary">Get a real push on this phone before vet visits, refills &amp; vaccinations.</span>';
+      control = '<button type="button" id="pf-push-on" title="Turn on phone reminders" aria-label="Turn on phone reminders" ' +
+                'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:46px;height:26px;border-radius:13px;position:relative;cursor:pointer;">' +
+                '<span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
+    }
+
+    var bar = '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<span style="font-size:18px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div class="font-heading text-sm font-bold text-primary" style="line-height:1.2;">' + label + '</div>' +
+                  '<div style="line-height:1.3;">' + sub + '</div>' +
+                  '<button type="button" id="pf-push-diag-toggle" style="background:none;border:none;padding:2px 0 0;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + (diagOpen?'Hide':'Status') + '</button>' +
+                '</div>' +
+                control +
+              '</div>';
+    return bar + (diagOpen ? diagnosticsHTML() : '');
+  }
+
+  function renderCard(){
+    var host = $('pf-push-card');
+    if(!host) return;
+    host.innerHTML = cardHTML();
+    var onBtn = $('pf-push-on'); if(onBtn) onBtn.addEventListener('click', function(){ enablePush(); });
+    var offBtn = $('pf-push-off'); if(offBtn) offBtn.addEventListener('click', function(){ disablePush(); });
+    var dt = $('pf-push-diag-toggle'); if(dt) dt.addEventListener('click', function(){ diagOpen = !diagOpen; renderCard(); });
+  }
+
+  function injectCard(){
+    if($('pf-push-card')) return true;
+    var section = $('tab-vet-visits'); if(!section) return false;
+    var card = document.createElement('div');
+    card.id = 'pf-push-card';
+    card.className = 'card mb-4';
+    card.style.cssText = 'padding:12px 14px;border-left:3px solid #5B5BD6;';
+    // Place directly after the existing local-reminders card if present,
+    // otherwise after the section heading.
+    var anchor = $('vet-notif-card');
+    if(anchor){ anchor.insertAdjacentElement('afterend', card); }
+    else {
+      var h2 = section.querySelector('h2');
+      if(h2){ h2.insertAdjacentElement('afterend', card); }
+      else { section.insertAdjacentElement('afterbegin', card); }
+    }
+    renderCard();
+    return true;
+  }
+
+  // Re-sync whenever pet data changes (add/edit/delete all funnel through refreshAll)
+  function wrapRefreshAll(){
+    if(typeof window.refreshAll === 'function' && !window.refreshAll.__v380push){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(requestSync, 80);
+        return r;
+      };
+      window.refreshAll.__v380push = true;
+    }
+  }
+
+  function boot(){
+    if(!$('tab-vet-visits')){ return setTimeout(boot, 120); }
+    injectCard();
+    wrapRefreshAll();
+    // On open, refresh subscription + reminders if the user previously enabled.
+    var wasOn = false; try { wasOn = localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){}
+    if(wasOn && isConfigured() && pushSupported() && Notification.permission === 'granted'){
+      // Re-affirm the device row (handles rotated subscriptions) then sync.
+      getSupabase().then(function(supabase){ return upsertDevice(supabase); })
+        .then(function(){ renderCard(); return requestSync(); })
+        .catch(function(err){ stampDevice(false, (err&&err.message)||String(err), 'reaffirm'); });
+    }
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) requestSync(); });
+    window.addEventListener('focus', requestSync);
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
