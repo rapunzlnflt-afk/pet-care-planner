@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.5">
+                          <meta name="app-version" content="3.7.6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5244,6 +5244,8 @@ try {
     // Focus the confirm button for keyboard users.
     var cb = card.querySelector('[data-confirm]'); if (cb){ try{ cb.focus(); }catch(e){} }
   }
+  // Expose so other features (e.g. the Overview vet card) can reuse the styled confirm.
+  window.showConfirmModal = showConfirmModal;
 
   function deleteDocFull(id){
     var doc = findDoc(id);
@@ -5456,3 +5458,242 @@ try {
   else { boot(); }
 })();
 </script>
+<script>
+/* === Pawfolio v3.7.6 — Overview Veterinarians card (tap-to-dial / maps / website) ===
+   Adds a "Veterinarians" section to the Overview page. Stores a list of vets (name, phone,
+   address, website) and renders each as a card with:
+     - tap-to-dial phone (tel: link)
+     - tap-for-maps address (opens Google Maps)
+     - website link (auto-prefixed with https://)
+   One vet by default, with an "Add another vet" option. Edit/delete per vet.
+   Data lives in the app's own store under the 'vets' list, so it's included in backups. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_vet_overview) return; window.__pawfolio_vet_overview = true;
+
+  var ACCENT = '#5B5BD6';
+
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function getVets(){ try { return (window.getList ? window.getList('vets') : []) || []; } catch(e){ return []; } }
+  function saveVets(list){ try { if (window.saveList) window.saveList('vets', list); } catch(e){} }
+
+  // Normalize a phone for tel: (keep leading +, strip everything else but digits).
+  function telHref(phone){
+    var p = String(phone || '');
+    var plus = p.trim().charAt(0) === '+' ? '+' : '';
+    var digits = p.replace(/[^0-9]/g, '');
+    return digits ? ('tel:' + plus + digits) : '';
+  }
+  function mapsHref(addr){
+    var a = String(addr || '').trim();
+    return a ? ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a)) : '';
+  }
+  function webHref(url){
+    var u = String(url || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    return u;
+  }
+
+  // ---------- Container injection ----------
+  function ensureContainer(){
+    var ov = document.getElementById('tab-overview');
+    if (!ov) return null;
+    var existing = document.getElementById('overview-vets-card');
+    if (existing) return existing;
+
+    var card = document.createElement('div');
+    card.id = 'overview-vets-card';
+    card.className = 'card p-5 mb-5';
+    card.style.cssText = 'border-left:4px solid ' + ACCENT + ';';
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+        '<h3 class="font-heading text-base font-bold text-primary" style="margin:0;">Veterinarians</h3>' +
+        '<button id="vet-add-btn" type="button" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">+ Add vet</button>' +
+      '</div>' +
+      '<div id="overview-vets-list"></div>' +
+      '<div id="vet-form-wrap" style="display:none;margin-top:14px;border-top:1px solid var(--border-color);padding-top:14px;"></div>';
+
+    // Insert right after the pet summary cards (#overview-pets), else append.
+    var anchor = document.getElementById('overview-pets');
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+    else ov.appendChild(card);
+
+    card.querySelector('#vet-add-btn').addEventListener('click', function(){ openForm(null); });
+    return card;
+  }
+
+  // ---------- Render the list of vet cards ----------
+  function renderVets(){
+    var card = ensureContainer();
+    if (!card) return;
+    var list = card.querySelector('#overview-vets-list');
+    var vets = getVets();
+
+    if (!vets.length){
+      list.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet saved yet. Tap “Add vet” to store your clinic’s name, phone, address, and website for quick access.</p>';
+      return;
+    }
+
+    list.innerHTML = vets.map(function(v){
+      var id = v.__id;
+      var tel = telHref(v.phone);
+      var maps = mapsHref(v.address);
+      var web = webHref(v.website);
+      var rows = '';
+      if (v.phone){
+        rows += '<div style="margin-top:6px;">' +
+          (tel
+            ? '<a href="' + tel + '" style="display:inline-flex;align-items:center;gap:7px;color:' + ACCENT + ';font-weight:600;text-decoration:none;font-size:14px;">' +
+                '<span style="font-size:15px;">📞</span><span>' + esc(v.phone) + '</span></a>' +
+                '<span style="font-size:11px;color:#94a3b8;margin-left:8px;">tap to call</span>'
+            : '<span class="font-body text-sm text-secondary">📞 ' + esc(v.phone) + '</span>') +
+          '</div>';
+      }
+      if (v.address){
+        rows += '<div style="margin-top:6px;">' +
+          (maps
+            ? '<a href="' + maps + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:flex-start;gap:7px;color:' + ACCENT + ';text-decoration:none;font-size:14px;">' +
+                '<span style="font-size:15px;">📍</span><span>' + esc(v.address) + '</span></a>' +
+                '<span style="font-size:11px;color:#94a3b8;margin-left:8px;">open in maps</span>'
+            : '<span class="font-body text-sm text-secondary">📍 ' + esc(v.address) + '</span>') +
+          '</div>';
+      }
+      if (v.website && web){
+        rows += '<div style="margin-top:6px;">' +
+          '<a href="' + esc(web) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;color:' + ACCENT + ';text-decoration:none;font-size:14px;">' +
+            '<span style="font-size:15px;">🌐</span><span>' + esc(v.website) + '</span></a>' +
+          '</div>';
+      }
+
+      return '<div class="card p-4" data-vet="' + esc(id) + '" style="border:1px solid var(--border-color);margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+          '<h4 class="font-heading text-base font-bold" style="margin:0;color:' + ACCENT + ';">🐾 ' + esc(v.name || 'Vet') + '</h4>' +
+          '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+            '<button type="button" data-vet-edit="' + esc(id) + '" title="Edit" style="background:none;border:none;cursor:pointer;color:' + ACCENT + ';font-size:16px;padding:2px 6px;font-family:inherit;">✎</button>' +
+            '<button type="button" data-vet-del="' + esc(id) + '" title="Delete" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 6px;font-family:inherit;">✕</button>' +
+          '</div>' +
+        '</div>' +
+        rows +
+      '</div>';
+    }).join('');
+
+    // Wire edit/delete
+    list.querySelectorAll('[data-vet-edit]').forEach(function(b){
+      b.addEventListener('click', function(){ openForm(b.getAttribute('data-vet-edit')); });
+    });
+    list.querySelectorAll('[data-vet-del]').forEach(function(b){
+      b.addEventListener('click', function(){ confirmDeleteVet(b.getAttribute('data-vet-del')); });
+    });
+  }
+
+  // ---------- Add / edit form ----------
+  function openForm(editId){
+    var card = ensureContainer();
+    if (!card) return;
+    var wrap = card.querySelector('#vet-form-wrap');
+    var vets = getVets();
+    var v = editId != null ? vets.filter(function(x){ return String(x.__id) === String(editId); })[0] : null;
+
+    wrap.innerHTML =
+      '<p class="font-heading text-sm font-bold text-primary" style="margin:0 0 10px;">' + (v ? 'Edit vet' : 'Add a vet') + '</p>' +
+      '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        field('vet-f-name', 'Clinic / vet name', 'e.g., Happy Paws Animal Clinic', v ? v.name : '') +
+        field('vet-f-phone', 'Phone', 'e.g., (555) 123-4567', v ? v.phone : '', 'tel') +
+        field('vet-f-address', 'Address', 'e.g., 123 Main St, Granbury, TX', v ? v.address : '') +
+        field('vet-f-website', 'Website', 'e.g., happypawsvet.com', v ? v.website : '', 'url') +
+      '</div>' +
+      '<div style="display:flex;gap:10px;margin-top:14px;">' +
+        '<button type="button" id="vet-f-save" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">' + (v ? 'Save changes' : 'Save vet') + '</button>' +
+        '<button type="button" id="vet-f-cancel" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+      '</div>';
+    wrap.style.display = 'block';
+    wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+    var nameEl = wrap.querySelector('#vet-f-name');
+    if (nameEl) nameEl.focus();
+
+    wrap.querySelector('#vet-f-cancel').addEventListener('click', closeForm);
+    wrap.querySelector('#vet-f-save').addEventListener('click', function(){
+      var name = val('vet-f-name').trim();
+      var phone = val('vet-f-phone').trim();
+      var address = val('vet-f-address').trim();
+      var website = val('vet-f-website').trim();
+      if (!name && !phone && !address && !website){ closeForm(); return; }
+      if (!name) name = 'Vet';
+      var listNow = getVets();
+      if (v){
+        var idx = listNow.findIndex(function(x){ return String(x.__id) === String(v.__id); });
+        if (idx >= 0) listNow[idx] = Object.assign({}, listNow[idx], { name:name, phone:phone, address:address, website:website });
+      } else {
+        listNow.push({ __id: Date.now(), name:name, phone:phone, address:address, website:website });
+      }
+      saveVets(listNow);
+      closeForm();
+      renderVets();
+    });
+  }
+  function closeForm(){
+    var wrap = document.getElementById('vet-form-wrap');
+    if (wrap){ wrap.style.display = 'none'; wrap.innerHTML = ''; }
+  }
+  function field(id, label, ph, value, type){
+    return '<div>' +
+      '<label class="block font-body text-sm text-secondary mb-1" for="' + id + '">' + esc(label) + '</label>' +
+      '<input id="' + id + '" type="' + (type || 'text') + '" placeholder="' + esc(ph) + '" value="' + esc(value || '') + '" ' +
+        'style="width:100%;padding:9px 11px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;" />' +
+    '</div>';
+  }
+  function val(id){ var el = document.getElementById(id); return el ? el.value : ''; }
+
+  // ---------- Delete (uses styled confirm if available, else native) ----------
+  function confirmDeleteVet(id){
+    var vets = getVets();
+    var v = vets.filter(function(x){ return String(x.__id) === String(id); })[0];
+    var nm = v ? (v.name || 'this vet') : 'this vet';
+    function doDelete(){
+      var listNow = getVets().filter(function(x){ return String(x.__id) !== String(id); });
+      saveVets(listNow);
+      renderVets();
+    }
+    if (typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Remove this vet?',
+        message: 'This removes “' + nm + '” from your saved vets. You can add it again anytime.',
+        confirmLabel: 'Remove',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: doDelete
+      });
+    } else {
+      if (confirm('Remove “' + nm + '” from your saved vets?')) doDelete();
+    }
+  }
+
+  // ---------- Keep in sync with the app's Overview render ----------
+  function hook(){
+    if (typeof window.renderOverview === 'function' && !window.renderOverview.__vethooked){
+      var orig = window.renderOverview;
+      window.renderOverview = function(){
+        var r = orig.apply(this, arguments);
+        try { renderVets(); } catch(e){}
+        return r;
+      };
+      window.renderOverview.__vethooked = true;
+    }
+  }
+
+  function boot(){
+    ensureContainer();
+    hook();
+    renderVets();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 300); });
+  else setTimeout(boot, 300);
+})();
+</script>
+
