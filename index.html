@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.6.2">
+                          <meta name="app-version" content="3.7.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -752,7 +752,7 @@
     <!-- DOCUMENT VAULT TAB -->
     <section id="tab-document-vault" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Document Vault</h2>
-     <p class="font-body text-sm text-secondary mb-4">Store links or notes for important pet documents — adoption papers, insurance policies, vet records, registration.</p>
+     <p class="font-body text-sm text-secondary mb-4">Snap a photo or store a link for important pet documents — adoption papers, insurance policies, vet records, registration. Photos are saved on this device and can be shared to Google Drive or Dropbox.</p>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-base font-bold text-primary mb-4">Add Document</h3>
       <form id="doc-form" class="space-y-4">
@@ -4531,5 +4531,462 @@ try {
     document.addEventListener('visibilitychange', function(){ if (!document.hidden) checkForUpdate(); });
     window.addEventListener('focus', checkForUpdate);
   }).catch(function(){});
+})();
+</script>
+<script>
+/* === Pawfolio v3.7.0 — Document Vault: camera capture + storage guardrails ===
+   Lets the user snap a photo of a document, stores a COMPRESSED copy in IndexedDB
+   (not localStorage), shows a thumbnail + full-size view, offers a native Share
+   button to send the file to Drive/Dropbox with a 1-tap "paste the link back" field,
+   supports a per-doc "cloud-only" mode that drops the heavy image but keeps a tiny
+   thumbnail + link, and shows a live storage meter with a near-full warning.
+
+   Guardrails (built for many-year archives):
+   1. Compress every photo before storing (resize long edge ~1600px, JPEG ~0.7).
+   2. Store full images as Blobs in IndexedDB (huge quota), never localStorage.
+   3. Live storage meter via navigator.storage.estimate().
+   4. Friendly near-full warning instead of silent failure.
+   5. Share-to-cloud + cloud-only escape valve so the device never has to be the archive. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v370_vault) return; window.__pawfolio_v370_vault = true;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ---------- IndexedDB layer (stores image Blobs keyed by the document __id) ----------
+  var DB_NAME = 'pawfolioVault';
+  var STORE   = 'docImages';
+  var _dbPromise = null;
+  function openDB(){
+    if (_dbPromise) return _dbPromise;
+    _dbPromise = new Promise(function(resolve, reject){
+      if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+    return _dbPromise;
+  }
+  function idbPut(key, blob){
+    return openDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(blob, key);
+        tx.oncomplete = function(){ resolve(true); };
+        tx.onerror = function(){ reject(tx.error); };
+        tx.onabort = function(){ reject(tx.error || new Error('aborted')); };
+      });
+    });
+  }
+  function idbGet(key){
+    return openDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readonly');
+        var rq = tx.objectStore(STORE).get(key);
+        rq.onsuccess = function(){ resolve(rq.result || null); };
+        rq.onerror = function(){ reject(rq.error); };
+      });
+    });
+  }
+  function idbDelete(key){
+    return openDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = function(){ resolve(true); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+
+  // ---------- Image compression ----------
+  // Resize so the longest edge <= MAX_EDGE, re-encode as JPEG at QUALITY.
+  var MAX_EDGE = 1600;
+  var QUALITY  = 0.7;
+  var THUMB_EDGE = 160;        // tiny preview kept in localStorage (instant render + cloud-only)
+  var THUMB_QUALITY = 0.6;
+
+  function fileToImage(file){
+    return new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function(){ resolve({ img: img, url: url }); };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('bad image')); };
+      img.src = url;
+    });
+  }
+  function drawScaled(img, maxEdge){
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var scale = Math.min(1, maxEdge / Math.max(w, h));
+    var cw = Math.max(1, Math.round(w * scale));
+    var ch = Math.max(1, Math.round(h * scale));
+    var c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+    return c;
+  }
+  function canvasToBlob(canvas, quality){
+    return new Promise(function(resolve){
+      if (canvas.toBlob){ canvas.toBlob(function(b){ resolve(b); }, 'image/jpeg', quality); }
+      else {
+        var dataUrl = canvas.toDataURL('image/jpeg', quality);
+        var bin = atob(dataUrl.split(',')[1]); var len = bin.length; var arr = new Uint8Array(len);
+        for (var i=0;i<len;i++) arr[i] = bin.charCodeAt(i);
+        resolve(new Blob([arr], { type:'image/jpeg' }));
+      }
+    });
+  }
+  // Returns { blob, thumbDataUrl, width, height }
+  function compressFile(file){
+    return fileToImage(file).then(function(res){
+      var fullCanvas = drawScaled(res.img, MAX_EDGE);
+      var thumbCanvas = drawScaled(res.img, THUMB_EDGE);
+      var thumbDataUrl = thumbCanvas.toDataURL('image/jpeg', THUMB_QUALITY);
+      return canvasToBlob(fullCanvas, QUALITY).then(function(blob){
+        URL.revokeObjectURL(res.url);
+        return { blob: blob, thumbDataUrl: thumbDataUrl, width: fullCanvas.width, height: fullCanvas.height };
+      });
+    });
+  }
+
+  // ---------- Pending capture (held until the user taps Save Document) ----------
+  var pending = null; // { blob, thumbDataUrl, sizeKB }
+
+  function fmtKB(bytes){
+    if (bytes == null) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return Math.round(bytes/1024) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+  }
+
+  function renderPendingPreview(){
+    var wrap = $('doc-capture-preview');
+    if (!wrap) return;
+    if (!pending){ wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    wrap.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">' +
+        '<img src="' + pending.thumbDataUrl + '" alt="Captured document" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb);">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="font-body text-sm text-primary" style="font-weight:600;">Photo ready (' + fmtKB(pending.blob.size) + ')</div>' +
+          '<div class="font-body text-xs text-secondary">Saved with your document.</div>' +
+        '</div>' +
+        '<button type="button" id="doc-capture-clear" style="background:none;border:none;color:#e53e3e;font-size:13px;font-weight:600;cursor:pointer;">Remove</button>' +
+      '</div>';
+    var clr = $('doc-capture-clear');
+    if (clr) clr.addEventListener('click', function(){ pending = null; renderPendingPreview(); });
+  }
+
+  function handleCaptureInput(input){
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var wrap = $('doc-capture-preview');
+    if (wrap){ wrap.style.display='block'; wrap.innerHTML = '<p class="font-body text-xs text-secondary" style="margin-top:8px;">Processing photo…</p>'; }
+    compressFile(file).then(function(out){
+      pending = { blob: out.blob, thumbDataUrl: out.thumbDataUrl };
+      renderPendingPreview();
+    }).catch(function(){
+      if (wrap){ wrap.innerHTML = '<p class="font-body text-xs" style="margin-top:8px;color:#e53e3e;">Could not read that image. Try again.</p>'; }
+    });
+    input.value = '';
+  }
+
+  // ---------- Inject the capture UI into the Add Document form ----------
+  function injectCaptureUI(){
+    if ($('doc-capture-row')) return true;
+    var form = $('doc-form'); if (!form) return false;
+    var linkInput = $('doc-link'); if (!linkInput) return false;
+    var linkBlock = linkInput.closest('div') || linkInput.parentNode;
+    var row = document.createElement('div');
+    row.id = 'doc-capture-row';
+    row.innerHTML =
+      '<label class="block font-body text-sm text-secondary mb-1">Photo of document</label>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<label style="flex:1;min-width:130px;background:#5B5BD6;color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;">' +
+          '\uD83D\uDCF7 Take photo' +
+          '<input type="file" id="doc-camera-input" accept="image/*" capture="environment" style="display:none;">' +
+        '</label>' +
+        '<label style="flex:1;min-width:130px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;">' +
+          '\uD83D\uDDBC\uFE0F Choose file' +
+          '<input type="file" id="doc-file-input" accept="image/*" style="display:none;">' +
+        '</label>' +
+      '</div>' +
+      '<div id="doc-capture-preview" style="display:none;"></div>';
+    // Insert just before the Link field so the flow reads: photo -> link -> notes
+    linkBlock.parentNode.insertBefore(row, linkBlock);
+    var cam = $('doc-camera-input'); if (cam) cam.addEventListener('change', function(){ handleCaptureInput(this); });
+    var fil = $('doc-file-input'); if (fil) fil.addEventListener('change', function(){ handleCaptureInput(this); });
+    return true;
+  }
+
+  // ---------- Hook the Save Document submit to persist the captured image ----------
+  // The original handler runs first (adds the document via addItem). We then attach the
+  // captured Blob to the most-recently-added document and re-render.
+  function wrapDocSubmit(){
+    var form = $('doc-form'); if (!form || form.__v370wrapped) return;
+    form.__v370wrapped = true;
+    // Capture pending at submit time (the original handler calls e.target.reset()).
+    form.addEventListener('submit', function(){
+      if (!pending) return;
+      var captured = pending; pending = null;
+      // Defer so the original handler's addItem('documents', ...) has run.
+      setTimeout(function(){
+        var docs = window.getList('documents') || [];
+        if (!docs.length) return;
+        // newest = highest __id
+        var doc = docs.reduce(function(a,b){ return (b.__id > a.__id) ? b : a; }, docs[0]);
+        var key = 'doc-' + doc.__id;
+        idbPut(key, captured.blob).then(function(){
+          doc.imgKey = key;
+          doc.thumb = captured.thumbDataUrl;
+          doc.imgBytes = captured.blob.size;
+          doc.cloudOnly = false;
+          window.saveList('documents', docs);
+          renderDocsEnhanced();
+          updateStorageMeter();
+        }).catch(function(){
+          alert('The document was saved, but the photo could not be stored (device storage may be full). Try removing old photos or marking some as cloud-only.');
+        });
+        renderPendingPreview();
+      }, 0);
+    });
+  }
+
+  // ---------- Enhanced documents list (thumbnails, view, share, cloud-only) ----------
+  var _objectUrls = [];
+  function revokeUrls(){ _objectUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(e){} }); _objectUrls = []; }
+
+  function renderDocsEnhanced(){
+    var el = $('documents-list'); if (!el) return;
+    var docs = window.getList('documents') || [];
+    revokeUrls();
+    if (!docs.length){ el.innerHTML = '<p class="font-body text-sm text-secondary italic">No documents added yet.</p>'; return; }
+    el.innerHTML = docs.map(function(d){
+      var thumbHtml = d.thumb
+        ? '<img src="' + d.thumb + '" alt="' + (d.name||'document') + '" data-view="' + d.__id + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb);cursor:pointer;flex:0 0 auto;">'
+        : '<div style="width:56px;height:56px;border-radius:8px;background:rgba(91,91,214,0.08);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:22px;">\uD83D\uDCC4</div>';
+      var cloudBadge = d.cloudOnly ? '<span style="background:rgba(16,185,129,0.12);color:#059669;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;">\u2601\uFE0F Cloud-only</span>' : '';
+      var actions = [];
+      if (d.imgKey || d.thumb) actions.push('<button type="button" data-view="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">View</button>');
+      if (d.imgKey) actions.push('<button type="button" data-share="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">Share to cloud</button>');
+      if (d.imgKey && !d.cloudOnly) actions.push('<button type="button" data-cloudonly="' + d.__id + '" style="background:none;border:none;color:#059669;font-size:12px;font-weight:600;cursor:pointer;padding:0;">Make cloud-only</button>');
+      actions.push('<button type="button" data-link="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">' + (d.link ? 'Edit link' : 'Add link') + '</button>');
+      var linkHtml = d.link ? '<a href="' + d.link + '" target="_blank" rel="noopener" class="font-body text-sm" style="color:var(--accent-color);">View in cloud \u2192</a>' : '';
+      return '' +
+        '<div class="card p-4">' +
+          '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+            thumbHtml +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">' +
+                '<span class="font-heading font-bold text-primary">' + (d.name||'Untitled') + '</span>' +
+                '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">' + (d.type||'') + '</span>' +
+                cloudBadge +
+              '</div>' +
+              '<p class="font-body text-sm text-secondary" style="margin-bottom:4px;">' + (d.petName||'') + (d.notes ? ' \u00b7 ' + d.notes : '') + '</p>' +
+              linkHtml +
+              '<div data-paste="' + d.__id + '" style="display:none;margin-top:8px;">' +
+                '<input type="url" placeholder="Paste the Drive/Dropbox link here" class="font-body text-sm" style="width:100%;padding:7px 10px;border:1px solid var(--border,#cbd5e1);border-radius:6px;margin-bottom:6px;">' +
+                '<button type="button" data-savelink="' + d.__id + '" style="background:#5B5BD6;border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Save link</button>' +
+              '</div>' +
+              '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">' + actions.join('') + '</div>' +
+            '</div>' +
+            '<button class="delete-x" data-del="' + d.__id + '" title="Delete" style="flex:0 0 auto;">\u2715</button>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+    wireDocActions();
+  }
+
+  function findDoc(id){
+    var docs = window.getList('documents') || [];
+    for (var i=0;i<docs.length;i++){ if (String(docs[i].__id) === String(id)) return docs[i]; }
+    return null;
+  }
+  function saveDocs(docs){ window.saveList('documents', docs); }
+
+  function wireDocActions(){
+    var el = $('documents-list'); if (!el) return;
+    // View (thumb or button)
+    Array.prototype.forEach.call(el.querySelectorAll('[data-view]'), function(node){
+      node.addEventListener('click', function(){ viewDoc(node.getAttribute('data-view')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-share]'), function(b){
+      b.addEventListener('click', function(){ shareDoc(b.getAttribute('data-share')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-cloudonly]'), function(b){
+      b.addEventListener('click', function(){ makeCloudOnly(b.getAttribute('data-cloudonly')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-link]'), function(b){
+      b.addEventListener('click', function(){
+        var id = b.getAttribute('data-link');
+        var box = el.querySelector('[data-paste="' + id + '"]');
+        if (box){ box.style.display = (box.style.display === 'none' ? 'block' : 'none');
+          if (box.style.display === 'block'){ var inp = box.querySelector('input'); if (inp){ inp.value = findDoc(id) ? (findDoc(id).link||'') : ''; inp.focus(); } } }
+      });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-savelink]'), function(b){
+      b.addEventListener('click', function(){
+        var id = b.getAttribute('data-savelink');
+        var box = el.querySelector('[data-paste="' + id + '"]');
+        var val = box ? box.querySelector('input').value.trim() : '';
+        var docs = window.getList('documents') || [];
+        var doc = null; for (var i=0;i<docs.length;i++){ if (String(docs[i].__id)===String(id)){ doc = docs[i]; break; } }
+        if (doc){ doc.link = val; saveDocs(docs); renderDocsEnhanced(); }
+      });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-del]'), function(b){
+      b.addEventListener('click', function(){ deleteDocFull(b.getAttribute('data-del')); });
+    });
+  }
+
+  function viewDoc(id){
+    var doc = findDoc(id); if (!doc) return;
+    function open(src){
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.innerHTML = '<img src="' + src + '" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);">';
+      ov.addEventListener('click', function(){ ov.remove(); if (src.indexOf('blob:')===0){ try{URL.revokeObjectURL(src);}catch(e){} } });
+      document.body.appendChild(ov);
+    }
+    if (doc.imgKey){
+      idbGet(doc.imgKey).then(function(blob){
+        if (blob){ open(URL.createObjectURL(blob)); }
+        else if (doc.thumb){ open(doc.thumb); }
+        else if (doc.link){ window.open(doc.link, '_blank'); }
+      }).catch(function(){ if (doc.thumb) open(doc.thumb); });
+    } else if (doc.thumb){ open(doc.thumb); }
+    else if (doc.link){ window.open(doc.link, '_blank'); }
+  }
+
+  function shareDoc(id){
+    var doc = findDoc(id); if (!doc || !doc.imgKey) return;
+    idbGet(doc.imgKey).then(function(blob){
+      if (!blob) { alert('No stored photo to share.'); return; }
+      var file = new File([blob], (doc.name||'document').replace(/[^\w\-]+/g,'_') + '.jpg', { type:'image/jpeg' });
+      var canFiles = navigator.canShare && navigator.canShare({ files:[file] });
+      if (navigator.share && canFiles){
+        navigator.share({ files:[file], title: doc.name || 'Document', text: doc.name || '' })
+          .then(function(){ promptPasteLink(id); })
+          .catch(function(){ /* user cancelled */ });
+      } else {
+        // Fallback: download the file so the user can upload it manually, then paste the link.
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ try{URL.revokeObjectURL(url);}catch(e){} }, 1000);
+        promptPasteLink(id);
+      }
+    });
+  }
+  function promptPasteLink(id){
+    var el = $('documents-list'); if (!el) return;
+    var box = el.querySelector('[data-paste="' + id + '"]');
+    if (box){ box.style.display = 'block'; var inp = box.querySelector('input'); if (inp){ inp.focus(); } }
+  }
+
+  function makeCloudOnly(id){
+    var docs = window.getList('documents') || [];
+    var doc = null; for (var i=0;i<docs.length;i++){ if (String(docs[i].__id)===String(id)){ doc = docs[i]; break; } }
+    if (!doc || !doc.imgKey) return;
+    if (!doc.link){
+      if (!confirm('Make this cloud-only? This removes the full photo from this device to save space. Tip: add the cloud link first so you can still open it. Continue anyway?')) return;
+    } else {
+      if (!confirm('Remove the full photo from this device? The small preview and your cloud link stay. This frees up storage.')) return;
+    }
+    var key = doc.imgKey;
+    idbDelete(key).then(function(){
+      doc.cloudOnly = true; doc.imgKey = null; doc.imgBytes = 0;
+      saveDocs(docs); renderDocsEnhanced(); updateStorageMeter();
+    });
+  }
+
+  function deleteDocFull(id){
+    var doc = findDoc(id);
+    if (!confirm('Delete this document' + (doc && doc.imgKey ? ' and its photo' : '') + '? This cannot be undone.')) return;
+    var key = doc && doc.imgKey;
+    if (typeof window.deleteItem === 'function'){ window.deleteItem('documents', isNaN(id) ? id : Number(id)); }
+    var after = function(){ renderDocsEnhanced(); updateStorageMeter(); if (typeof window.refreshAll==='function'){ /* keep other tabs in sync */ } };
+    if (key){ idbDelete(key).then(after).catch(after); } else { after(); }
+  }
+
+  // ---------- Storage meter + near-full warning ----------
+  function injectStorageMeter(){
+    if ($('vault-storage-meter')) return;
+    var section = $('tab-document-vault'); if (!section) return;
+    var meter = document.createElement('div');
+    meter.id = 'vault-storage-meter';
+    meter.className = 'card';
+    meter.style.cssText = 'padding:12px 14px;margin-bottom:16px;';
+    meter.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '<span class="font-heading text-sm font-bold text-primary">Vault storage</span>' +
+        '<span id="vault-storage-label" class="font-body text-xs text-secondary">Calculating…</span>' +
+      '</div>' +
+      '<div style="height:8px;border-radius:4px;background:var(--border,#e5e7eb);overflow:hidden;">' +
+        '<div id="vault-storage-bar" style="height:100%;width:0%;background:#5B5BD6;transition:width .3s;"></div>' +
+      '</div>' +
+      '<div id="vault-storage-warn" style="display:none;margin-top:8px;font-size:12px;line-height:1.4;"></div>';
+    // Place the meter right under the intro paragraph (before the Add Document card)
+    var firstCard = section.querySelector('.card');
+    if (firstCard){ firstCard.parentNode.insertBefore(meter, firstCard); }
+    else { section.appendChild(meter); }
+  }
+
+  function updateStorageMeter(){
+    var label = $('vault-storage-label'), bar = $('vault-storage-bar'), warn = $('vault-storage-warn');
+    if (!label || !bar) return;
+    if (navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(function(est){
+        var used = est.usage || 0, quota = est.quota || 0;
+        var pct = quota ? Math.min(100, Math.round((used/quota)*100)) : 0;
+        label.textContent = fmtKB(used) + (quota ? ' of ~' + fmtKB(quota) + ' (' + pct + '%)' : ' used');
+        bar.style.width = pct + '%';
+        bar.style.background = pct >= 90 ? '#e53e3e' : (pct >= 75 ? '#d97706' : '#5B5BD6');
+        if (warn){
+          if (pct >= 75){
+            warn.style.display = 'block';
+            warn.style.color = pct >= 90 ? '#e53e3e' : '#d97706';
+            warn.textContent = pct >= 90
+              ? 'Storage is almost full. Export a backup, then make older documents cloud-only or delete ones you no longer need.'
+              : 'Storage is filling up. Consider making older documents cloud-only (keeps the link, frees space).';
+          } else { warn.style.display = 'none'; }
+        }
+      }).catch(function(){ label.textContent = 'Storage estimate unavailable'; });
+    } else {
+      label.textContent = 'Storage estimate not supported on this browser';
+    }
+  }
+
+  // ---------- Keep our enhanced list rendering in sync with the app ----------
+  function hookRender(){
+    // Replace the app's renderDocuments so refreshAll() shows our enhanced list.
+    if (typeof window.renderDocuments === 'function' && !window.renderDocuments.__v370){
+      window.renderDocuments = renderDocsEnhanced;
+      window.renderDocuments.__v370 = true;
+    }
+    // Also wrap refreshAll to refresh the storage meter.
+    if (typeof window.refreshAll === 'function' && !window.refreshAll.__v370vault){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){ var r = orig.apply(this, arguments); setTimeout(updateStorageMeter, 50); return r; };
+      window.refreshAll.__v370vault = true;
+    }
+  }
+
+  function boot(){
+    if (!$('tab-document-vault') || !$('doc-form')){ return setTimeout(boot, 120); }
+    injectStorageMeter();
+    injectCaptureUI();
+    wrapDocSubmit();
+    hookRender();
+    renderDocsEnhanced();
+    updateStorageMeter();
+    // Refresh meter when returning to the app
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) updateStorageMeter(); });
+  }
+  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
 })();
 </script>
