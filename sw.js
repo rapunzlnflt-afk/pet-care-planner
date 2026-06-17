@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-81';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-82';const ASSETS = [
   './',
   './index.html',
   './manifest.json',
@@ -20,6 +20,33 @@ self.addEventListener('activate', event => {
     )
   );
   self.clients.claim();
+});
+
+// ---- v3.6.0: notification click + periodic reminder check ----
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './index.html';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      for (const c of clients) {
+        if ('focus' in c) { c.postMessage({ type: 'pawfolio-open', url: target }); return c.focus(); }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
+});
+
+// Best-effort background reminder check on installed PWAs that support Periodic Background Sync.
+self.addEventListener('periodicsync', event => {
+  if (event.tag === 'pawfolio-reminder-check') {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+        // Wake any open client to run its due-check; if none, the page-side visibility
+        // handler will catch up the next time the app is opened.
+        clients.forEach(c => c.postMessage({ type: 'pawfolio-reminder-check' }));
+      })
+    );
+  }
 });
 
 self.addEventListener('fetch', event => {

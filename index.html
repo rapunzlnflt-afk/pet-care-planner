@@ -3846,3 +3846,504 @@ try {
   else { boot(); }
 })();
 </script>
+
+<script>
+/* === Pawfolio v3.6.0 — Vet Visits: explicit mode buttons + attach-on-log-form === */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v360_vetui) return; window.__pawfolio_v360_vetui = true;
+
+  function $(id){ return document.getElementById(id); }
+  function todayISO(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+m+'-'+day;
+  }
+  function isFutureOrToday(s){ return !!s && s >= todayISO(); }
+
+  // Returns current mode: 'schedule' | 'log'
+  function currentMode(){
+    var form = $('vet-form');
+    if(!form) return 'log';
+    if(form.dataset.forceLogMode) return 'log';
+    var date = $('vet-date') ? $('vet-date').value : '';
+    // No date chosen yet -> respect last explicit choice (default schedule)
+    if(!date) return form.dataset.modeChoice === 'log' ? 'log' : 'schedule';
+    return isFutureOrToday(date) ? 'schedule' : 'log';
+  }
+
+  function highlightButtons(){
+    var mode = currentMode();
+    var sBtn = $('vet-mode-schedule');
+    var lBtn = $('vet-mode-log');
+    if(!sBtn || !lBtn) return;
+    var active = 'background:#5B5BD6;color:#fff;border-color:#5B5BD6;';
+    var idle   = 'background:transparent;color:#5B5BD6;border-color:#5B5BD6;';
+    var base   = 'flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;';
+    sBtn.style.cssText = base + (mode === 'schedule' ? active : idle);
+    lBtn.style.cssText = base + (mode === 'log' ? active : idle);
+  }
+
+  // Toggle visibility of the attach button: only meaningful in log mode and not while editing a brand-new entry
+  function syncAttachVisibility(){
+    var wrap = $('vet-attach-wrap');
+    if(!wrap) return;
+    wrap.style.display = (currentMode() === 'log') ? '' : 'none';
+  }
+
+  // Drive the form heading + submit label ourselves (the v3.5.31 helpers are closure-scoped
+  // and not exposed on window, so we set these directly to stay self-sufficient).
+  function applyTitleSelf(){
+    var form = $('vet-form'); if(!form) return;
+    var mode = currentMode();
+    var editing = !!form.dataset.editId;
+    var titleEl = $('vet-form-title');
+    if(titleEl){
+      titleEl.textContent = editing
+        ? (mode === 'schedule' ? 'Edit Scheduled Appointment' : 'Edit Visit Log')
+        : (mode === 'schedule' ? 'Schedule Vet Appointment' : 'Log a Vet Visit');
+    }
+    var submit = document.querySelector('#vet-form button[type="submit"]');
+    if(submit){
+      submit.textContent = editing
+        ? (mode === 'schedule' ? 'Update Appointment' : 'Update Visit Log')
+        : (mode === 'schedule' ? 'Schedule Appointment' : 'Save Visit Log');
+    }
+  }
+
+  var _inRefresh = false;
+  function refreshUI(){
+    if(_inRefresh) return; // guard against the date-change listener re-entering
+    _inRefresh = true;
+    try {
+      highlightButtons();
+      syncAttachVisibility();
+      // Nudge the date input so v3.5.31's internal change-listener recomputes its own state,
+      // then assert our own title/labels last so they win.
+      var dateEl = $('vet-date');
+      if(dateEl){ try { dateEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){} }
+      applyTitleSelf();
+    } finally {
+      _inRefresh = false;
+    }
+  }
+
+  function chooseSchedule(){
+    var form = $('vet-form'); if(!form) return;
+    delete form.dataset.forceLogMode;
+    form.dataset.modeChoice = 'schedule';
+    var dateEl = $('vet-date');
+    // If empty or a past date, default to tomorrow so the form opens in schedule mode
+    if(dateEl && (!dateEl.value || !isFutureOrToday(dateEl.value))){
+      if(!form.dataset.editId){
+        var t = new Date(); t.setDate(t.getDate()+1);
+        var m = String(t.getMonth()+1).padStart(2,'0');
+        var d = String(t.getDate()).padStart(2,'0');
+        dateEl.value = t.getFullYear()+'-'+m+'-'+d;
+      }
+    }
+    refreshUI();
+    var card = form.closest('.card'); if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function chooseLog(){
+    var form = $('vet-form'); if(!form) return;
+    form.dataset.forceLogMode = '1';
+    form.dataset.modeChoice = 'log';
+    var dateEl = $('vet-date');
+    // Default to today for a fresh log entry
+    if(dateEl && !form.dataset.editId && (!dateEl.value || isFutureOrToday(dateEl.value) && dateEl.value !== todayISO())){
+      // leave a future date alone only if user typed it; otherwise set today
+      if(!dateEl.value || dateEl.value > todayISO()){ dateEl.value = todayISO(); }
+    }
+    refreshUI();
+    var card = form.closest('.card'); if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // Attach a receipt/record for the entry being created/edited in the form.
+  // If editing an existing visit, route through the existing pfAttachRecord(id).
+  // Otherwise, pre-fill the Document Vault using the form's current pet + date.
+  function attachFromForm(){
+    var form = $('vet-form'); if(!form) return;
+    if(form.dataset.editId && typeof window.pfAttachRecord === 'function'){
+      window.pfAttachRecord(form.dataset.editId);
+      return;
+    }
+    if(typeof window.goToTab === 'function') window.goToTab('document-vault');
+    setTimeout(function(){
+      var petVal = $('vet-pet') ? $('vet-pet').value : '';
+      var dateVal = $('vet-date') ? $('vet-date').value : '';
+      var typeVal = $('vet-type') ? $('vet-type').value : 'Vet Visit';
+      var petName = '';
+      try {
+        if(typeof getList === 'function'){
+          var p = getList('pets').find(function(x){ return String(x.__id) === String(petVal); });
+          if(p) petName = p.name || '';
+        }
+      } catch(e){}
+      var docPet = $('doc-pet'); if(docPet && petVal) docPet.value = petVal;
+      var docType = $('doc-type'); if(docType) docType.value = 'Vet Records';
+      var docName = $('doc-name');
+      if(docName){
+        var dLabel = dateVal || '';
+        try {
+          if(dateVal) dLabel = new Date(dateVal+'T12:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+        } catch(e){}
+        docName.value = (petName || 'Pet') + ' — ' + (typeVal || 'Vet Visit') + (dLabel ? ' — ' + dLabel : '');
+      }
+      var docNotes = $('doc-notes'); if(docNotes) docNotes.value = 'From vet visit' + (dateVal ? ' on ' + dateVal : '');
+      var docForm = $('doc-form'); if(docForm) docForm.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 80);
+  }
+  window.pfAttachFromForm = attachFromForm;
+
+  function injectModeButtons(){
+    var form = $('vet-form'); if(!form) return false;
+    if($('vet-mode-toggle')) return true; // already injected
+    var card = form.closest('.card'); if(!card) return false;
+    var titleEl = card.querySelector('h3');
+
+    var bar = document.createElement('div');
+    bar.id = 'vet-mode-toggle';
+    bar.style.cssText = 'display:flex;gap:10px;margin:0 0 16px;';
+    bar.innerHTML =
+      '<button type="button" id="vet-mode-schedule">📅 Schedule an Appointment</button>' +
+      '<button type="button" id="vet-mode-log">📝 Log a Visit</button>';
+
+    // Place the toggle just above the form (before the title/hint)
+    if(titleEl){ titleEl.insertAdjacentElement('beforebegin', bar); }
+    else { form.insertAdjacentElement('beforebegin', bar); }
+
+    $('vet-mode-schedule').addEventListener('click', chooseSchedule);
+    $('vet-mode-log').addEventListener('click', chooseLog);
+    return true;
+  }
+
+  function injectAttachButton(){
+    var form = $('vet-form'); if(!form) return false;
+    if($('vet-attach-wrap')) return true;
+    var submitBtn = form.querySelector('button[type="submit"]');
+    if(!submitBtn) return false;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'vet-attach-wrap';
+    wrap.style.cssText = 'margin-bottom:4px;';
+    wrap.innerHTML =
+      '<button type="button" id="vet-attach-btn" ' +
+      'style="width:100%;background:transparent;border:1px dashed #5B5BD6;color:#5B5BD6;' +
+      'padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">' +
+      '📎 Attach receipt/record</button>' +
+      '<p class="font-body text-xs text-secondary" style="margin:6px 2px 0;font-style:italic;">' +
+      'Saves the details above, then opens the Document Vault to attach a file or link.</p>';
+
+    // Insert the attach button just above the submit button
+    submitBtn.insertAdjacentElement('beforebegin', wrap);
+    $('vet-attach-btn').addEventListener('click', attachFromForm);
+    return true;
+  }
+
+  function wireDateWatch(){
+    var dateEl = $('vet-date');
+    if(dateEl && !dateEl.dataset.v360Watch){
+      dateEl.dataset.v360Watch = '1';
+      dateEl.addEventListener('change', function(){
+        // A manual date edit clears the forced-log override so the date governs the mode,
+        // unless the user is mid-log (forceLogMode set by the Log button).
+        refreshUI();
+      });
+    }
+  }
+
+  function boot(){
+    if(!$('vet-form')){ return setTimeout(boot, 80); }
+    injectModeButtons();
+    injectAttachButton();
+    wireDateWatch();
+    // Default a fresh, unedited form into Schedule mode the first time.
+    var form = $('vet-form');
+    if(form && !form.dataset.editId && !form.dataset.modeChoice){
+      form.dataset.modeChoice = 'schedule';
+    }
+    refreshUI();
+
+    // Re-apply highlight/visibility whenever the list re-renders (mode may have changed via edit/fill-in).
+    if(typeof window.renderVetVisits === 'function' && !window.renderVetVisits.__v360){
+      var orig = window.renderVetVisits;
+      window.renderVetVisits = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(refreshUI, 0);
+        return r;
+      };
+      window.renderVetVisits.__v360 = true;
+    }
+    // Keep buttons in sync after edit/fill-in actions that change the date programmatically.
+    ['pfEditVisit','pfFillInVisitLog'].forEach(function(fn){
+      var o = window[fn];
+      if(typeof o === 'function' && !o.__v360){
+        window[fn] = function(){
+          var r = o.apply(this, arguments);
+          setTimeout(refreshUI, 30);
+          return r;
+        };
+        window[fn].__v360 = true;
+      }
+    });
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script>
+/* === Pawfolio v3.6.0 — Local appointment reminders ===
+   Shows on-device notifications for upcoming vet appointments.
+   - Works offline; no server required.
+   - Permission-gated; nothing fires unless the user opts in.
+   - Reminders are de-duplicated via localStorage so they never repeat.
+   - Fires via the service worker registration (so banners can appear even when
+     the page isn't focused, as long as the PWA/browser is alive), with a
+     setTimeout fallback while the app is open.
+   NOTE: True push when the app has been fully closed for a long time requires a
+   server (Web Push). See NOTIFICATIONS.md for the Supabase upgrade path. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v360_notify) return; window.__pawfolio_v360_notify = true;
+
+  var LEAD_MS   = [24*60*60*1000, 60*60*1000]; // remind 1 day before and 1 hour before
+  var FIRED_KEY = 'pawfolioFiredReminders';    // de-dupe ledger
+  var PREF_KEY  = 'pawfolioRemindersEnabled';
+  var $ = function(id){ return document.getElementById(id); };
+
+  function getList(k){
+    try { return (typeof window.getList === 'function') ? (window.getList(k) || []) : JSON.parse(localStorage.getItem(k) || '[]'); }
+    catch(e){ return []; }
+  }
+  function loadFired(){ try { return JSON.parse(localStorage.getItem(FIRED_KEY) || '{}'); } catch(e){ return {}; } }
+  function saveFired(o){ try { localStorage.setItem(FIRED_KEY, JSON.stringify(o)); } catch(e){} }
+  function isEnabled(){ return localStorage.getItem(PREF_KEY) === '1' && supported() && Notification.permission === 'granted'; }
+  function supported(){ return ('Notification' in window) && ('serviceWorker' in navigator); }
+
+  function fmtTime(t){
+    if(!t) return '';
+    var p = String(t).split(':'); if(p.length<2) return t;
+    var h = parseInt(p[0],10); var m = p[1]; var ampm = h>=12?'PM':'AM'; var h12 = ((h+11)%12)+1;
+    return h12+':'+m+' '+ampm;
+  }
+  function apptDateTime(v){
+    // Returns a Date for the appointment, or null.
+    var date = v.next || v.date; // follow-up takes precedence as the "next" event
+    var time = v.next ? (v.nextTime || '09:00') : (v.time || '09:00');
+    if(!date) return null;
+    var dt = new Date(date + 'T' + (time.length === 5 ? time : '09:00') + ':00');
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  function isUpcomingAppt(v){
+    // Only future-dated entries (scheduled appts or follow-ups) get reminders.
+    var dt = apptDateTime(v);
+    return dt && dt.getTime() > Date.now();
+  }
+
+  function showNotification(title, body, tag, url){
+    var data = { url: url || './index.html' };
+    var opts = {
+      body: body,
+      tag: tag,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      data: data,
+      requireInteraction: false
+    };
+    if('serviceWorker' in navigator && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(reg){
+        try { reg.showNotification(title, opts); }
+        catch(e){ try { new Notification(title, opts); } catch(_){} }
+      }).catch(function(){
+        try { new Notification(title, opts); } catch(e){}
+      });
+    } else {
+      try { new Notification(title, opts); } catch(e){}
+    }
+  }
+
+  // Check every upcoming appointment; fire any reminder whose lead-time window has arrived
+  // and hasn't fired yet. De-duped per (visitId + leadMs).
+  function runDueCheck(){
+    if(!isEnabled()) return;
+    var fired = loadFired();
+    var now = Date.now();
+    var changed = false;
+    getList('vet-visits').forEach(function(v){
+      if(!isUpcomingAppt(v)) return;
+      var dt = apptDateTime(v);
+      var when = dt.getTime();
+      LEAD_MS.forEach(function(lead){
+        var fireAt = when - lead;
+        var key = String(v.__id) + ':' + lead;
+        // Window: from fireAt up until the appointment itself. Avoid stale fires after the appt.
+        if(now >= fireAt && now < when && !fired[key]){
+          var leadLabel = lead >= 24*60*60*1000 ? 'tomorrow' : 'in about an hour';
+          var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' · ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
+          var pet = v.petName || 'Your pet';
+          var reason = v.reason ? (' — ' + v.reason) : (v.type ? (' — ' + v.type) : '');
+          showNotification(
+            '🐾 Vet appointment ' + leadLabel,
+            pet + reason + '\n' + whenLabel + (v.vet ? ' · ' + v.vet : ''),
+            'vet-' + key,
+            './index.html'
+          );
+          fired[key] = now;
+          changed = true;
+        }
+      });
+    });
+    // Garbage-collect ledger entries for past/removed appts
+    var liveKeys = {};
+    getList('vet-visits').forEach(function(v){ LEAD_MS.forEach(function(lead){ liveKeys[String(v.__id)+':'+lead] = 1; }); });
+    Object.keys(fired).forEach(function(k){ if(!liveKeys[k]){ delete fired[k]; changed = true; } });
+    if(changed) saveFired(fired);
+  }
+
+  // Precise in-session scheduling: while the app stays open, set exact timers
+  // for upcoming reminders so they fire on time without waiting for the poll.
+  var sessionTimers = [];
+  function scheduleSessionTimers(){
+    sessionTimers.forEach(function(t){ clearTimeout(t); });
+    sessionTimers = [];
+    if(!isEnabled()) return;
+    var now = Date.now();
+    getList('vet-visits').forEach(function(v){
+      if(!isUpcomingAppt(v)) return;
+      var when = apptDateTime(v).getTime();
+      LEAD_MS.forEach(function(lead){
+        var fireAt = when - lead;
+        var delay = fireAt - now;
+        // Only schedule timers within the next 24h (setTimeout is unreliable beyond that)
+        if(delay > 0 && delay < 24*60*60*1000){
+          var t = setTimeout(runDueCheck, delay + 500);
+          sessionTimers.push(t);
+        }
+      });
+    });
+  }
+
+  function refreshSchedules(){
+    runDueCheck();            // catch anything already due
+    scheduleSessionTimers();  // arm precise timers for the near term
+    registerPeriodicSync();   // best-effort background poll
+  }
+  window.pfRefreshReminders = refreshSchedules;
+
+  // Best-effort: Periodic Background Sync (Chrome/Android installed PWAs).
+  function registerPeriodicSync(){
+    if(!isEnabled()) return;
+    if('serviceWorker' in navigator && 'periodicSync' in (window.ServiceWorkerRegistration.prototype || {})){
+      navigator.serviceWorker.ready.then(function(reg){
+        if(reg.periodicSync){
+          reg.periodicSync.register('pawfolio-reminder-check', { minInterval: 60*60*1000 }).catch(function(){});
+        }
+      }).catch(function(){});
+    }
+  }
+
+  // ---------- Permission / settings UI ----------
+  function setEnabled(on){
+    localStorage.setItem(PREF_KEY, on ? '1' : '0');
+    renderSettings();
+    if(on) refreshSchedules();
+  }
+
+  function requestPermission(){
+    if(!supported()){
+      alert('This browser does not support notifications. Reminders work best in an installed app on Chrome (Android) or Safari (iOS, when added to Home Screen).');
+      return;
+    }
+    Notification.requestPermission().then(function(perm){
+      if(perm === 'granted'){
+        setEnabled(true);
+        showNotification('🐾 Reminders are on', "We'll remind you before vet appointments.", 'pawfolio-welcome');
+      } else {
+        setEnabled(false);
+        renderSettings();
+      }
+    });
+  }
+
+  function settingsHTML(){
+    var perm = supported() ? Notification.permission : 'unsupported';
+    var on = isEnabled();
+    var statusLine, btn = '';
+    if(perm === 'unsupported'){
+      statusLine = 'Not supported on this browser. For reminders, install Pawfolio to your Home Screen (iOS Safari) or use Chrome on Android.';
+    } else if(perm === 'denied'){
+      statusLine = 'Notifications are blocked. To turn them on, allow notifications for this site in your browser settings, then reload.';
+    } else if(perm === 'granted' && on){
+      statusLine = '✓ On — you\'ll get a reminder the day before and an hour before each appointment.';
+      btn = '<button type="button" id="vet-notif-off" style="background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Turn off reminders</button>';
+    } else {
+      statusLine = 'Get a banner reminder before each scheduled vet appointment — even when the app isn\'t open.';
+      btn = '<button type="button" id="vet-notif-on" style="background:#5B5BD6;border:1px solid #5B5BD6;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔔 Enable appointment reminders</button>';
+    }
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">' +
+             '<div style="flex:1;min-width:200px;">' +
+               '<h3 class="font-heading text-base font-bold text-primary" style="margin-bottom:4px;">Appointment Reminders</h3>' +
+               '<p class="font-body text-sm text-secondary">' + statusLine + '</p>' +
+             '</div>' + btn +
+           '</div>';
+  }
+
+  function renderSettings(){
+    var host = $('vet-notif-card');
+    if(!host) return;
+    host.innerHTML = settingsHTML();
+    var onBtn = $('vet-notif-on'); if(onBtn) onBtn.addEventListener('click', requestPermission);
+    var offBtn = $('vet-notif-off'); if(offBtn) offBtn.addEventListener('click', function(){ setEnabled(false); });
+  }
+
+  function injectSettingsCard(){
+    if($('vet-notif-card')) return true;
+    var section = $('tab-vet-visits'); if(!section) return false;
+    var h2 = section.querySelector('h2');
+    var card = document.createElement('div');
+    card.id = 'vet-notif-card';
+    card.className = 'card p-5 mb-5';
+    card.style.cssText = 'border-top:4px solid #f6a623;';
+    if(h2){ h2.insertAdjacentElement('afterend', card); }
+    else { section.insertAdjacentElement('afterbegin', card); }
+    renderSettings();
+    return true;
+  }
+
+  // Re-check whenever vet data changes (save/edit/delete all funnel through refreshAll)
+  function wrapRefreshAll(){
+    if(typeof window.refreshAll === 'function' && !window.refreshAll.__v360notify){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        var r = orig.apply(this, arguments);
+        setTimeout(refreshSchedules, 50);
+        return r;
+      };
+      window.refreshAll.__v360notify = true;
+    }
+  }
+
+  function boot(){
+    if(!$('tab-vet-visits')){ return setTimeout(boot, 100); }
+    injectSettingsCard();
+    wrapRefreshAll();
+    if(isEnabled()) refreshSchedules();
+    // Re-check when the app regains focus / becomes visible (covers "reopened after a while")
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshSchedules(); });
+    window.addEventListener('focus', refreshSchedules);
+    // Respond to service-worker pings (periodic background sync / notification open)
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.addEventListener('message', function(ev){
+        var data = ev.data || {};
+        if(data.type === 'pawfolio-reminder-check'){ runDueCheck(); }
+        if(data.type === 'pawfolio-open' && data.url){ try { window.focus(); } catch(e){} }
+      });
+    }
+  }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
