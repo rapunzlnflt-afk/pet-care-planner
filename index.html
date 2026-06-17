@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.4">
+                          <meta name="app-version" content="3.7.5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1838,7 +1838,9 @@
   }
 
   // ============ EXPORT / IMPORT ============
-  function exportPlannerData() {
+  // Legacy export: localStorage only (no document photos). Kept as a fallback in case the
+  // full-backup helper (defined later, in the vault block) isn't available yet.
+  function exportPlannerDataLegacy() {
     const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme'];
     const data = {};
     keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
@@ -1853,6 +1855,21 @@
     localStorage.setItem('petPlannerLastExport', today());
     localStorage.removeItem('backupReminderSnoozed');
     renderBackupReminder();
+  }
+  // Preferred export: full backup that ALSO includes document photos from IndexedDB.
+  // Falls back to the legacy localStorage-only export if the helper isn't ready.
+  function exportPlannerData() {
+    if (typeof window.pawfolioDownloadFullBackup === 'function') {
+      window.pawfolioDownloadFullBackup().then(function(){
+        try { localStorage.setItem('petPlannerLastExport', today()); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
+        if (typeof renderBackupReminder === 'function') renderBackupReminder();
+      }).catch(function(){
+        // If the full backup fails for any reason, fall back so the user still gets a file.
+        exportPlannerDataLegacy();
+      });
+      return;
+    }
+    exportPlannerDataLegacy();
   }
   document.getElementById('export-data-btn').addEventListener('click', exportPlannerData);
 
