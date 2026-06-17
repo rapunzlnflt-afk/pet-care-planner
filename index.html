@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.7.0">
+                          <meta name="app-version" content="3.7.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2595,7 +2595,11 @@ refreshAll();
   try {
     var PENCIL_RE = /✏|🖊|pencil|edit/i;
     var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
+    function isVaultActionBtn(el){
+      return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del')));
+    }
     function isPencilBtn(el){
+      if (isVaultActionBtn(el)) return false;
       if (!el || el.tagName !== 'BUTTON' && el.tagName !== 'A' && el.getAttribute && el.getAttribute('role') !== 'button') {
         if (!el || (el.tagName !== 'BUTTON' && el.tagName !== 'A')) return false;
       }
@@ -2610,6 +2614,7 @@ refreshAll();
     }
     function isXBtn(el){
       if (!el) return false;
+      if (isVaultActionBtn(el)) return false;
       if (el.tagName !== 'BUTTON' && el.tagName !== 'A') return false;
       var t = (el.textContent||'').trim();
       var aria = (el.getAttribute && (el.getAttribute('aria-label')||el.getAttribute('title'))) || '';
@@ -2682,8 +2687,10 @@ try {
   var PENCIL_RE = /✏|🖊|pencil|edit/i;
   var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
   function isBtn(el){ if(!el) return false; var tn=el.tagName; return tn==='BUTTON'||tn==='A'; }
-  function isX(el){ if(!isBtn(el)) return false; return X_RE.test((el.textContent||'').trim()); }
+  function isVaultActionBtn2(el){ return !!(el && el.getAttribute && (el.getAttribute('data-view')||el.getAttribute('data-share')||el.getAttribute('data-cloudonly')||el.getAttribute('data-link')||el.getAttribute('data-savelink')||el.getAttribute('data-del'))); }
+  function isX(el){ if(isVaultActionBtn2(el)) return false; if(!isBtn(el)) return false; return X_RE.test((el.textContent||'').trim()); }
   function isPencil(el){
+    if(isVaultActionBtn2(el)) return false;
     if(!isBtn(el)) return false;
     var t=(el.textContent||'').trim();
     var aria=(el.getAttribute&&(el.getAttribute('aria-label')||el.getAttribute('title')))||'';
@@ -4770,11 +4777,16 @@ try {
         ? '<img src="' + d.thumb + '" alt="' + (d.name||'document') + '" data-view="' + d.__id + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb);cursor:pointer;flex:0 0 auto;">'
         : '<div style="width:56px;height:56px;border-radius:8px;background:rgba(91,91,214,0.08);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:22px;">\uD83D\uDCC4</div>';
       var cloudBadge = d.cloudOnly ? '<span style="background:rgba(16,185,129,0.12);color:#059669;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;">\u2601\uFE0F Cloud-only</span>' : '';
+      var btnBase = 'border:1px solid;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;background:#fff;white-space:nowrap;flex:0 0 auto;';
+      var btnBlue = btnBase + 'color:#5B5BD6;border-color:rgba(91,91,214,0.4);';
+      var btnBlueFill = 'border:1px solid #5B5BD6;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;padding:5px 11px;line-height:1;background:#5B5BD6;color:#fff;white-space:nowrap;flex:0 0 auto;';
+      var btnGreen = btnBase + 'color:#059669;border-color:rgba(5,150,105,0.4);';
       var actions = [];
-      if (d.imgKey || d.thumb) actions.push('<button type="button" data-view="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">View</button>');
-      if (d.imgKey) actions.push('<button type="button" data-share="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">Share to cloud</button>');
-      if (d.imgKey && !d.cloudOnly) actions.push('<button type="button" data-cloudonly="' + d.__id + '" style="background:none;border:none;color:#059669;font-size:12px;font-weight:600;cursor:pointer;padding:0;">Make cloud-only</button>');
-      actions.push('<button type="button" data-link="' + d.__id + '" style="background:none;border:none;color:#5B5BD6;font-size:12px;font-weight:600;cursor:pointer;padding:0;">' + (d.link ? 'Edit link' : 'Add link') + '</button>');
+      if (d.imgKey || d.thumb) actions.push('<button type="button" data-view="' + d.__id + '" style="' + btnBlue + '">View</button>');
+      // Share is ALWAYS available: shares the photo if present, otherwise shares/opens the cloud link.
+      actions.push('<button type="button" data-share="' + d.__id + '" style="' + btnBlueFill + '">\uD83D\uDCE4 ' + (d.imgKey ? 'Share to cloud' : (d.link ? 'Share link' : 'Add cloud link')) + '</button>');
+      if (d.imgKey && !d.cloudOnly) actions.push('<button type="button" data-cloudonly="' + d.__id + '" style="' + btnGreen + '">Make cloud-only</button>');
+      actions.push('<button type="button" data-link="' + d.__id + '" style="' + btnBlue + '">' + (d.link ? 'Edit link' : 'Add link') + '</button>');
       var linkHtml = d.link ? '<a href="' + d.link + '" target="_blank" rel="noopener" class="font-body text-sm" style="color:var(--accent-color);">View in cloud \u2192</a>' : '';
       return '' +
         '<div class="card p-4">' +
@@ -4863,7 +4875,23 @@ try {
   }
 
   function shareDoc(id){
-    var doc = findDoc(id); if (!doc || !doc.imgKey) return;
+    var doc = findDoc(id); if (!doc) return;
+    // No stored photo: share the cloud link if we have one, else prompt to add one.
+    if (!doc.imgKey){
+      if (doc.link){
+        if (navigator.share){
+          navigator.share({ title: doc.name || 'Document', text: doc.name || '', url: doc.link }).catch(function(){});
+        } else if (navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(doc.link).then(function(){ alert('Link copied to clipboard.'); }).catch(function(){ window.open(doc.link, '_blank'); });
+        } else {
+          window.open(doc.link, '_blank');
+        }
+      } else {
+        // No photo and no link yet: open the paste-back box so they can add one.
+        promptPasteLink(id);
+      }
+      return;
+    }
     idbGet(doc.imgKey).then(function(blob){
       if (!blob) { alert('No stored photo to share.'); return; }
       var file = new File([blob], (doc.name||'document').replace(/[^\w\-]+/g,'_') + '.jpg', { type:'image/jpeg' });
