@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.9">
+                          <meta name="app-version" content="3.9.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4283,14 +4283,22 @@ try {
   'use strict';
   if (window.__pawfolio_v360_notify) return; window.__pawfolio_v360_notify = true;
 
-  // v3.8.5: The in-app (JS-timer) reminder system has been removed. Phone push
-  // is now the only reminder system. This module keeps the SHARED lead-time
-  // settings (read by the push layer via getLeads) and renders the combined
-  // "Reminders" card scaffold: a header, a slot the push module fills with its
-  // single toggle row, and a timing panel the gear on that row opens.
+  // v3.9.0: Per-type notification timing. Each event type (vet visits, medications,
+  // vaccinations) has its OWN on/off flag + its OWN set of lead times. The controls
+  // live at the top of each section. There is no master toggle and no standalone
+  // "Notifications" card. The push plumbing (subscribe/permission/syncReminders) is
+  // unchanged; these per-type controls just drive it.
 
-  var LEAD_KEY  = 'pawfolioReminderLeads';     // chosen lead times (CSV of ms)
+  var OLD_LEAD_KEY = 'pawfolioReminderLeads';  // legacy single shared setting (CSV of ms)
   var $ = function(id){ return document.getElementById(id); };
+
+  // UI type -> Supabase source string (the source CHECK constraint depends on
+  // these; the mapping is applied inline in each emit() call below).
+  var TYPES = ['vet','med','vacc'];
+  var LABELS = { vet: 'Vet visit reminders', med: 'Medication reminders', vacc: 'Vaccination reminders' };
+  var SECTION = { vet: 'tab-vet-visits', med: 'tab-medications', vacc: 'tab-vaccinations' };
+  var LEADS_KEY = { vet: 'pawfolioLeads_vet', med: 'pawfolioLeads_med', vacc: 'pawfolioLeads_vacc' };
+  var NOTIF_KEY = { vet: 'pawfolioNotif_vet', med: 'pawfolioNotif_med', vacc: 'pawfolioNotif_vacc' };
 
   // Selectable lead times. value = milliseconds before the event.
   var LEAD_OPTIONS = [
@@ -4303,21 +4311,69 @@ try {
   ];
   var DEFAULT_LEADS = [24*60*60*1000, 60*60*1000]; // 1 day + 1 hour
 
-  function getLeads(){
-    var raw = localStorage.getItem(LEAD_KEY);
-    if(raw === null) return DEFAULT_LEADS.slice();
-    var arr = raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n > 0; });
-    return arr.length ? arr : []; // empty = user turned all off
+  function parseLeads(raw){
+    if(raw === null || raw === undefined) return null;
+    return raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n > 0; });
   }
-  function setLeads(arr){
-    localStorage.setItem(LEAD_KEY, arr.join(','));
+
+  // ---------- one-time migration ----------
+  // Seed per-type lead/flag keys from the old single shared setting so existing
+  // users see no change until they tweak something. Idempotent: only runs when
+  // the new keys are absent.
+  function migrate(){
+    var hasNew = false;
+    TYPES.forEach(function(t){
+      if(localStorage.getItem(LEADS_KEY[t]) !== null) hasNew = true;
+      if(localStorage.getItem(NOTIF_KEY[t]) !== null) hasNew = true;
+    });
+    if(hasNew) return;
+    var oldRaw = localStorage.getItem(OLD_LEAD_KEY);
+    var oldLeads = parseLeads(oldRaw);
+    var seedLeads = (oldLeads && oldLeads.length) ? oldLeads : DEFAULT_LEADS.slice();
+    // On/off default: ON if the device previously had push enabled, so existing
+    // push users keep getting reminders. Otherwise default OFF so we never
+    // surprise-subscribe anyone.
+    var pushWasOn = false;
+    try { pushWasOn = localStorage.getItem('pawfolioPushEnabled') === '1'; } catch(e){}
+    var flagOn = pushWasOn;
+    TYPES.forEach(function(t){
+      localStorage.setItem(LEADS_KEY[t], seedLeads.join(','));
+      localStorage.setItem(NOTIF_KEY[t], flagOn ? '1' : '0');
+    });
+    // Leave OLD_LEAD_KEY in place for safety/backward compat; just stop using it.
   }
+  migrate();
+
+  // ---------- per-type accessors ----------
+  function getLeadsFor(type){
+    var raw = localStorage.getItem(LEADS_KEY[type]);
+    var arr = parseLeads(raw);
+    if(arr === null) return DEFAULT_LEADS.slice();
+    return arr; // empty array = user unchecked everything
+  }
+  function setLeadsFor(type, arr){
+    localStorage.setItem(LEADS_KEY[type], arr.join(','));
+  }
+  function getNotifOn(type){
+    return localStorage.getItem(NOTIF_KEY[type]) === '1';
+  }
+  function setNotifOn(type, on){
+    localStorage.setItem(NOTIF_KEY[type], on ? '1' : '0');
+  }
+  function anyNotifOn(){
+    return TYPES.some(function(t){ return getNotifOn(t); });
+  }
+  window.pfGetLeadsFor = getLeadsFor;
+  window.pfSetLeadsFor = setLeadsFor;
+  window.pfGetNotifOn = getNotifOn;
+  window.pfSetNotifOn = setNotifOn;
+  window.pfAnyNotifOn = anyNotifOn;
+
   // Human label for a lead, used in the notification title.
   function leadLabel(ms){
     var found = LEAD_OPTIONS.filter(function(o){ return o.ms === ms; })[0];
     return found ? found.label.replace(' before','') : 'soon';
   }
-  // Expose the lead label so the push layer can build notification titles.
   window.pfLeadLabel = leadLabel;
 
   function getList(k){
@@ -4332,8 +4388,7 @@ try {
     return h12+':'+m+' '+ampm;
   }
   function apptDateTime(v){
-    // Returns a Date for the appointment, or null.
-    var date = v.next || v.date; // follow-up takes precedence as the "next" event
+    var date = v.next || v.date;
     var time = v.next ? (v.nextTime || '09:00') : (v.time || '09:00');
     if(!date) return null;
     var dt = new Date(date + 'T' + (time.length === 5 ? time : '09:00') + ':00');
@@ -4345,14 +4400,16 @@ try {
   }
 
   // Expose upcoming reminder occurrences so the Web Push layer can sync them to
-  // Supabase and deliver real OS notifications. One entry per (upcoming event x
-  // selected lead) across vet appointments, medication refills, and vaccinations.
+  // Supabase. Each type uses its OWN leads and is skipped entirely when its
+  // toggle is off.
   window.pfUpcomingReminders = function(){
     var out = [];
     var now = Date.now();
-    function emit(opts){
+    // type is the UI type ('vet'|'med'|'vacc'); source is mapped to the Supabase string.
+    function emit(type, opts){
+      if(!getNotifOn(type)) return;
       if(!(opts.when > now)) return;
-      getLeads().forEach(function(lead){
+      getLeadsFor(type).forEach(function(lead){
         var fireAt = opts.when - lead;
         if(fireAt <= now) return;
         if(fireAt >= opts.when) return;
@@ -4376,7 +4433,7 @@ try {
       var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' · ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
       var pet = v.petName || 'Your pet';
       var reason = v.reason ? (' — ' + v.reason) : (v.type ? (' — ' + v.type) : '');
-      emit({
+      emit('vet', {
         source: 'vet-visit', sourceId: v.__id, when: dt.getTime(),
         titleFor: function(lbl){ return '🐾 Vet appointment in ' + lbl; },
         body: pet + reason + '\n' + whenLabel + (v.vet ? ' · ' + v.vet : '')
@@ -4391,7 +4448,7 @@ try {
       if(!dt) return;
       var pet = m.petName || 'Your pet';
       var detail = [m.dosage, m.frequency].filter(function(s){ return s; }).join(' · ');
-      emit({
+      emit('med', {
         source: 'medication', sourceId: m.__id, when: dt.getTime(),
         titleFor: function(lbl){ return '💊 Refill due in ' + lbl; },
         body: pet + ' — ' + (m.name || 'Medication') + '\nRefill ' + dayLabel(dt) + (detail ? (' · ' + detail) : '')
@@ -4403,7 +4460,7 @@ try {
       var dt = dateAt9(vc.next);
       if(!dt) return;
       var pet = vc.petName || 'Your pet';
-      emit({
+      emit('vacc', {
         source: 'vaccination', sourceId: vc.__id, when: dt.getTime(),
         titleFor: function(lbl){ return '💉 Vaccination due in ' + lbl; },
         body: pet + ' — ' + (vc.name || 'Vaccination') + '\nDue ' + dayLabel(dt) + (vc.vet ? (' · ' + vc.vet) : '')
@@ -4413,94 +4470,130 @@ try {
     return out;
   };
 
-  // ---------- Shared lead-time (timing) UI ----------
-  // Track whether the timing panel is expanded (in-memory, per session)
-  var timingOpen = false;
+  // ---------- per-type control UI ----------
+  var alarmIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;">' +
+                    '<circle cx="12" cy="13" r="7"/>' +
+                    '<path d="M12 10v3l2 1.5"/>' +
+                    '<path d="M5 3.5 2.5 6"/>' +
+                    '<path d="M19 3.5 21.5 6"/>' +
+                    '<path d="M8.5 20l-2 2.5"/>' +
+                    '<path d="M15.5 20l2 2.5"/>' +
+                  '</svg>';
 
-  // Compact summary of the currently-selected lead times, e.g. "1 day, 1 hour before"
-  function leadsSummary(){
-    var leads = getLeads();
-    if(!leads.length) return 'no lead times selected';
-    var sorted = leads.slice().sort(function(a,b){ return b - a; });
-    return sorted.map(function(ms){ return leadLabel(ms); }).join(', ') + ' before';
+  function toggleHTML(type){
+    var on = getNotifOn(type);
+    var bg = on ? '#5B5BD6' : '#d1d5db';
+    var knob = on
+      ? '<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span>'
+      : '<span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span>';
+    return '<button type="button" id="pf-typetgl-' + type + '" role="switch" aria-checked="' + (on?'true':'false') + '" ' +
+           'aria-label="Toggle ' + LABELS[type] + '" ' +
+           'style="flex:0 0 auto;background:' + bg + ';border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
+           knob + '</button>';
   }
-  window.pfLeadsSummary = leadsSummary;
-  window.pfTimingOpen = function(){ return timingOpen; };
 
-  function timingPanelHTML(){
-    var leads = getLeads();
+  function timingHTML(type){
+    if(!getNotifOn(type)) return '';
+    var leads = getLeadsFor(type);
     var rows = LEAD_OPTIONS.map(function(o){
       var checked = leads.indexOf(o.ms) !== -1 ? ' checked' : '';
       return '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer;" class="font-body text-secondary">' +
-               '<input type="checkbox" class="vet-lead-cb" value="' + o.ms + '"' + checked + ' style="width:16px;height:16px;accent-color:#5B5BD6;cursor:pointer;">' +
+               '<input type="checkbox" class="pf-lead-cb-' + type + '" value="' + o.ms + '"' + checked + ' style="width:16px;height:16px;accent-color:#5B5BD6;cursor:pointer;">' +
                '<span>' + o.label + '</span>' +
              '</label>';
     }).join('');
-    return '<div id="vet-timing-panel" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' +
+    return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' +
              '<p class="font-body text-xs text-secondary" style="margin-bottom:4px;">Remind me:</p>' +
              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;">' + rows + '</div>' +
            '</div>';
   }
 
-  // Render the timing panel into its host (only when open). Wires the checkboxes
-  // to setLeads + re-sync push. Exposed so the push gear can toggle it.
-  function renderTiming(){
-    var host = $('pf-timing-host');
+  function blockInnerHTML(type){
+    var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:14px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + alarmIcon + '</span>' +
+                '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + LABELS[type] + '</div>' +
+                toggleHTML(type) +
+              '</div>';
+    return bar + '<div id="pf-typetiming-' + type + '">' + timingHTML(type) + '</div>';
+  }
+
+  function renderBlock(type){
+    var host = $('pf-typectl-' + type);
     if(!host) return;
-    host.innerHTML = timingOpen ? timingPanelHTML() : '';
-    var cbs = host.querySelectorAll('.vet-lead-cb');
+    host.innerHTML = blockInnerHTML(type);
+    var tgl = $('pf-typetgl-' + type);
+    if(tgl){
+      tgl.addEventListener('click', function(){ onToggle(type); });
+    }
+    wireCheckboxes(type);
+  }
+
+  function wireCheckboxes(type){
+    var host = $('pf-typetiming-' + type);
+    if(!host) return;
+    var cbs = host.querySelectorAll('.pf-lead-cb-' + type);
     Array.prototype.forEach.call(cbs, function(cb){
       cb.addEventListener('change', function(){
         var chosen = [];
-        Array.prototype.forEach.call(host.querySelectorAll('.vet-lead-cb'), function(c){
+        Array.prototype.forEach.call(host.querySelectorAll('.pf-lead-cb-' + type), function(c){
           if(c.checked) chosen.push(parseInt(c.value,10));
         });
-        setLeads(chosen);
-        renderTiming();
-        // Repaint the push row's gear summary, then re-sync to Supabase.
-        if(typeof window.pfRenderPushRow === 'function'){ try { window.pfRenderPushRow(); } catch(e){} }
+        setLeadsFor(type, chosen);
         if(typeof window.pfSyncPushReminders === 'function'){ try { window.pfSyncPushReminders(); } catch(e){} }
       });
     });
   }
-  window.pfRenderTiming = renderTiming;
-  window.pfToggleTiming = function(){ timingOpen = !timingOpen; renderTiming(); };
-  window.pfCollapseTiming = function(){ timingOpen = false; renderTiming(); };
 
-  // ---------- Combined "Reminders" card scaffold ----------
-  function cardHTML(){
-    var header = '<div class="font-heading text-xs font-bold text-secondary" style="text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Reminders</div>';
-    // The push module fills #pf-push-slot with the single toggle row (+ gear);
-    // #pf-timing-host holds the lead-time panel the gear opens.
-    return header + '<div id="pf-push-slot"></div><div id="pf-timing-host"></div>';
+  function onToggle(type){
+    var turningOn = !getNotifOn(type);
+    if(turningOn){
+      // Turn the flag on first so a successful subscribe immediately syncs this type.
+      setNotifOn(type, true);
+      renderBlock(type);
+      // Ensure the phone is subscribed to push; reuse the same enable flow the old
+      // bell toggle used. If already subscribed this is a quick no-op + sync.
+      var ensure = (typeof window.pfEnablePush === 'function')
+        ? window.pfEnablePush()
+        : Promise.resolve(true);
+      Promise.resolve(ensure).then(function(ok){
+        // If push could not be enabled (permission denied / unsupported), revert
+        // the toggle so it doesn't look on while nothing will ever be delivered.
+        if(ok === false){
+          setNotifOn(type, false);
+          renderBlock(type);
+          return;
+        }
+        if(typeof window.pfSyncPushReminders === 'function'){ try { window.pfSyncPushReminders(); } catch(e){} }
+      });
+    } else {
+      setNotifOn(type, false);
+      renderBlock(type);
+      // Re-sync so this type's reminders are removed from Supabase. We leave the
+      // device subscribed even when all types are off (syncs zero reminders) —
+      // simpler and safer than tearing down the subscription.
+      if(typeof window.pfSyncPushReminders === 'function'){ try { window.pfSyncPushReminders(); } catch(e){} }
+    }
   }
+  // Allow the push layer to repaint toggles (e.g. after a denied permission).
+  window.pfRenderTypeControls = function(){ TYPES.forEach(renderBlock); };
 
-  function renderSettings(){
-    var host = $('vet-notif-card');
-    if(!host) return;
-    host.innerHTML = cardHTML();
-    // Ask the push module to paint its row into the slot.
-    if(typeof window.pfRenderPushRow === 'function'){ try { window.pfRenderPushRow(); } catch(e){} }
-    renderTiming();
-  }
-
-  function injectSettingsCard(){
-    if($('vet-notif-card')) return true;
-    var section = $('tab-vet-visits'); if(!section) return false;
+  function injectBlock(type){
+    if($('pf-typectl-' + type)) return true;
+    var section = $(SECTION[type]); if(!section) return false;
     var h2 = section.querySelector('h2');
     var card = document.createElement('div');
-    card.id = 'vet-notif-card';
+    card.id = 'pf-typectl-' + type;
     card.className = 'card mb-3';
     card.style.cssText = 'padding:8px 12px;border-left:3px solid #5B5BD6;';
     if(h2){ h2.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
-    renderSettings();
+    renderBlock(type);
     return true;
   }
 
   function boot(){
-    if(!$('tab-vet-visits')){ return setTimeout(boot, 100); }
-    injectSettingsCard();
+    if(!$(SECTION.vet) || !$(SECTION.med) || !$(SECTION.vacc)){ return setTimeout(boot, 100); }
+    TYPES.forEach(injectBlock);
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
@@ -6023,41 +6116,43 @@ try {
     if(!pushSupported()){
       alert('This browser does not support push notifications. On iPhone, add Pawfolio to your Home Screen (Share \u2192 Add to Home Screen) and open it from there.');
       stampDevice(false, 'push not supported', 'unsupported');
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     if(!isConfigured()){
       alert('Phone push is not set up yet for this app.');
       stampDevice(false, 'not configured', 'config');
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     return Notification.requestPermission().then(function(perm){
       if(perm !== 'granted'){
         stampDevice(false, 'permission ' + perm, 'permission');
-        renderCard();
-        return;
+        renderTypeControls();
+        return false;
       }
       return getSupabase().then(function(supabase){
         return upsertDevice(supabase);
       }).then(function(){
         stampDevice(true, 'device registered', 'device-upsert');
         try { localStorage.setItem('pawfolioPushEnabled','1'); } catch(e){}
-        renderCard();
-        return syncReminders();
+        renderTypeControls();
+        return syncReminders().then(function(){ return true; });
       });
     }).catch(function(err){
       var msg = (err && err.message) || String(err);
       stampDevice(false, msg, 'error');
       alert('Could not turn on phone reminders: ' + msg);
-      renderCard();
+      renderTypeControls();
+      return false;
     });
   }
+  window.pfEnablePush = enablePush;
+  window.pfIsSubscribed = isSubscribed;
 
   function disablePush(){
     var done = function(){
       try { localStorage.removeItem('pawfolioPushEnabled'); } catch(e){}
       stampDevice(true, 'disabled on this device', 'disable');
-      if(typeof window.pfCollapseTiming === 'function'){ try { window.pfCollapseTiming(); } catch(e){} }
-      renderCard();
+      renderTypeControls();
     };
     if(!pushSupported()){ done(); return Promise.resolve(); }
     return navigator.serviceWorker.getRegistration().then(function(reg){
@@ -6124,91 +6219,10 @@ try {
   }
   window.pfSyncPushReminders = requestSync;
 
-  function cardHTML(){
-    var on = (function(){ try { return localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){ return false; } })();
-    var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-    var bell, label, sub, control = '', leadBtn = '';
-
-    // Vintage twin-bell alarm clock icon (inherits accent via currentColor, ~14px).
-    var alarmIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;">' +
-                      '<circle cx="12" cy="13" r="7"/>' +
-                      '<path d="M12 10v3l2 1.5"/>' +
-                      '<path d="M5 3.5 2.5 6"/>' +
-                      '<path d="M19 3.5 21.5 6"/>' +
-                      '<path d="M8.5 20l-2 2.5"/>' +
-                      '<path d="M15.5 20l2 2.5"/>' +
-                    '</svg>';
-
-    if(!isConfigured()){
-      bell = alarmIcon;
-      label = 'Notifications <span class="text-secondary font-normal">(coming soon)</span>';
-    } else if(!pushSupported() || perm === 'unsupported'){
-      bell = alarmIcon;
-      label = 'Notifications <span class="text-secondary font-normal">(unsupported)</span>';
-    } else if(perm === 'denied'){
-      bell = alarmIcon;
-      label = 'Notifications <span class="text-secondary font-normal">(blocked)</span>';
-    } else if(on && perm === 'granted'){
-      bell = alarmIcon;
-      label = 'Notifications';
-      // Timing gear \u2014 opens the shared lead-time panel (1 week \u2026 30 min).
-      var summary = (typeof window.pfLeadsSummary === 'function') ? window.pfLeadsSummary() : '';
-      leadBtn = '<button type="button" id="vet-timing-toggle" style="background:none;border:none;padding:0 0 0 6px;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + summary + '</button>';
-      control = '<button type="button" id="pf-push-off" title="Turn off reminders" aria-label="Turn off reminders" ' +
-                'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
-                '<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
-    } else {
-      bell = alarmIcon;
-      label = 'Notifications';
-      control = '<button type="button" id="pf-push-on" title="Turn on reminders" aria-label="Turn on reminders" ' +
-                'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
-                '<span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
-    }
-
-    var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:14px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + bell + '</span>' +
-                '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + label + leadBtn + '</div>' +
-                control +
-              '</div>';
-    return bar;
-  }
-
-  // Find where the phone row lives: the combined-card slot if present,
-  // else the standalone fallback card.
-  function pushHost(){ return $('pf-push-slot') || $('pf-push-card'); }
-
-  function renderCard(){
-    var host = pushHost();
-    if(!host) return;
-    host.innerHTML = cardHTML();
-    var onBtn = $('pf-push-on'); if(onBtn) onBtn.addEventListener('click', function(){ enablePush(); });
-    var offBtn = $('pf-push-off'); if(offBtn) offBtn.addEventListener('click', function(){ disablePush(); });
-    // Timing gear toggles the shared lead-time panel rendered by the card scaffold.
-    var tToggle = $('vet-timing-toggle');
-    if(tToggle) tToggle.addEventListener('click', function(){ if(typeof window.pfToggleTiming === 'function') window.pfToggleTiming(); });
-  }
-  // Let the appointment card repaint our row after it re-renders the slot.
-  window.pfRenderPushRow = renderCard;
-
-  function injectCard(){
-    // Preferred: render into the combined "Reminders" card slot.
-    if($('pf-push-slot')){ renderCard(); return true; }
-    if($('pf-push-card')) return true;
-    var section = $('tab-vet-visits'); if(!section) return false;
-    // Fallback (combined card not present yet): keep our own standalone card.
-    var card = document.createElement('div');
-    card.id = 'pf-push-card';
-    card.className = 'card mb-4';
-    card.style.cssText = 'padding:12px 14px;border-left:3px solid #5B5BD6;';
-    var anchor = $('vet-notif-card');
-    if(anchor){ anchor.insertAdjacentElement('afterend', card); }
-    else {
-      var h2 = section.querySelector('h2');
-      if(h2){ h2.insertAdjacentElement('afterend', card); }
-      else { section.insertAdjacentElement('afterbegin', card); }
-    }
-    renderCard();
-    return true;
+  // The per-type controls live in the notify module. Ask it to repaint after a
+  // push state change (e.g. a denied permission or a re-affirm on open).
+  function renderTypeControls(){
+    if(typeof window.pfRenderTypeControls === 'function'){ try { window.pfRenderTypeControls(); } catch(e){} }
   }
 
   // Re-sync whenever pet data changes (add/edit/delete all funnel through refreshAll)
@@ -6226,18 +6240,15 @@ try {
 
   function boot(){
     if(!$('tab-vet-visits')){ return setTimeout(boot, 120); }
-    // Prefer the combined "Reminders" card slot. Give it a short grace period
-    // to appear before falling back to a standalone card.
-    boot.__tries = (boot.__tries || 0) + 1;
-    if(!$('pf-push-slot') && !$('pf-push-card') && boot.__tries < 20){ return setTimeout(boot, 100); }
-    injectCard();
     wrapRefreshAll();
-    // On open, refresh subscription + reminders if the user previously enabled.
+    // On open, refresh subscription + reminders if the user previously enabled
+    // (or had any per-type notification turned on).
     var wasOn = false; try { wasOn = localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){}
-    if(wasOn && isConfigured() && pushSupported() && Notification.permission === 'granted'){
+    var anyOn = (typeof window.pfAnyNotifOn === 'function') ? window.pfAnyNotifOn() : false;
+    if((wasOn || anyOn) && isConfigured() && pushSupported() && Notification.permission === 'granted'){
       // Re-affirm the device row (handles rotated subscriptions) then sync.
       getSupabase().then(function(supabase){ return upsertDevice(supabase); })
-        .then(function(){ renderCard(); return requestSync(); })
+        .then(function(){ renderTypeControls(); return requestSync(); })
         .catch(function(err){ stampDevice(false, (err&&err.message)||String(err), 'reaffirm'); });
     }
     document.addEventListener('visibilitychange', function(){ if(!document.hidden) requestSync(); });
