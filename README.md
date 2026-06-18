@@ -21,7 +21,6 @@ This product has **two separate GitHub repos**. They are NOT linked — a commit
 | File | Purpose |
 |------|---------|
 | `index.html` | The live app that loads at the URL above |
-| `pawfolio-download.html` | The standalone HTML file sold on Etsy (buyers download and run locally) |
 | `version.json` | Read by the in-app "Check for updates" feature |
 | `sw.js` | Service worker — controls PWA caching |
 | `manifest.json` | PWA install manifest |
@@ -31,7 +30,7 @@ This product has **two separate GitHub repos**. They are NOT linked — a commit
 
 When making a change that the user should see:
 
-1. Bump `<meta name="app-version" content="X.X.X">` (line 9) in both `index.html` and `pawfolio-download.html`
+1. Bump `<meta name="app-version" content="X.X.X">` (line 9) in `index.html`
 2. Update `"version"` and `"released"` in `version.json`
 3. Bump `CACHE_NAME` in `sw.js` (e.g. `pet-care-planner-79` → `pet-care-planner-80`) — this forces installed PWAs to flush their cache and pull the new files
 4. If the change is user-facing, also commit a parallel update to the `pet-care-planner-demo` repo
