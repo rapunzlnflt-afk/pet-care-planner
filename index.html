@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.0">
+                          <meta name="app-version" content="3.8.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4455,8 +4455,8 @@ try {
                 '<span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
     }
 
-    var bar = '<div style="display:flex;align-items:center;gap:10px;">' +
-                '<span style="font-size:18px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
+    var bar = '<div style="display:flex;align-items:center;gap:9px;">' +
+                '<span style="font-size:15px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
                 '<div style="flex:1;min-width:0;">' +
                   '<div class="font-heading text-sm font-bold text-primary" style="line-height:1.2;">' + label + '</div>' +
                   '<div style="line-height:1.2;">' + sub + '</div>' +
@@ -4465,7 +4465,11 @@ try {
               '</div>';
 
     var panel = (perm === 'granted' && on && timingOpen) ? timingPanelHTML() : '';
-    return bar + panel;
+    // Combined "Reminders" card: shared header, the appointment row, the timing
+    // panel, then a slot the phone-push module fills with its own row.
+    var header = '<div class="font-heading text-xs font-bold text-secondary" style="text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Reminders</div>';
+    var divider = '<div style="height:1px;background:var(--border,#e5e7eb);margin:9px 0;"></div>';
+    return header + bar + panel + divider + '<div id="pf-push-slot"></div>';
   }
 
   function renderSettings(){
@@ -4487,6 +4491,8 @@ try {
         refreshSchedules();
       });
     });
+    // Re-render wipes the phone-row slot; ask the push module to repaint it.
+    if(typeof window.pfRenderPushRow === 'function'){ try { window.pfRenderPushRow(); } catch(e){} }
   }
 
   function injectSettingsCard(){
@@ -4495,8 +4501,8 @@ try {
     var h2 = section.querySelector('h2');
     var card = document.createElement('div');
     card.id = 'vet-notif-card';
-    card.className = 'card mb-4';
-    card.style.cssText = 'padding:12px 14px;border-left:3px solid #f6a623;';
+    card.className = 'card mb-3';
+    card.style.cssText = 'padding:10px 13px;border-left:3px solid #5B5BD6;';
     if(h2){ h2.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
     renderSettings();
@@ -6154,28 +6160,6 @@ try {
   }
   window.pfSyncPushReminders = requestSync;
 
-  // ----- diagnostics (collapsible) -----
-  function diagnosticsHTML(){
-    var ds = readStatus(DEVICE_SYNC_KEY);
-    var rs = readStatus(REMINDER_SYNC_KEY);
-    var ua = navigator.userAgent || '';
-    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-    var line = function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;"><span class="text-secondary">'+k+'</span><span class="text-primary" style="text-align:right;word-break:break-word;">'+v+'</span></div>'; };
-    var fmtStatus = function(s){ return s ? ((s.ok?'\u2713 ':'\u2717 ') + (s.message||'') + (typeof s.count==='number'?(' ('+s.count+')'):'')) : '\u2014'; };
-    return '<div id="pf-push-diag" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border,#e5e7eb);font-size:12px;display:grid;gap:4px;" class="font-body">' +
-             line('Configured', isConfigured()?'yes':'no (keys pending)') +
-             line('Push supported', pushSupported()?'yes':'no') +
-             line('Permission', ('Notification' in window)?Notification.permission:'unavailable') +
-             line('Installed (Home Screen)', standalone?'yes':'no') +
-             line('iOS', isIOS?'yes':'no') +
-             line('Last device sync', fmtStatus(ds)) +
-             line('Last reminder sync', fmtStatus(rs)) +
-           '</div>';
-  }
-
-  var diagOpen = false;
-
   function cardHTML(){
     var on = (function(){ try { return localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){ return false; } })();
     var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
@@ -6209,36 +6193,41 @@ try {
                 '<span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span></button>';
     }
 
-    var bar = '<div style="display:flex;align-items:center;gap:10px;">' +
-                '<span style="font-size:18px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
+    var bar = '<div style="display:flex;align-items:center;gap:9px;">' +
+                '<span style="font-size:15px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
                 '<div style="flex:1;min-width:0;">' +
                   '<div class="font-heading text-sm font-bold text-primary" style="line-height:1.2;">' + label + '</div>' +
                   '<div style="line-height:1.3;">' + sub + '</div>' +
-                  '<button type="button" id="pf-push-diag-toggle" style="background:none;border:none;padding:2px 0 0;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + (diagOpen?'Hide':'Status') + '</button>' +
                 '</div>' +
                 control +
               '</div>';
-    return bar + (diagOpen ? diagnosticsHTML() : '');
+    return bar;
   }
 
+  // Find where the phone row lives: the combined-card slot if present,
+  // else the standalone fallback card.
+  function pushHost(){ return $('pf-push-slot') || $('pf-push-card'); }
+
   function renderCard(){
-    var host = $('pf-push-card');
+    var host = pushHost();
     if(!host) return;
     host.innerHTML = cardHTML();
     var onBtn = $('pf-push-on'); if(onBtn) onBtn.addEventListener('click', function(){ enablePush(); });
     var offBtn = $('pf-push-off'); if(offBtn) offBtn.addEventListener('click', function(){ disablePush(); });
-    var dt = $('pf-push-diag-toggle'); if(dt) dt.addEventListener('click', function(){ diagOpen = !diagOpen; renderCard(); });
   }
+  // Let the appointment card repaint our row after it re-renders the slot.
+  window.pfRenderPushRow = renderCard;
 
   function injectCard(){
+    // Preferred: render into the combined "Reminders" card slot.
+    if($('pf-push-slot')){ renderCard(); return true; }
     if($('pf-push-card')) return true;
     var section = $('tab-vet-visits'); if(!section) return false;
+    // Fallback (combined card not present yet): keep our own standalone card.
     var card = document.createElement('div');
     card.id = 'pf-push-card';
     card.className = 'card mb-4';
     card.style.cssText = 'padding:12px 14px;border-left:3px solid #5B5BD6;';
-    // Place directly after the existing local-reminders card if present,
-    // otherwise after the section heading.
     var anchor = $('vet-notif-card');
     if(anchor){ anchor.insertAdjacentElement('afterend', card); }
     else {
@@ -6265,6 +6254,10 @@ try {
 
   function boot(){
     if(!$('tab-vet-visits')){ return setTimeout(boot, 120); }
+    // Prefer the combined "Reminders" card slot. Give it a short grace period
+    // to appear before falling back to a standalone card.
+    boot.__tries = (boot.__tries || 0) + 1;
+    if(!$('pf-push-slot') && !$('pf-push-card') && boot.__tries < 20){ return setTimeout(boot, 100); }
     injectCard();
     wrapRefreshAll();
     // On open, refresh subscription + reminders if the user previously enabled.
