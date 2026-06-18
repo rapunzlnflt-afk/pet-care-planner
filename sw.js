@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-97';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-98';const ASSETS = [
   './',
   './index.html',
   './manifest.json',
@@ -85,17 +85,45 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      // Return cached version, but also fetch updated version in background
-      const fetchPromise = fetch(event.request).then(response => {
-        if (response.ok) {
+  const req = event.request;
+  const url = new URL(req.url);
+
+  // Treat the app page itself as a "navigation" / document request.
+  const isPageDocument =
+    req.mode === 'navigate' ||
+    (req.destination === 'document') ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('/index.html');
+
+  if (isPageDocument) {
+    // NETWORK-FIRST for the page: always try to load the live version so phones
+    // stay up to date. Fall back to the cached copy only when offline.
+    event.respondWith(
+      fetch(req).then(response => {
+        if (response && response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(req).then(cached => cached || caches.match('./index.html'))
+      )
+    );
+    return;
+  }
+
+  // CACHE-FIRST for static assets (icons, manifest, etc.): fast + offline,
+  // while still refreshing the cached copy in the background.
+  event.respondWith(
+    caches.match(req).then(cached => {
+      const fetchPromise = fetch(req).then(response => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
         }
         return response;
       }).catch(() => cached);
-
       return cached || fetchPromise;
     })
   );
