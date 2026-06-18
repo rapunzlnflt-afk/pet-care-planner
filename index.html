@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.5">
+                          <meta name="app-version" content="3.8.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -55,7 +55,9 @@
    #hamburger-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; color: white; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
 #hamburger-btn svg { display: block; width: 26px; height: 26px; stroke: white; stroke-width: 3; }
 .mobile-topbar { gap: 12px; }
-<button id="hamburger-btn" aria-label="Open menu" style="color:white;background:none;border:none;font-size:32px;font-weight:bold;cursor:pointer;padding:0 8px;line-height:1;">≡</button>    #sidebar-overlay.open { display: block; }
+<button id="hamburger-btn" aria-label="Open menu" style="color:white;background:none;border:none;font-size:32px;font-weight:bold;cursor:pointer;padding:0 8px;line-height:1;">≡</button>
+    #sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; pointer-events: none; }
+    #sidebar-overlay.open { display: block; pointer-events: auto; }
 
     @media (max-width: 768px) {
       .mobile-topbar { display: flex; }
@@ -65,7 +67,8 @@
       aside .p-4 { padding: 10px 12px !important; }
       aside .sidebar-item { padding: 10px 16px !important; font-size: 15px !important; }
       main { padding: 68px 12px 32px !important; width: 100% !important; }
-      [style*="grid-template-columns:1fr 1fr"], [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:repeat(2"], [style*="grid-template-columns:repeat(3"], [style*="display:grid"]:not(.stats-row) { grid-template-columns: 1fr !important; }
+      [style*="grid-template-columns:1fr 1fr"]:not(.export-import-row), [style*="grid-template-columns: 1fr 1fr"]:not(.export-import-row), [style*="grid-template-columns:repeat(2"], [style*="grid-template-columns:repeat(3"], [style*="display:grid"]:not(.stats-row):not(.export-import-row) { grid-template-columns: 1fr !important; }
+      .export-import-row { grid-template-columns: 1fr 1fr !important; }
       .card { padding: 14px !important; }
       .card .text-xs,
       .card .text-sm,
@@ -93,6 +96,7 @@
     [data-theme="dark"] .sidebar-item { color: #9b98b0; }
     [data-theme="dark"] .sidebar-item:hover { background: rgba(139,124,248,0.1); color: #e8e6f0; }
     [data-theme="dark"] .sidebar-item.active { background: rgba(139,124,248,0.15) !important; color: #c4b5fd; border-right: 3px solid #8b7cf8; }
+    [data-theme="dark"] #advanced-toggle-btn { color: #9b98b0; border-color: rgba(139,124,248,0.3) !important; }
     [data-theme="dark"] .text-primary { color: #e8e6f0 !important; }
     [data-theme="dark"] .text-secondary { color: #9b98b0 !important; }
     [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: rgba(30,26,50,0.8) !important; color: #e8e6f0 !important; border-color: rgba(139,124,248,0.3) !important; }
@@ -207,24 +211,32 @@
      <button class="sidebar-item" data-tab="important-links">Important Links</button>
     </nav>
     <div class="p-4 border-t border-gray-200" style="margin-top:auto;">
-     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
-      <label style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
-     </div>
-     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it — use to transfer between devices.</p>
-     <button id="check-updates-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      <span>Check for updates</span>
-     </button>
-     <button id="force-refresh-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-      <span>Force refresh</span>
-     </button>
-     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
-     <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+     <button id="dark-mode-btn" style="width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <span id="dark-mode-label">Dark Mode</span>
      </button>
+     <div class="export-import-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+      <button id="export-data-btn" style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
+      <label style="padding:7px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+     </div>
+     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it &mdash; use to transfer between devices.</p>
+     <div style="margin-top:8px;">
+      <button id="advanced-toggle-btn" type="button" aria-expanded="false" aria-controls="advanced-tools" style="width:100%;padding:6px 8px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+       <span>Advanced</span>
+       <span id="advanced-caret" style="font-size:10px;line-height:1;transition:transform 0.15s;">&#9656;</span>
+      </button>
+      <div id="advanced-tools" style="display:none;margin-top:6px;">
+       <button id="check-updates-btn" style="width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span>Check for updates</span>
+       </button>
+       <button id="force-refresh-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span>Force refresh</span>
+       </button>
+       <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
+      </div>
+     </div>
     </div>
    </aside>
 
@@ -2194,6 +2206,18 @@
     document.querySelectorAll('.sidebar-item').forEach(btn => {
       btn.addEventListener('click', () => { if(window.innerWidth <= 768) closeMenu(); });
     });
+    // Advanced (Tools) disclosure: collapsed by default, toggles troubleshooting buttons.
+    const advBtn = document.getElementById('advanced-toggle-btn');
+    const advTools = document.getElementById('advanced-tools');
+    const advCaret = document.getElementById('advanced-caret');
+    if (advBtn && advTools) {
+      advBtn.addEventListener('click', () => {
+        const open = advTools.style.display !== 'none';
+        advTools.style.display = open ? 'none' : 'block';
+        advBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+        if (advCaret) advCaret.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+      });
+    }
   })();
 
   // ============ DARK MODE ============
@@ -6108,18 +6132,28 @@ try {
     var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
     var bell, label, sub, control = '', leadBtn = '';
 
+    // Vintage twin-bell alarm clock icon (inherits accent via currentColor, ~14px).
+    var alarmIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;">' +
+                      '<circle cx="12" cy="13" r="7"/>' +
+                      '<path d="M12 10v3l2 1.5"/>' +
+                      '<path d="M5 3.5 2.5 6"/>' +
+                      '<path d="M19 3.5 21.5 6"/>' +
+                      '<path d="M8.5 20l-2 2.5"/>' +
+                      '<path d="M15.5 20l2 2.5"/>' +
+                    '</svg>';
+
     if(!isConfigured()){
-      bell = '\uD83D\uDCF1';
-      label = 'Reminders <span class="text-secondary font-normal">(coming soon)</span>';
+      bell = alarmIcon;
+      label = 'Notifications <span class="text-secondary font-normal">(coming soon)</span>';
     } else if(!pushSupported() || perm === 'unsupported'){
-      bell = '\uD83D\uDD15';
-      label = 'Reminders <span class="text-secondary font-normal">(unsupported)</span>';
+      bell = alarmIcon;
+      label = 'Notifications <span class="text-secondary font-normal">(unsupported)</span>';
     } else if(perm === 'denied'){
-      bell = '\uD83D\uDD15';
-      label = 'Reminders <span class="text-secondary font-normal">(blocked)</span>';
+      bell = alarmIcon;
+      label = 'Notifications <span class="text-secondary font-normal">(blocked)</span>';
     } else if(on && perm === 'granted'){
-      bell = '\uD83D\uDCF2';
-      label = 'Reminders';
+      bell = alarmIcon;
+      label = 'Notifications';
       // Timing gear \u2014 opens the shared lead-time panel (1 week \u2026 30 min).
       var summary = (typeof window.pfLeadsSummary === 'function') ? window.pfLeadsSummary() : '';
       leadBtn = '<button type="button" id="vet-timing-toggle" style="background:none;border:none;padding:0 0 0 6px;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + summary + '</button>';
@@ -6127,15 +6161,15 @@ try {
                 'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
                 '<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
     } else {
-      bell = '\uD83D\uDCF1';
-      label = 'Reminders';
+      bell = alarmIcon;
+      label = 'Notifications';
       control = '<button type="button" id="pf-push-on" title="Turn on reminders" aria-label="Turn on reminders" ' +
                 'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
                 '<span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
     }
 
     var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:14px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
+                '<span style="font-size:14px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + bell + '</span>' +
                 '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + label + leadBtn + '</div>' +
                 control +
               '</div>';
