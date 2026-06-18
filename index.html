@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.4">
+                          <meta name="app-version" content="3.8.5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4262,12 +4262,16 @@ try {
   'use strict';
   if (window.__pawfolio_v360_notify) return; window.__pawfolio_v360_notify = true;
 
-  var FIRED_KEY = 'pawfolioFiredReminders';    // de-dupe ledger
-  var PREF_KEY  = 'pawfolioRemindersEnabled';
+  // v3.8.5: The in-app (JS-timer) reminder system has been removed. Phone push
+  // is now the only reminder system. This module keeps the SHARED lead-time
+  // settings (read by the push layer via getLeads) and renders the combined
+  // "Reminders" card scaffold: a header, a slot the push module fills with its
+  // single toggle row, and a timing panel the gear on that row opens.
+
   var LEAD_KEY  = 'pawfolioReminderLeads';     // chosen lead times (CSV of ms)
   var $ = function(id){ return document.getElementById(id); };
 
-  // Selectable lead times. value = milliseconds before the appointment.
+  // Selectable lead times. value = milliseconds before the event.
   var LEAD_OPTIONS = [
     { ms: 7*24*60*60*1000, label: '1 week before' },
     { ms: 3*24*60*60*1000, label: '3 days before' },
@@ -4292,15 +4296,13 @@ try {
     var found = LEAD_OPTIONS.filter(function(o){ return o.ms === ms; })[0];
     return found ? found.label.replace(' before','') : 'soon';
   }
+  // Expose the lead label so the push layer can build notification titles.
+  window.pfLeadLabel = leadLabel;
 
   function getList(k){
     try { return (typeof window.getList === 'function') ? (window.getList(k) || []) : JSON.parse(localStorage.getItem(k) || '[]'); }
     catch(e){ return []; }
   }
-  function loadFired(){ try { return JSON.parse(localStorage.getItem(FIRED_KEY) || '{}'); } catch(e){ return {}; } }
-  function saveFired(o){ try { localStorage.setItem(FIRED_KEY, JSON.stringify(o)); } catch(e){} }
-  function isEnabled(){ return localStorage.getItem(PREF_KEY) === '1' && supported() && Notification.permission === 'granted'; }
-  function supported(){ return ('Notification' in window) && ('serviceWorker' in navigator); }
 
   function fmtTime(t){
     if(!t) return '';
@@ -4317,115 +4319,21 @@ try {
     return isNaN(dt.getTime()) ? null : dt;
   }
   function isUpcomingAppt(v){
-    // Only future-dated entries (scheduled appts or follow-ups) get reminders.
     var dt = apptDateTime(v);
     return dt && dt.getTime() > Date.now();
   }
 
-  function showNotification(title, body, tag, url){
-    var data = { url: url || './index.html' };
-    var opts = {
-      body: body,
-      tag: tag,
-      icon: './icon-192.png',
-      badge: './icon-192.png',
-      data: data,
-      requireInteraction: false
-    };
-    if('serviceWorker' in navigator && navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready.then(function(reg){
-        try { reg.showNotification(title, opts); }
-        catch(e){ try { new Notification(title, opts); } catch(_){} }
-      }).catch(function(){
-        try { new Notification(title, opts); } catch(e){}
-      });
-    } else {
-      try { new Notification(title, opts); } catch(e){}
-    }
-  }
-
-  // Check every upcoming appointment; fire any reminder whose lead-time window has arrived
-  // and hasn't fired yet. De-duped per (visitId + leadMs).
-  function runDueCheck(){
-    if(!isEnabled()) return;
-    var fired = loadFired();
-    var now = Date.now();
-    var changed = false;
-    getList('vet-visits').forEach(function(v){
-      if(!isUpcomingAppt(v)) return;
-      var dt = apptDateTime(v);
-      var when = dt.getTime();
-      getLeads().forEach(function(lead){
-        var fireAt = when - lead;
-        var key = String(v.__id) + ':' + lead;
-        // Window: from fireAt up until the appointment itself. Avoid stale fires after the appt.
-        if(now >= fireAt && now < when && !fired[key]){
-          var label = leadLabel(lead);
-          var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' · ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
-          var pet = v.petName || 'Your pet';
-          var reason = v.reason ? (' — ' + v.reason) : (v.type ? (' — ' + v.type) : '');
-          showNotification(
-            '🐾 Vet appointment in ' + label,
-            pet + reason + '\n' + whenLabel + (v.vet ? ' · ' + v.vet : ''),
-            'vet-' + key,
-            './index.html'
-          );
-          fired[key] = now;
-          changed = true;
-        }
-      });
-    });
-    // Garbage-collect ledger entries for past/removed appts
-    var liveKeys = {};
-    getList('vet-visits').forEach(function(v){ getLeads().forEach(function(lead){ liveKeys[String(v.__id)+':'+lead] = 1; }); });
-    Object.keys(fired).forEach(function(k){ if(!liveKeys[k]){ delete fired[k]; changed = true; } });
-    if(changed) saveFired(fired);
-  }
-
-  // Precise in-session scheduling: while the app stays open, set exact timers
-  // for upcoming reminders so they fire on time without waiting for the poll.
-  var sessionTimers = [];
-  function scheduleSessionTimers(){
-    sessionTimers.forEach(function(t){ clearTimeout(t); });
-    sessionTimers = [];
-    if(!isEnabled()) return;
-    var now = Date.now();
-    getList('vet-visits').forEach(function(v){
-      if(!isUpcomingAppt(v)) return;
-      var when = apptDateTime(v).getTime();
-      getLeads().forEach(function(lead){
-        var fireAt = when - lead;
-        var delay = fireAt - now;
-        // Only schedule timers within the next 24h (setTimeout is unreliable beyond that)
-        if(delay > 0 && delay < 24*60*60*1000){
-          var t = setTimeout(runDueCheck, delay + 500);
-          sessionTimers.push(t);
-        }
-      });
-    });
-  }
-
-  function refreshSchedules(){
-    runDueCheck();            // catch anything already due
-    scheduleSessionTimers();  // arm precise timers for the near term
-    registerPeriodicSync();   // best-effort background poll
-  }
-  window.pfRefreshReminders = refreshSchedules;
-
-  // v3.8.0: Expose upcoming reminder occurrences so the Web Push layer can
-  // sync them to Supabase and deliver real OS notifications when the app is
-  // fully closed. One entry per (upcoming vet appointment x selected lead).
-  // Mirrors runDueCheck()'s logic exactly so phone push matches in-app banners.
+  // Expose upcoming reminder occurrences so the Web Push layer can sync them to
+  // Supabase and deliver real OS notifications. One entry per (upcoming event x
+  // selected lead) across vet appointments, medication refills, and vaccinations.
   window.pfUpcomingReminders = function(){
     var out = [];
     var now = Date.now();
-    // Helper: push one entry per selected lead time for a future event.
     function emit(opts){
-      // opts: { source, sourceId, when (ms), title(leadLabel), body, tag }
       if(!(opts.when > now)) return;
       getLeads().forEach(function(lead){
         var fireAt = opts.when - lead;
-        if(fireAt <= now) return;      // already passed; in-app catch-up handles it
+        if(fireAt <= now) return;
         if(fireAt >= opts.when) return;
         out.push({
           source: opts.source,
@@ -4444,13 +4352,13 @@ try {
     getList('vet-visits').forEach(function(v){
       if(!isUpcomingAppt(v)) return;
       var dt = apptDateTime(v);
-      var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' \u00b7 ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
+      var whenLabel = dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) + ' · ' + fmtTime(v.next ? (v.nextTime||'09:00') : (v.time||'09:00'));
       var pet = v.petName || 'Your pet';
-      var reason = v.reason ? (' \u2014 ' + v.reason) : (v.type ? (' \u2014 ' + v.type) : '');
+      var reason = v.reason ? (' — ' + v.reason) : (v.type ? (' — ' + v.type) : '');
       emit({
         source: 'vet-visit', sourceId: v.__id, when: dt.getTime(),
-        titleFor: function(lbl){ return '\uD83D\uDC3E Vet appointment in ' + lbl; },
-        body: pet + reason + '\n' + whenLabel + (v.vet ? ' \u00b7 ' + v.vet : '')
+        titleFor: function(lbl){ return '🐾 Vet appointment in ' + lbl; },
+        body: pet + reason + '\n' + whenLabel + (v.vet ? ' · ' + v.vet : '')
       });
     });
 
@@ -4461,11 +4369,11 @@ try {
       var dt = dateAt9(m.refill);
       if(!dt) return;
       var pet = m.petName || 'Your pet';
-      var detail = [m.dosage, m.frequency].filter(function(s){ return s; }).join(' \u00b7 ');
+      var detail = [m.dosage, m.frequency].filter(function(s){ return s; }).join(' · ');
       emit({
         source: 'medication', sourceId: m.__id, when: dt.getTime(),
-        titleFor: function(lbl){ return '\uD83D\uDC8A Refill due in ' + lbl; },
-        body: pet + ' \u2014 ' + (m.name || 'Medication') + '\nRefill ' + dayLabel(dt) + (detail ? (' \u00b7 ' + detail) : '')
+        titleFor: function(lbl){ return '💊 Refill due in ' + lbl; },
+        body: pet + ' — ' + (m.name || 'Medication') + '\nRefill ' + dayLabel(dt) + (detail ? (' · ' + detail) : '')
       });
     });
 
@@ -4476,49 +4384,15 @@ try {
       var pet = vc.petName || 'Your pet';
       emit({
         source: 'vaccination', sourceId: vc.__id, when: dt.getTime(),
-        titleFor: function(lbl){ return '\uD83D\uDC89 Vaccination due in ' + lbl; },
-        body: pet + ' \u2014 ' + (vc.name || 'Vaccination') + '\nDue ' + dayLabel(dt) + (vc.vet ? (' \u00b7 ' + vc.vet) : '')
+        titleFor: function(lbl){ return '💉 Vaccination due in ' + lbl; },
+        body: pet + ' — ' + (vc.name || 'Vaccination') + '\nDue ' + dayLabel(dt) + (vc.vet ? (' · ' + vc.vet) : '')
       });
     });
 
     return out;
   };
 
-  // Best-effort: Periodic Background Sync (Chrome/Android installed PWAs).
-  function registerPeriodicSync(){
-    if(!isEnabled()) return;
-    if('serviceWorker' in navigator && 'periodicSync' in (window.ServiceWorkerRegistration.prototype || {})){
-      navigator.serviceWorker.ready.then(function(reg){
-        if(reg.periodicSync){
-          reg.periodicSync.register('pawfolio-reminder-check', { minInterval: 60*60*1000 }).catch(function(){});
-        }
-      }).catch(function(){});
-    }
-  }
-
-  // ---------- Permission / settings UI ----------
-  function setEnabled(on){
-    localStorage.setItem(PREF_KEY, on ? '1' : '0');
-    renderSettings();
-    if(on) refreshSchedules();
-  }
-
-  function requestPermission(){
-    if(!supported()){
-      alert('This browser does not support notifications. Reminders work best in an installed app on Chrome (Android) or Safari (iOS, when added to Home Screen).');
-      return;
-    }
-    Notification.requestPermission().then(function(perm){
-      if(perm === 'granted'){
-        setEnabled(true);
-        showNotification('🐾 Reminders are on', "We'll remind you before vet appointments.", 'pawfolio-welcome');
-      } else {
-        setEnabled(false);
-        renderSettings();
-      }
-    });
-  }
-
+  // ---------- Shared lead-time (timing) UI ----------
   // Track whether the timing panel is expanded (in-memory, per session)
   var timingOpen = false;
 
@@ -4529,6 +4403,8 @@ try {
     var sorted = leads.slice().sort(function(a,b){ return b - a; });
     return sorted.map(function(ms){ return leadLabel(ms); }).join(', ') + ' before';
   }
+  window.pfLeadsSummary = leadsSummary;
+  window.pfTimingOpen = function(){ return timingOpen; };
 
   function timingPanelHTML(){
     var leads = getLeads();
@@ -4545,55 +4421,12 @@ try {
            '</div>';
   }
 
-  // A slim one-line bar: bell + short status on the left, a toggle on the right.
-  function settingsHTML(){
-    var perm = supported() ? Notification.permission : 'unsupported';
-    var on = isEnabled();
-    var label, control = '', bell, sub = '';
-
-    var leadBtn = '';
-    if(perm === 'unsupported'){
-      bell = '\uD83D\uDD15';
-      label = 'Appointment <span class="text-secondary font-normal">(unsupported)</span>';
-    } else if(perm === 'denied'){
-      bell = '\uD83D\uDD15';
-      label = 'Appointment <span class="text-secondary font-normal">(blocked)</span>';
-    } else if(perm === 'granted' && on){
-      bell = '\uD83D\uDD14';
-      label = 'Appointment';
-      leadBtn = '<button type="button" id="vet-timing-toggle" style="background:none;border:none;padding:0 0 0 6px;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + leadsSummary() + '</button>';
-      control = '<button type="button" id="vet-notif-off" title="Turn off reminders" aria-label="Turn off reminders" ' +
-                'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
-                '<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
-    } else {
-      bell = '\uD83D\uDD15';
-      label = 'Appointment';
-      control = '<button type="button" id="vet-notif-on" title="Turn on reminders" aria-label="Turn on reminders" ' +
-                'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
-                '<span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
-    }
-
-    var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-size:14px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
-                '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + label + leadBtn + '</div>' +
-                control +
-              '</div>';
-
-    var panel = (perm === 'granted' && on && timingOpen) ? timingPanelHTML() : '';
-    // Combined "Reminders" card: shared header, the appointment row, the timing
-    // panel, then a slot the phone-push module fills with its own row.
-    var header = '<div class="font-heading text-xs font-bold text-secondary" style="text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Reminders</div>';
-    var divider = '<div style="height:1px;background:var(--border,#e5e7eb);margin:7px 0;"></div>';
-    return header + bar + panel + divider + '<div id="pf-push-slot"></div>';
-  }
-
-  function renderSettings(){
-    var host = $('vet-notif-card');
+  // Render the timing panel into its host (only when open). Wires the checkboxes
+  // to setLeads + re-sync push. Exposed so the push gear can toggle it.
+  function renderTiming(){
+    var host = $('pf-timing-host');
     if(!host) return;
-    host.innerHTML = settingsHTML();
-    var onBtn = $('vet-notif-on'); if(onBtn) onBtn.addEventListener('click', requestPermission);
-    var offBtn = $('vet-notif-off'); if(offBtn) offBtn.addEventListener('click', function(){ timingOpen = false; setEnabled(false); });
-    var tToggle = $('vet-timing-toggle'); if(tToggle) tToggle.addEventListener('click', function(){ timingOpen = !timingOpen; renderSettings(); });
+    host.innerHTML = timingOpen ? timingPanelHTML() : '';
     var cbs = host.querySelectorAll('.vet-lead-cb');
     Array.prototype.forEach.call(cbs, function(cb){
       cb.addEventListener('change', function(){
@@ -4602,12 +4435,32 @@ try {
           if(c.checked) chosen.push(parseInt(c.value,10));
         });
         setLeads(chosen);
-        renderSettings();
-        refreshSchedules();
+        renderTiming();
+        // Repaint the push row's gear summary, then re-sync to Supabase.
+        if(typeof window.pfRenderPushRow === 'function'){ try { window.pfRenderPushRow(); } catch(e){} }
+        if(typeof window.pfSyncPushReminders === 'function'){ try { window.pfSyncPushReminders(); } catch(e){} }
       });
     });
-    // Re-render wipes the phone-row slot; ask the push module to repaint it.
+  }
+  window.pfRenderTiming = renderTiming;
+  window.pfToggleTiming = function(){ timingOpen = !timingOpen; renderTiming(); };
+  window.pfCollapseTiming = function(){ timingOpen = false; renderTiming(); };
+
+  // ---------- Combined "Reminders" card scaffold ----------
+  function cardHTML(){
+    var header = '<div class="font-heading text-xs font-bold text-secondary" style="text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Reminders</div>';
+    // The push module fills #pf-push-slot with the single toggle row (+ gear);
+    // #pf-timing-host holds the lead-time panel the gear opens.
+    return header + '<div id="pf-push-slot"></div><div id="pf-timing-host"></div>';
+  }
+
+  function renderSettings(){
+    var host = $('vet-notif-card');
+    if(!host) return;
+    host.innerHTML = cardHTML();
+    // Ask the push module to paint its row into the slot.
     if(typeof window.pfRenderPushRow === 'function'){ try { window.pfRenderPushRow(); } catch(e){} }
+    renderTiming();
   }
 
   function injectSettingsCard(){
@@ -4624,35 +4477,9 @@ try {
     return true;
   }
 
-  // Re-check whenever vet data changes (save/edit/delete all funnel through refreshAll)
-  function wrapRefreshAll(){
-    if(typeof window.refreshAll === 'function' && !window.refreshAll.__v360notify){
-      var orig = window.refreshAll;
-      window.refreshAll = function(){
-        var r = orig.apply(this, arguments);
-        setTimeout(refreshSchedules, 50);
-        return r;
-      };
-      window.refreshAll.__v360notify = true;
-    }
-  }
-
   function boot(){
     if(!$('tab-vet-visits')){ return setTimeout(boot, 100); }
     injectSettingsCard();
-    wrapRefreshAll();
-    if(isEnabled()) refreshSchedules();
-    // Re-check when the app regains focus / becomes visible (covers "reopened after a while")
-    document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshSchedules(); });
-    window.addEventListener('focus', refreshSchedules);
-    // Respond to service-worker pings (periodic background sync / notification open)
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.addEventListener('message', function(ev){
-        var data = ev.data || {};
-        if(data.type === 'pawfolio-reminder-check'){ runDueCheck(); }
-        if(data.type === 'pawfolio-open' && data.url){ try { window.focus(); } catch(e){} }
-      });
-    }
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
@@ -6208,6 +6035,7 @@ try {
     var done = function(){
       try { localStorage.removeItem('pawfolioPushEnabled'); } catch(e){}
       stampDevice(true, 'disabled on this device', 'disable');
+      if(typeof window.pfCollapseTiming === 'function'){ try { window.pfCollapseTiming(); } catch(e){} }
       renderCard();
     };
     if(!pushSupported()){ done(); return Promise.resolve(); }
@@ -6278,34 +6106,37 @@ try {
   function cardHTML(){
     var on = (function(){ try { return localStorage.getItem('pawfolioPushEnabled')==='1'; } catch(e){ return false; } })();
     var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-    var bell, label, sub, control = '';
+    var bell, label, sub, control = '', leadBtn = '';
 
     if(!isConfigured()){
       bell = '\uD83D\uDCF1';
-      label = 'Phone <span class="text-secondary font-normal">(coming soon)</span>';
+      label = 'Reminders <span class="text-secondary font-normal">(coming soon)</span>';
     } else if(!pushSupported() || perm === 'unsupported'){
       bell = '\uD83D\uDD15';
-      label = 'Phone <span class="text-secondary font-normal">(unsupported)</span>';
+      label = 'Reminders <span class="text-secondary font-normal">(unsupported)</span>';
     } else if(perm === 'denied'){
       bell = '\uD83D\uDD15';
-      label = 'Phone <span class="text-secondary font-normal">(blocked)</span>';
+      label = 'Reminders <span class="text-secondary font-normal">(blocked)</span>';
     } else if(on && perm === 'granted'){
       bell = '\uD83D\uDCF2';
-      label = 'Phone';
-      control = '<button type="button" id="pf-push-off" title="Turn off on this device" aria-label="Turn off phone reminders" ' +
+      label = 'Reminders';
+      // Timing gear \u2014 opens the shared lead-time panel (1 week \u2026 30 min).
+      var summary = (typeof window.pfLeadsSummary === 'function') ? window.pfLeadsSummary() : '';
+      leadBtn = '<button type="button" id="vet-timing-toggle" style="background:none;border:none;padding:0 0 0 6px;color:#5B5BD6;font-size:11px;font-weight:600;cursor:pointer;" class="font-body">\u2699\uFE0F ' + summary + '</button>';
+      control = '<button type="button" id="pf-push-off" title="Turn off reminders" aria-label="Turn off reminders" ' +
                 'style="flex:0 0 auto;background:#5B5BD6;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
                 '<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
     } else {
       bell = '\uD83D\uDCF1';
-      label = 'Phone';
-      control = '<button type="button" id="pf-push-on" title="Turn on phone reminders" aria-label="Turn on phone reminders" ' +
+      label = 'Reminders';
+      control = '<button type="button" id="pf-push-on" title="Turn on reminders" aria-label="Turn on reminders" ' +
                 'style="flex:0 0 auto;background:#d1d5db;border:none;color:#fff;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
                 '<span style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
     }
 
     var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
                 '<span style="font-size:14px;line-height:1;flex:0 0 auto;">' + bell + '</span>' +
-                '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + label + '</div>' +
+                '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + label + leadBtn + '</div>' +
                 control +
               '</div>';
     return bar;
@@ -6321,6 +6152,9 @@ try {
     host.innerHTML = cardHTML();
     var onBtn = $('pf-push-on'); if(onBtn) onBtn.addEventListener('click', function(){ enablePush(); });
     var offBtn = $('pf-push-off'); if(offBtn) offBtn.addEventListener('click', function(){ disablePush(); });
+    // Timing gear toggles the shared lead-time panel rendered by the card scaffold.
+    var tToggle = $('vet-timing-toggle');
+    if(tToggle) tToggle.addEventListener('click', function(){ if(typeof window.pfToggleTiming === 'function') window.pfToggleTiming(); });
   }
   // Let the appointment card repaint our row after it re-renders the slot.
   window.pfRenderPushRow = renderCard;
