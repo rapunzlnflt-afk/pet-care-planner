@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.3">
+                          <meta name="app-version" content="3.8.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -216,6 +216,11 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       <span>Check for updates</span>
      </button>
+     <button id="force-refresh-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      <span>Force refresh</span>
+     </button>
+     <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
      <button id="dark-mode-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <span id="dark-mode-label">Dark Mode</span>
@@ -1997,6 +2002,96 @@
     if (last === todayStr) return; // already checked today
     setTimeout(() => checkForUpdates(true), 3000); // wait 3s so it doesn't slow down initial load
   })();
+
+  // ============ FORCE REFRESH (clear cache + reload latest) ============
+  // The real cure for phones stuck on an old cached copy. Always shows an
+  // export-first confirm so the user can back up their data before we clear caches.
+  async function doForceRefresh() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+      }
+    } catch (e) { /* non-fatal */ }
+    try {
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+      }
+    } catch (e) { /* non-fatal */ }
+    // Cache-busted reload to the live page so the phone pulls the newest copy.
+    const base = location.href.split('#')[0].split('?')[0];
+    location.replace(base + '?fresh=' + Date.now());
+  }
+
+  function showForceRefreshModal() {
+    const existing = document.getElementById('force-refresh-overlay');
+    if (existing) existing.remove();
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const overlay = document.createElement('div');
+    overlay.id = 'force-refresh-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:10000;padding:16px;';
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:' + (isDark ? '#1e1a32' : '#ffffff') + ';color:' + (isDark ? '#e8e6f0' : '#1f2937') + ';border-radius:12px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.25);font-family:Karla,sans-serif;';
+    modal.innerHTML =
+      '<h3 style="font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;margin:0 0 12px 0;color:#5B5BD6;">Force refresh to the latest version</h3>' +
+      '<div style="font-size:14px;line-height:1.55;">' +
+        '<p style="margin:0 0 10px 0;">This clears Pawfolio\'s cached app files and reloads the newest version. It\'s the fix when your app is stuck on an old version.</p>' +
+        '<p style="margin:0 0 10px 0;">Your pets, visits, meds, and records are kept. <strong>To be completely safe, export a backup first</strong> \u2014 then you can re-import it if anything ever looks missing.</p>' +
+        '<div id="force-refresh-exported" style="display:none;margin:0 0 10px 0;color:#16a34a;font-weight:600;">\u2713 Backup exported.</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px;">' +
+        '<button id="fr-cancel" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">Cancel</button>' +
+        '<button id="fr-export" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">\u2193 Export backup</button>' +
+        '<button id="fr-continue" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:#5B5BD6;color:#fff;border:none;">Refresh now</button>' +
+      '</div>';
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    modal.querySelector('#fr-cancel').addEventListener('click', close);
+    modal.querySelector('#fr-export').addEventListener('click', () => {
+      try { exportPlannerData(); } catch (e) {}
+      const note = modal.querySelector('#force-refresh-exported');
+      if (note) note.style.display = 'block';
+    });
+    modal.querySelector('#fr-continue').addEventListener('click', () => {
+      const btn = modal.querySelector('#fr-continue');
+      btn.textContent = 'Refreshing\u2026';
+      btn.disabled = true;
+      doForceRefresh();
+    });
+  }
+
+  const forceRefreshBtn = document.getElementById('force-refresh-btn');
+  if (forceRefreshBtn) forceRefreshBtn.addEventListener('click', showForceRefreshModal);
+
+  // Smart stuck-alert: only for phones running behind the live version. Routes
+  // the user into the same export-first force-refresh flow. Shown at most once
+  // per detected stuck version so we never nag.
+  (function stuckVersionAlert() {
+    setTimeout(async () => {
+      try {
+        const info = await fetchLatestVersion();
+        if (!info || !info.version) return;
+        if (compareVersions(info.version, CURRENT_VERSION) <= 0) return; // up to date
+        const dismissedFor = localStorage.getItem('pawfolioStuckAlertFor');
+        if (dismissedFor === info.version) return; // already offered for this version
+        localStorage.setItem('pawfolioStuckAlertFor', info.version);
+        showUpdateModal({
+          heading: 'Your app looks stuck on an old version',
+          body:
+            '<p style="margin:0 0 10px 0;">You\'re on <strong>' + CURRENT_VERSION + '</strong>, but the latest is <strong>' + info.version + '</strong>. Sometimes a phone holds onto an old cached copy.</p>' +
+            '<p style="margin:0;color:#64748b;font-size:13px;">Tap <strong>Fix it now</strong> to clear the cached files and load the latest. You\'ll be able to export a backup first.</p>',
+          buttons: [
+            { label: 'Later' },
+            { label: 'Fix it now', primary: true, onClick: () => showForceRefreshModal() }
+          ]
+        });
+      } catch (e) { /* non-fatal */ }
+    }, 4500);
+  })();
+
 
   // ============ BACKUP REMINDER + FIRST-VISIT NOTICE ============
   // First-visit notice: show once if user has any data and hasn't dismissed it
