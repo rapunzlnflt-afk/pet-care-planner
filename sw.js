@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-93';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-94';const ASSETS = [
   './',
   './index.html',
   './manifest.json',
@@ -48,6 +48,37 @@ self.addEventListener('periodicsync', event => {
     );
   }
 });
+
+// ---- v3.8.0: Web Push (server-based phone reminders) ----
+// Payload shape sent by the send-pet-reminders Edge Function:
+//   { title, body, tag, url, source, sourceId }
+self.addEventListener('push', event => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    payload = { title: 'Pawfolio reminder', body: event.data ? event.data.text() : '' };
+  }
+  const title = payload.title || 'Pawfolio reminder';
+  const options = {
+    body: payload.body || '',
+    tag: payload.tag || ((payload.source || 'reminder') + '-' + (payload.sourceId || Date.now())),
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    renotify: true,
+    requireInteraction: true,
+    data: {
+      url: payload.url || './index.html',
+      source: payload.source || null,
+      sourceId: payload.sourceId || null
+    }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Subscription rotated by the browser/push service. The page-side enable flow
+// re-creates and re-registers the subscription the next time the app opens.
+self.addEventListener('pushsubscriptionchange', () => {});
 
 self.addEventListener('fetch', event => {
   // Only handle same-origin GET requests
