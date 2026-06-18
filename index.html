@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.0">
+                          <meta name="app-version" content="3.9.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4508,13 +4508,33 @@ try {
            '</div>';
   }
 
+  // In-memory expand/collapse state per type. Collapsed by default every time a
+  // section opens (not persisted) so sections stay compact until the user taps in.
+  var expanded = { vet:false, med:false, vacc:false };
+
+  function caretHTML(type){
+    var rot = expanded[type] ? 'transform:rotate(90deg);' : '';
+    return '<span id="pf-typecaret-' + type + '" aria-hidden="true" style="flex:0 0 auto;font-size:11px;line-height:1;color:#94a3b8;transition:transform 0.15s;' + rot + '">&#9656;</span>';
+  }
+
   function blockInnerHTML(type){
-    var bar = '<div style="display:flex;align-items:center;gap:8px;">' +
+    // The whole bar is a tap target that expands/collapses the timing options.
+    // The on/off toggle inside it stops propagation so it stays independently usable.
+    var bar = '<div id="pf-typebar-' + type + '" role="button" tabindex="0" ' +
+                'aria-expanded="' + (expanded[type]?'true':'false') + '" aria-controls="pf-typetiming-' + type + '" ' +
+                'style="display:flex;align-items:center;gap:8px;cursor:pointer;">' +
                 '<span style="font-size:14px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + alarmIcon + '</span>' +
                 '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + LABELS[type] + '</div>' +
                 toggleHTML(type) +
+                caretHTML(type) +
               '</div>';
-    return bar + '<div id="pf-typetiming-' + type + '">' + timingHTML(type) + '</div>';
+    var timingInner = expanded[type] ? timingHTML(type) : '';
+    return bar + '<div id="pf-typetiming-' + type + '">' + timingInner + '</div>';
+  }
+
+  function toggleExpanded(type){
+    expanded[type] = !expanded[type];
+    renderBlock(type);
   }
 
   function renderBlock(type){
@@ -4523,7 +4543,24 @@ try {
     host.innerHTML = blockInnerHTML(type);
     var tgl = $('pf-typetgl-' + type);
     if(tgl){
-      tgl.addEventListener('click', function(){ onToggle(type); });
+      tgl.addEventListener('click', function(e){
+        // Stop the tap from bubbling to the bar so flipping the switch never
+        // also expands/collapses the timing options.
+        e.stopPropagation();
+        onToggle(type);
+      });
+    }
+    var bar = $('pf-typebar-' + type);
+    if(bar){
+      bar.addEventListener('click', function(){ toggleExpanded(type); });
+      // Keyboard support: the bar is a role="button", so Enter and Space
+      // should expand/collapse it just like a tap would.
+      bar.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+          e.preventDefault();
+          toggleExpanded(type);
+        }
+      });
     }
     wireCheckboxes(type);
   }
@@ -4549,6 +4586,9 @@ try {
     if(turningOn){
       // Turn the flag on first so a successful subscribe immediately syncs this type.
       setNotifOn(type, true);
+      // Auto-expand when switching on so the timing options are visible right
+      // away — turning notifications on with no choices showing would be confusing.
+      expanded[type] = true;
       renderBlock(type);
       // Ensure the phone is subscribed to push; reuse the same enable flow the old
       // bell toggle used. If already subscribed this is a quick no-op + sync.
