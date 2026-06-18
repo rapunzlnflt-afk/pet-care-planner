@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.2">
+                          <meta name="app-version" content="3.8.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1231,7 +1231,21 @@
       </div>`).join('');
   }
 
-  window.deleteVisit = id => { if(confirm('Delete this visit?')) { deleteItem('vet-visits', id); refreshAll(); } };
+  window.deleteVisit = id => {
+    var doDelete = function(){ deleteItem('vet-visits', id); refreshAll(); };
+    if(typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Delete this visit?',
+        message: 'This vet visit will be permanently removed. This cannot be undone.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: doDelete
+      });
+    } else if(confirm('Delete this visit?')){
+      doDelete();
+    }
+  };
 
   // Helper: render document chips for a given pet+type filter
   function docChipsFor(petId, types) {
@@ -3002,9 +3016,19 @@ try {
   };
 
   window.pfCancelAppt = function(id){
-    if(!confirm('Cancel this scheduled appointment?')) return;
-    deleteItem('vet-visits', id);
-    refreshAll();
+    var doDelete = function(){ deleteItem('vet-visits', id); refreshAll(); };
+    if(typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Delete this appointment?',
+        message: 'This scheduled vet visit will be permanently removed. This cannot be undone.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: doDelete
+      });
+    } else if(confirm('Delete this scheduled appointment?')){
+      doDelete();
+    }
   };
 
   window.pfAttachRecord = function(id){
@@ -3051,7 +3075,7 @@ try {
     actions.push('<button onclick="pfEditVisit('+pid+')" title="Edit" style="'+actionBtnStyle+'">✎ Edit</button>');
     if(isUpcoming){
       actions.push('<button onclick="pfFillInVisitLog('+pid+')" title="Fill in visit log" style="'+actionBtnStyle+'background:rgba(91,91,214,0.08);color:#5B5BD6;border-color:#5B5BD6;">Fill in visit log</button>');
-      actions.push('<button onclick="pfCancelAppt('+pid+')" title="Cancel" class="delete-x">✕</button>');
+      actions.push('<button onclick="pfCancelAppt('+pid+')" title="Delete" class="delete-x">✕</button>');
     } else {
       actions.push('<button onclick="pfAttachRecord('+pid+')" title="Attach receipt or record" style="'+actionBtnStyle+'">📎 Attach receipt/record</button>');
       actions.push('<button onclick="deleteVisit('+pid+')" title="Delete" class="delete-x">✕</button>');
@@ -3273,7 +3297,7 @@ try {
     actions.push('<button type="button" onclick="pfEditVisit('+pid+')" style="'+btn+'">✎ Edit</button>');
     if(isUpcoming){
       actions.push('<button type="button" onclick="pfFillInVisitLog('+pid+')" style="'+btnPrimary+'">Fill in visit log</button>');
-      actions.push('<button type="button" onclick="pfCancelAppt('+pid+')" style="'+btnDanger+'">✕ Cancel</button>');
+      actions.push('<button type="button" onclick="pfCancelAppt('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
     } else {
       actions.push('<button type="button" onclick="pfAttachRecord('+pid+')" style="'+btn+'">📎 Attach receipt/record</button>');
       actions.push('<button type="button" onclick="window.deleteVisit('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
@@ -3833,18 +3857,25 @@ try {
     if(typeof refreshAll === 'function') refreshAll();
   }
 
+  // The underlying delete now uses an async in-app modal (onConfirm fires later),
+  // so we can't detect confirmation synchronously. Instead, watch for the visit
+  // to disappear for a short window, then clean up its linked logs.
+  function watchAndCleanup(id){
+    var before = _getList('vet-visits').length;
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      var still = _getList('vet-visits').some(function(x){ return String(x.__id) === String(id); });
+      if(!still){ clearInterval(iv); cleanupLinkedLogs(id); return; }
+      if(tries >= 120){ clearInterval(iv); } // ~30s; user kept the visit
+    }, 250);
+  }
+
   function wrapDeleteVisit(){
     var orig = window.deleteVisit;
     if(!orig || orig.__v3533) return;
     window.deleteVisit = function(id){
-      var before = _getList('vet-visits').length;
-      var origConfirm = window.confirm;
-      var confirmed = null;
-      window.confirm = function(msg){ var ans = origConfirm.call(window, msg); confirmed = ans; return ans; };
-      try { orig(id); } finally { window.confirm = origConfirm; }
-      // If the visit is gone, the user confirmed
-      var after = _getList('vet-visits').length;
-      if(after < before || confirmed === true) cleanupLinkedLogs(id);
+      try { orig(id); } finally { watchAndCleanup(id); }
     };
     window.deleteVisit.__v3533 = true;
   }
@@ -3853,13 +3884,7 @@ try {
     var orig = window.pfCancelAppt;
     if(!orig || orig.__v3533) return;
     window.pfCancelAppt = function(id){
-      var before = _getList('vet-visits').length;
-      var origConfirm = window.confirm;
-      var confirmed = null;
-      window.confirm = function(msg){ var ans = origConfirm.call(window, msg); confirmed = ans; return ans; };
-      try { orig(id); } finally { window.confirm = origConfirm; }
-      var after = _getList('vet-visits').length;
-      if(after < before || confirmed === true) cleanupLinkedLogs(id);
+      try { orig(id); } finally { watchAndCleanup(id); }
     };
     window.pfCancelAppt.__v3533 = true;
   }
