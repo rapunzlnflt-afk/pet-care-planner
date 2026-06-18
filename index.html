@@ -6031,7 +6031,7 @@ try {
           user_agent: navigator.userAgent,
           timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone) || null
         };
-        return supabase.from('devices').upsert(row, { onConflict: 'user_id,device_id' }).select('id').then(function(res){
+        return supabase.from('pawfolio_devices').upsert(row, { onConflict: 'user_id,device_id' }).select('id').then(function(res){
           if(res.error) throw new Error('device upsert failed: ' + res.error.message);
           if(!res.data || !res.data.length) throw new Error('device upsert returned no rows (RLS?)');
           return { userId: userId, endpoint: sub.endpoint };
@@ -6099,8 +6099,8 @@ try {
         if(!supabase) return null;
         var deviceId = getOrCreateDeviceId();
         return Promise.all([
-          supabase.from('devices').delete().eq('device_id', deviceId),
-          supabase.from('reminders').delete().eq('device_id', deviceId)
+          supabase.from('pawfolio_devices').delete().eq('device_id', deviceId),
+          supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId)
         ]);
       });
     }).then(done).catch(function(err){ stampDevice(false, (err&&err.message)||String(err), 'disable'); done(); });
@@ -6116,7 +6116,7 @@ try {
         return ensureAnonAuth(supabase).then(function(){
           var occurrences = (typeof window.pfUpcomingReminders === 'function') ? (window.pfUpcomingReminders() || []) : [];
           var deviceId = getOrCreateDeviceId();
-          return supabase.from('reminders').delete().eq('device_id', deviceId).is('delivered_at', null).then(function(del){
+          return supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId).is('delivered_at', null).then(function(del){
             if(del.error) throw new Error('reminder delete failed: ' + del.error.message);
             if(!occurrences.length){ stampReminders(true, 'no upcoming reminders', 0, 'empty'); return; }
             var rows = occurrences.map(function(o){
@@ -6130,7 +6130,7 @@ try {
                 fire_at: o.fire_at
               };
             });
-            return supabase.from('reminders').insert(rows).select('id').then(function(ins){
+            return supabase.from('pawfolio_reminders').insert(rows).select('id').then(function(ins){
               if(ins.error) throw new Error('reminder insert failed: ' + ins.error.message);
               var count = (ins.data && ins.data.length) || rows.length;
               stampReminders(true, 'synced ' + count + ' reminder' + (count===1?'':'s'), count, 'insert');

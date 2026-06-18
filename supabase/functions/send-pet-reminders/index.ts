@@ -55,7 +55,7 @@ interface DeviceRow {
 async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?: string }> {
   // A user may install the PWA on several phones — deliver to all of them.
   const { data: devices, error: devErr } = await supabase
-    .from("devices")
+    .from("pawfolio_devices")
     .select("device_id, endpoint, p256dh, auth")
     .eq("user_id", reminder.user_id);
   if (devErr) return { ok: false, error: `device lookup failed: ${devErr.message}` };
@@ -88,7 +88,7 @@ async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?:
     if (r.status === "rejected") {
       const status = (r.reason && (r.reason as any).statusCode) || 0;
       if (status === 404 || status === 410) {
-        await supabase.from("devices").delete().eq("endpoint", devices[i].endpoint);
+        await supabase.from("pawfolio_devices").delete().eq("endpoint", devices[i].endpoint);
       }
     }
   }
@@ -102,7 +102,7 @@ async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?:
 Deno.serve(async (_req) => {
   const nowIso = new Date().toISOString();
   const { data: due, error } = await supabase
-    .from("reminders")
+    .from("pawfolio_reminders")
     .select("id, user_id, device_id, source, source_id, pet_name, title, body, fire_at")
     .is("delivered_at", null)
     .lte("fire_at", nowIso)
@@ -122,13 +122,13 @@ Deno.serve(async (_req) => {
     if (result.ok) {
       delivered++;
       await supabase
-        .from("reminders")
+        .from("pawfolio_reminders")
         .update({ delivered_at: new Date().toISOString(), delivery_error: null })
         .eq("id", reminder.id);
     } else {
       failed++;
       await supabase
-        .from("reminders")
+        .from("pawfolio_reminders")
         .update({ delivery_error: result.error ?? "unknown" })
         .eq("id", reminder.id);
     }
