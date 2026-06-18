@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.8.8">
+                          <meta name="app-version" content="3.8.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1978,18 +1978,15 @@
     const cmp = compareVersions(info.version, CURRENT_VERSION);
     if (cmp > 0) {
       // Newer version available
-      const downloadUrl = info.download_url || 'https://rapunzlnflt-afk.github.io/pet-care-planner/pawfolio-download.html';
-      const liveUrl = info.live_url || 'https://rapunzlnflt-afk.github.io/pet-care-planner/';
       showUpdateModal({
         heading: 'A new version is available',
         body:
           '<p style="margin:0 0 10px 0;"><strong>You\'re on version ' + CURRENT_VERSION + '. Latest is ' + info.version + '.</strong></p>' +
           (info.notes ? '<p style="margin:0 0 10px 0;color:#64748b;"><strong>What\'s new:</strong><br>' + info.notes + '</p>' : '') +
-          '<p style="margin:0;color:#64748b;font-size:13px;">Tip: <strong>Tap Export first</strong> to save a backup of your data, just in case. Then tap <strong>Get update</strong> to download the latest file. Your data will still be there when you open the new version in the same browser.</p>',
+          '<p style="margin:0;color:#64748b;font-size:13px;">Tap <strong>Get update</strong> to load the latest version. You\'ll be able to export a backup of your data first, just in case \u2014 and your data stays safe on this device either way.</p>',
         buttons: [
           { label: 'Later' },
-          { label: 'Open in browser', onClick: () => window.open(liveUrl, '_blank') },
-          { label: 'Get update', primary: true, onClick: () => window.open(downloadUrl, '_blank') }
+          { label: 'Get update', primary: true, onClick: () => showForceRefreshModal() }
         ]
       });
       // Mark as notified so we don't nag
