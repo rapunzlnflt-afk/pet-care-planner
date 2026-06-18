@@ -4583,8 +4583,8 @@ try {
     var h2 = section.querySelector('h2');
     var card = document.createElement('div');
     card.id = 'pf-typectl-' + type;
-    card.className = 'card mb-3';
-    card.style.cssText = 'padding:8px 12px;border-left:3px solid #5B5BD6;';
+    card.className = 'card mb-5';
+    card.style.cssText = 'padding:8px 12px;border-left:3px solid #5B5BD6;margin-top:8px;';
     if(h2){ h2.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
     renderBlock(type);
