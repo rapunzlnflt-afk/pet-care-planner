@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.6">
+                          <meta name="app-version" content="3.9.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -177,6 +177,83 @@
   .stat-card { padding: 10px 4px; }
  .stat-icon { width: 36px; height: 36px; font-size: 20px; }
   .stat-label { font-size: 9px; }
+}
+
+/* ===== In-app printable sitter overlay ===== */
+#sitter-print-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #ffffff;
+  flex-direction: column;
+}
+#sitter-print-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(135deg,#5B5BD6,#4C4CC8);
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+}
+#sitter-print-title { font-size: 15px; }
+#sitter-print-bar button {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#sitter-print-bar button:active { background: rgba(255,255,255,0.32); }
+#sitter-print-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  color: #2d3748;
+}
+#sitter-print-content h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
+#sitter-print-content h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
+#sitter-print-content .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#sitter-print-content .field { margin-bottom: 8px; }
+#sitter-print-content .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+#sitter-print-content .value { font-size: 13px; font-weight: 600; }
+#sitter-print-content .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
+
+/* When printing, show ONLY the overlay's printable content (not the bar, not
+   the app behind it). */
+@media print {
+  body * { visibility: hidden; }
+  #sitter-print-overlay, #sitter-print-overlay * { visibility: visible; }
+  #sitter-print-overlay {
+    display: block !important;
+    position: absolute;
+    inset: auto;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+  }
+  #sitter-print-bar { display: none !important; }
+  #sitter-print-content {
+    overflow: visible;
+    max-width: none;
+    padding: 0;
+  }
+  #sitter-print-content h1 { margin: 0 0 20px; }
 }
   </style>
  </head>
@@ -1778,23 +1855,12 @@
     });
   }
 
-  // Print pet sitter info
-  document.getElementById('print-sitter-btn').addEventListener('click', () => {
+  // Build the printable sitter document body (reused by the in-app overlay).
+  // Returns the inner HTML for the printable area only (no <html>/<body> wrappers).
+  function buildSitterPrintableHTML() {
     const pets = getList('pets');
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><title>Pet Sitter Instructions — Pawfolio</title>
-    <style>
-      body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; color: #2d3748; }
-      h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
-      h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .field { margin-bottom: 8px; }
-      .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
-      .value { font-size: 13px; font-weight: 600; }
-      .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
-      @media print { body { padding: 0; } h1 { margin: 0 0 20px; } }
-    </style></head><body>
+    return `
     <h1>Pet Sitter Instructions</h1>
     <h2>Owner Info</h2>
     <div class="grid">
@@ -1836,11 +1902,171 @@
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Behavioral Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
     </div>`).join('')}
-    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${data['sitter-instructions']}</p>` : ''}
-    </body></html>`);
-    win.document.close();
-    win.print();
+    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${data['sitter-instructions']}</p>` : ''}`;
+  }
+
+  // In-app full-screen printable overlay. Replaces the old window.open() flow,
+  // which on an installed iOS PWA navigated the whole app onto the printable
+  // page and stranded the user there (no browser chrome / back button). This
+  // overlay always has a visible Close button and also closes on the iOS back
+  // gesture via a pushed history state.
+  let sitterOverlayOpen = false;
+
+  function closeSitterPrintOverlay(fromPopstate) {
+    if (!sitterOverlayOpen) return;
+    sitterOverlayOpen = false;
+    const overlay = document.getElementById('sitter-print-overlay');
+    if (overlay) overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    // If we still have our pushed history state, unwind it (unless popstate
+    // already did so by navigating back).
+    if (!fromPopstate && history.state && history.state.sitterPrint) {
+      history.back();
+    }
+  }
+
+  function openSitterPrintOverlay() {
+    const overlay = document.getElementById('sitter-print-overlay');
+    const content = document.getElementById('sitter-print-content');
+    content.innerHTML = buildSitterPrintableHTML();
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    content.scrollTop = 0;
+    sitterOverlayOpen = true;
+    // Push a history entry so the hardware/browser Back gesture closes the
+    // overlay instead of leaving the app.
+    history.pushState({ sitterPrint: true }, '');
+  }
+
+  window.addEventListener('popstate', () => {
+    if (sitterOverlayOpen) closeSitterPrintOverlay(true);
   });
+
+  // Print pet sitter info — open the in-app overlay (no window.open).
+  document.getElementById('print-sitter-btn').addEventListener('click', openSitterPrintOverlay);
+  // The overlay markup lives near the end of <body>, so it may not be parsed
+  // yet when this script runs — wire its buttons once the DOM is ready.
+  function wireSitterOverlayButtons() {
+    const closeBtn = document.getElementById('sitter-print-close-btn');
+    const doBtn = document.getElementById('sitter-print-do-btn');
+    const pdfBtn = document.getElementById('sitter-print-pdf-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => closeSitterPrintOverlay(false));
+    if (doBtn) doBtn.addEventListener('click', () => window.print());
+    if (pdfBtn) pdfBtn.addEventListener('click', saveSitterPdf);
+  }
+
+  // ---- Save-as-PDF (client-side, no server) -------------------------------
+  // Lazily load jsPDF + html2canvas from CDN on first use so they never slow the
+  // initial app load. Network-loaded (NOT precached in sw.js) to match how the
+  // Tailwind/Font-Awesome CDNs are referenced — keeps offline behaviour intact.
+  const PDF_CDN = {
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+  };
+  function loadScriptOnce(src){
+    return new Promise((resolve, reject) => {
+      if (document.querySelector('script[data-pdf-lib="'+src+'"]')) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.setAttribute('data-pdf-lib', src);
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensurePdfLibs(){
+    if (!(window.jspdf && window.jspdf.jsPDF)) await loadScriptOnce(PDF_CDN.jspdf);
+    if (!window.html2canvas) await loadScriptOnce(PDF_CDN.html2canvas);
+  }
+  function setPdfBtnBusy(busy){
+    const btn = document.getElementById('sitter-print-pdf-btn');
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.textContent = busy ? 'Generating…' : 'Save as PDF';
+    btn.style.opacity = busy ? '0.6' : '';
+  }
+  let _pdfStatusTimer = null;
+  function pdfStatus(msg){
+    let el = document.getElementById('sitter-pdf-status');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'sitter-pdf-status';
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+        'background:#16a34a;color:#fff;padding:9px 16px;border-radius:8px;font-family:Arial,sans-serif;' +
+        'font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10001;max-width:90vw;text-align:center;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(_pdfStatusTimer);
+    _pdfStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
+  async function saveSitterPdf(){
+    const content = document.getElementById('sitter-print-content');
+    if (!content) return;
+    setPdfBtnBusy(true);
+    pdfStatus('Building PDF…');
+    try {
+      await ensurePdfLibs();
+      const canvas = await window.html2canvas(content, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const jsPDF = window.jspdf.jsPDF;
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = canvas.height * (pageW / canvas.width);
+      // Slice the tall canvas image across as many A4 pages as needed.
+      let heightLeft = imgH;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        position -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      const blob = pdf.output('blob');
+      const fileName = 'Pet-Sitter-Instructions.pdf';
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      // iOS: prefer sharing the PDF as a file so the owner can AirDrop/Message it.
+      if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Pet Sitter Instructions' });
+          pdfStatus('✓ PDF ready');
+          return;
+        } catch(e){
+          if (e && e.name === 'AbortError') { pdfStatus('Cancelled'); return; }
+          // otherwise fall through to download
+        }
+      }
+      // Fallback: trigger a normal download.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      pdfStatus('✓ PDF saved');
+    } catch(e){
+      pdfStatus('Could not create PDF — try Print instead');
+    } finally {
+      setPdfBtnBusy(false);
+    }
+  }
+  if (document.getElementById('sitter-print-close-btn')) {
+    wireSitterOverlayButtons();
+  } else {
+    document.addEventListener('DOMContentLoaded', wireSitterOverlayButtons);
+  }
 
   // ============ SHARE SITTER SHEET (data-in-link, no server) ============
   // Build a compact payload of just what a sitter needs, encode it into a link
@@ -1899,11 +2125,17 @@
     const status = document.getElementById('sitter-save-status');
     const link = buildSitterLink();
     const owner = (JSON.parse(localStorage.getItem('petSitterInfo')||'{}'))['sitter-owner-name'] || '';
-    const msg = (owner ? owner + "'s" : 'My') + ' pet sitter info \u2014 tap to open (phone numbers & address are tappable):\n' + link;
+    // Short label WITHOUT the link. The link is passed as a first-class `url`
+    // field below so iMessage/Mail linkify it reliably and the long #fragment
+    // (which carries all the pet data) survives the tap on the recipient's end.
+    const label = (owner ? owner + "'s" : 'My') + ' pet sitter info \u2014 tap to open';
+    // For clipboard/prompt fallbacks (browsers without navigator.share) we still
+    // send the full link inline.
+    const clipboardMsg = label + '\n' + link;
     // Prefer the native share sheet on phones.
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Pet Sitter Info', text: msg });
+        await navigator.share({ title: 'Pet Sitter Info', text: label, url: link });
         return;
       } catch(e){
         if (e && e.name === 'AbortError') return; // user cancelled — do nothing
@@ -1912,7 +2144,7 @@
     }
     // Fallback: copy to clipboard.
     try {
-      await navigator.clipboard.writeText(msg);
+      await navigator.clipboard.writeText(clipboardMsg);
       if(status){ status.textContent = '\u2713 Link copied \u2014 paste it into a text or email'; status.style.color = 'var(--accent-color)'; setTimeout(()=>{ if(status.textContent.indexOf('Link copied')>=0) status.textContent=''; }, 4000); }
       else alert('Sitter link copied to your clipboard. Paste it into a text or email to your sitter.');
     } catch(e){
@@ -2925,6 +3157,19 @@ refreshAll();
   }
 })();
 </script>
+
+ <!-- In-app printable pet-sitter overlay (replaces window.open print flow) -->
+ <div id="sitter-print-overlay">
+   <div id="sitter-print-bar">
+     <span id="sitter-print-title">Pet Sitter Instructions</span>
+     <span style="display:flex;gap:8px;">
+       <button id="sitter-print-pdf-btn" type="button">Save as PDF</button>
+       <button id="sitter-print-do-btn" type="button">Print</button>
+       <button id="sitter-print-close-btn" type="button" aria-label="Close">✕ Close</button>
+     </span>
+   </div>
+   <div id="sitter-print-content" class="printable-area"></div>
+ </div>
  </body>
 </html>
 
