@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.7">
+                          <meta name="app-version" content="3.9.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -227,7 +227,13 @@
 }
 #sitter-print-content h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
 #sitter-print-content h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
-#sitter-print-content .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Single clean column on phones so longer values (feeding schedule, walk
+   schedule, etc.) read cleanly instead of cramming into two ragged columns.
+   Widen to two columns only when there's room (tablets / printed page). */
+#sitter-print-content .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 640px) {
+  #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
+}
 #sitter-print-content .field { margin-bottom: 8px; }
 #sitter-print-content .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
 #sitter-print-content .value { font-size: 13px; font-weight: 600; }
@@ -254,6 +260,8 @@
     padding: 0;
   }
   #sitter-print-content h1 { margin: 0 0 20px; }
+  /* Full page has room for two columns. */
+  #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
 }
   </style>
  </head>
@@ -1629,7 +1637,7 @@
         <h3 class="font-heading text-sm font-bold text-primary mb-3">${p.name} (${p.species})</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div><label class="block font-body text-xs text-secondary mb-1">Feeding Schedule</label><input type="text" id="sitter-feed-${p.__id}" value="${(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
-          <div><label class="block font-body text-xs text-secondary mb-1">Food Brand</label><input type="text" id="sitter-food-${p.__id}" value="${(sitterData['sitter-food-'+p.__id]||'')}" placeholder="e.g., Royal Canin Adult"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><input type="text" id="sitter-food-${p.__id}" value="${(sitterData['sitter-food-'+p.__id]||'')}" placeholder="e.g., 1 cup Royal Canin, soak in warm water"></div>
           <div><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
           <div><label class="block font-body text-xs text-secondary mb-1">Medications (if any)</label><input type="text" id="sitter-meds-${p.__id}" value="${(sitterData['sitter-meds-'+p.__id]||'')}" placeholder="e.g., 1 Apoquel tablet with breakfast"></div>
         </div>
@@ -1726,9 +1734,9 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Food Brand</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Instructions</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Walk Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-walk-'+p.__id]||'—'}</p></div>
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p><p class="font-body text-sm font-medium text-primary">${data['sitter-meds-'+p.__id]||'—'}</p></div>
+            ${data['sitter-meds-'+p.__id]?`<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p><p class="font-body text-sm font-medium text-primary">${data['sitter-meds-'+p.__id]}</p></div>`:''}
             ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Behavioral Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
           </div>
         </div>`;
@@ -1896,9 +1904,9 @@
       ${(p.microchip || p.vet) ? `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${p.microchip}</div></div>` : ''}${p.vet ? `<div class="field"><div class="label">Primary Vet</div><div class="value">${p.vet}</div></div>` : ''}</div>` : ''}
       <div class="grid">
         <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
-        <div class="field"><div class="label">Food Brand</div><div class="value">${data['sitter-food-'+p.__id]||''}</div></div>
+        <div class="field"><div class="label">Feeding Instructions</div><div class="value">${data['sitter-food-'+p.__id]||''}</div></div>
         <div class="field"><div class="label">Walk Schedule</div><div class="value">${data['sitter-walk-'+p.__id]||''}</div></div>
-        <div class="field"><div class="label">Medications</div><div class="value">${data['sitter-meds-'+p.__id]||''}</div></div>
+        ${data['sitter-meds-'+p.__id] ? `<div class="field"><div class="label">Medications</div><div class="value">${data['sitter-meds-'+p.__id]}</div></div>` : ''}
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Behavioral Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
     </div>`).join('')}
