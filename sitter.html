@@ -150,8 +150,8 @@
         pets.forEach(function(p){
           var sub=[p.sp, p.br].filter(Boolean).join(' &mdash; ');
           var rows='';
-          rows+=fieldText('Feeding', p.feed);
-          rows+=fieldText('Food', p.food);
+          rows+=fieldText('Feeding Schedule', p.feed);
+          rows+=fieldText('Feeding Instructions', p.food);
           rows+=fieldText('Walks', p.walk);
           rows+=fieldText('Medications', p.meds);
           rows+=fieldText('Microchip', p.chip);
