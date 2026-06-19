@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.4">
+                          <meta name="app-version" content="3.9.5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -240,6 +240,24 @@
         <span>Force refresh</span>
        </button>
        <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
+
+       <!-- Automatic backup controls (v3.9.5) -->
+       <div id="auto-backup-settings" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
+        <label for="auto-backup-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:#5B5BD6;">
+         <span>Automatic backup</span>
+         <input type="checkbox" id="auto-backup-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:#5B5BD6;">
+        </label>
+        <p style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.5;">Saves a backup of your data so you don't lose it. Stays on your device / your chosen file &mdash; nothing is uploaded.</p>
+        <button id="auto-backup-now-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+         <span>Back up now</span>
+        </button>
+        <button id="auto-backup-location-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:none;align-items:center;justify-content:center;gap:6px;">
+         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+         <span id="auto-backup-location-label">Choose backup file location</span>
+        </button>
+        <p id="auto-backup-status" style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"></p>
+       </div>
       </div>
      </div>
     </div>
@@ -1051,6 +1069,8 @@
   }
   function saveData(data) {
     localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    // Meaningful data change -> schedule an automatic backup (debounced, v3.9.5).
+    try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
   }
   function getList(type) {
     return loadData()[type] || [];
@@ -1683,6 +1703,7 @@
   document.getElementById('save-sitter-btn').addEventListener('click', () => {
     const data = collectSitterData();
     localStorage.setItem('petSitterInfo', JSON.stringify(data));
+    try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
     showSitterPreview();
   });
 
@@ -1696,6 +1717,7 @@
     _sitterSaveTimer = setTimeout(() => {
       const data = collectSitterData();
       localStorage.setItem('petSitterInfo', JSON.stringify(data));
+      try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
       if(status) {
         status.textContent = '\u2713 Saved';
         status.style.color = 'var(--accent-color)';
@@ -5716,6 +5738,8 @@ try {
       return payload;
     });
   }
+  // Expose the serializer so the automated-backup engine can reuse it (no data-gathering duplication).
+  window.pawfolioBuildBackupPayload = buildFullBackup;
 
   function downloadFullBackup(){
     return buildFullBackup().then(function(payload){
@@ -5778,6 +5802,320 @@ try {
     updateStorageMeter();
     // Refresh meter when returning to the app
     document.addEventListener('visibilitychange', function(){ if (!document.hidden) updateStorageMeter(); });
+  }
+  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script>
+/* === Pawfolio v3.9.5 — Automated Backup (Tiers 1 + 2) ===
+   Automatically saves a backup of all app data after a meaningful change, so users
+   don't lose records if their browser/phone is wiped. Reuses the existing full-backup
+   serializer (window.pawfolioDownloadFullBackup / buildFullBackup from the vault block).
+
+   Tier 1a: True single-file backup via the File System Access API
+            (window.showSaveFilePicker). The chosen FileSystemFileHandle is persisted in
+            IndexedDB so the SAME file is overwritten on every backup (no clutter).
+   Tier 1b: Falls back to a normal blob download (Pawfolio-Backup.json) where the
+            File System Access API is unavailable (iOS Safari / Firefox / etc.).
+   Tier 2:  The existing reminder banner (renderBackupReminder) already nudges after a
+            while; auto-backups update petPlannerLastExport so that reminder stays accurate.
+
+   Privacy: nothing is uploaded anywhere. Data only goes to on-device storage or the
+   user's own chosen file. Everything is wrapped in try/catch and degrades gracefully. */
+(function(){
+  'use strict';
+  if (window.__pawfolioAutoBackup) return; window.__pawfolioAutoBackup = true;
+
+  var DEBOUNCE_MS = 45000;       // wait this long after the last change before backing up
+  var SUPPORTS_FS = (typeof window.showSaveFilePicker === 'function');
+  var PREF_KEY = 'pawfolioAutoBackup';     // '1' on (default), '0' off
+  var LAST_AUTO_KEY = 'lastAutoBackup';    // YYYY-MM-DD of last successful auto backup (daily cap)
+  var FILE_NAME = 'Pawfolio-Backup.json';
+
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function autoEnabled(){
+    try { return localStorage.getItem(PREF_KEY) !== '0'; } catch(e){ return true; } // default ON
+  }
+
+  // ---------- IndexedDB layer for the FileSystemFileHandle ----------
+  // Separate DB from the document vault so we never have to bump the vault DB version.
+  var HDB_NAME = 'pawfolioBackup';
+  var HSTORE = 'handles';
+  var HKEY = 'backupFile';
+  var _hdbPromise = null;
+  function openHandleDB(){
+    if (_hdbPromise) return _hdbPromise;
+    _hdbPromise = new Promise(function(resolve, reject){
+      if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
+      var req = indexedDB.open(HDB_NAME, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if (!db.objectStoreNames.contains(HSTORE)) db.createObjectStore(HSTORE);
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+    return _hdbPromise;
+  }
+  function saveHandle(handle){
+    return openHandleDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(HSTORE, 'readwrite');
+        tx.objectStore(HSTORE).put(handle, HKEY);
+        tx.oncomplete = function(){ resolve(true); };
+        tx.onerror = function(){ reject(tx.error); };
+        tx.onabort = function(){ reject(tx.error || new Error('aborted')); };
+      });
+    });
+  }
+  function loadHandle(){
+    return openHandleDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(HSTORE, 'readonly');
+        var rq = tx.objectStore(HSTORE).get(HKEY);
+        rq.onsuccess = function(){ resolve(rq.result || null); };
+        rq.onerror = function(){ reject(rq.error); };
+      });
+    }).catch(function(){ return null; });
+  }
+  function clearHandle(){
+    return openHandleDB().then(function(db){
+      return new Promise(function(resolve){
+        var tx = db.transaction(HSTORE, 'readwrite');
+        tx.objectStore(HSTORE).delete(HKEY);
+        tx.oncomplete = function(){ resolve(true); };
+        tx.onerror = function(){ resolve(false); };
+      });
+    }).catch(function(){ return false; });
+  }
+
+  // ---------- Build the JSON payload (reuse the vault block's serializer) ----------
+  // window.pawfolioBuildBackupPayload is exposed below from the vault block's buildFullBackup
+  // if available; otherwise we read the same localStorage keys directly as a fallback.
+  function buildPayloadJSON(){
+    if (typeof window.pawfolioBuildBackupPayload === 'function'){
+      return window.pawfolioBuildBackupPayload().then(function(p){ return JSON.stringify(p); });
+    }
+    // Fallback: localStorage-only snapshot (matches the legacy export shape).
+    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome'];
+    var ls = {};
+    keys.forEach(function(k){ try { var v = localStorage.getItem(k); if (v != null) ls[k] = v; } catch(e){} });
+    var payload = { __pawfolioBackup: true, version: '0.0', savedAt: new Date().toISOString(), localStorage: ls, photos: {} };
+    return Promise.resolve(JSON.stringify(payload));
+  }
+
+  // ---------- Permission helpers (Tier 1a) ----------
+  function verifyPermission(handle){
+    if (!handle || typeof handle.queryPermission !== 'function') return Promise.resolve(false);
+    var opts = { mode: 'readwrite' };
+    return handle.queryPermission(opts).then(function(state){
+      if (state === 'granted') return true;
+      if (typeof handle.requestPermission !== 'function') return false;
+      return handle.requestPermission(opts).then(function(s){ return s === 'granted'; });
+    }).catch(function(){ return false; });
+  }
+
+  function writeToHandle(handle, json){
+    return handle.createWritable().then(function(w){
+      return w.write(new Blob([json], { type: 'application/json' })).then(function(){ return w.close(); });
+    });
+  }
+
+  // ---------- Tier 1b: blob download fallback ----------
+  function downloadBlob(json){
+    try {
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = FILE_NAME;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ try { URL.revokeObjectURL(url); } catch(e){} }, 4000);
+      return true;
+    } catch(e){ return false; }
+  }
+
+  // ---------- Quiet toast ----------
+  var _toastTimer = null;
+  function toast(msg){
+    try {
+      var el = document.getElementById('pawfolio-backup-toast');
+      if (!el){
+        el = document.createElement('div');
+        el.id = 'pawfolio-backup-toast';
+        el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);' +
+          'background:#16a34a;color:#fff;padding:9px 16px;border-radius:8px;font-family:Karla,sans-serif;' +
+          'font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10000;opacity:0;' +
+          'transition:opacity .25s ease, transform .25s ease;pointer-events:none;max-width:90vw;text-align:center;';
+        document.body.appendChild(el);
+      }
+      if (document.documentElement.getAttribute('data-theme') === 'dark'){
+        el.style.background = '#15803d';
+      } else {
+        el.style.background = '#16a34a';
+      }
+      el.textContent = msg;
+      requestAnimationFrame(function(){ el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)'; });
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function(){
+        el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(8px)';
+      }, 2600);
+    } catch(e){}
+  }
+
+  // ---------- Record a successful backup (auto OR manual) ----------
+  function recordBackup(isAuto){
+    try {
+      var d = todayStr();
+      if (isAuto) localStorage.setItem(LAST_AUTO_KEY, d);
+      // Tier 2 reminder reads petPlannerLastExport; keep it fresh on every backup.
+      localStorage.setItem('petPlannerLastExport', d);
+      localStorage.removeItem('backupReminderSnoozed');
+      if (typeof window.renderBackupReminder === 'function') { try { window.renderBackupReminder(); } catch(e){} }
+    } catch(e){}
+  }
+
+  // ---------- Core backup runner ----------
+  // opts: { auto:Boolean (respect daily cap & silent), interactive:Boolean (may prompt for file) }
+  function runBackup(opts){
+    opts = opts || {};
+    var isAuto = !!opts.auto;
+    return buildPayloadJSON().then(function(json){
+      if (SUPPORTS_FS){
+        return loadHandle().then(function(handle){
+          // No handle yet.
+          if (!handle){
+            if (opts.interactive){
+              // Prompt the user to pick a file (must be in a user gesture).
+              return pickFile().then(function(h){
+                if (!h) return { ok:false, deferred:true };
+                return writeToHandle(h, json).then(function(){ return { ok:true, tier:'1a' }; });
+              });
+            }
+            // Silent auto with no handle: fall back to a blob download so data is still saved.
+            var okDl = downloadBlob(json);
+            return { ok: okDl, tier:'1b' };
+          }
+          // We have a handle — verify permission and overwrite the same file.
+          return verifyPermission(handle).then(function(granted){
+            if (!granted){
+              if (opts.interactive){
+                return pickFile().then(function(h){
+                  if (!h) return { ok:false, deferred:true };
+                  return writeToHandle(h, json).then(function(){ return { ok:true, tier:'1a' }; });
+                });
+              }
+              // Permission not granted in a silent context — defer to Tier 2 / fallback.
+              var ok2 = downloadBlob(json);
+              return { ok: ok2, tier:'1b', deferred:true };
+            }
+            return writeToHandle(handle, json).then(function(){ return { ok:true, tier:'1a' }; })
+              .catch(function(){
+                // Handle may be stale (file moved/deleted). Drop it and fall back.
+                return clearHandle().then(function(){
+                  var ok3 = downloadBlob(json);
+                  return { ok: ok3, tier:'1b' };
+                });
+              });
+          });
+        });
+      }
+      // Tier 1b: no File System Access API.
+      var okd = downloadBlob(json);
+      return { ok: okd, tier:'1b' };
+    }).then(function(res){
+      if (res && res.ok){
+        recordBackup(isAuto);
+        if (!opts.silentToast) toast('Backed up ✓');
+      }
+      return res;
+    }).catch(function(err){
+      // Never throw uncaught — degrade silently for auto, surface for manual.
+      if (!isAuto && !opts.silentToast){ try { toast('Backup failed'); } catch(e){} }
+      return { ok:false, error: err };
+    });
+  }
+
+  // ---------- File picker (Tier 1a) ----------
+  function pickFile(){
+    if (!SUPPORTS_FS) return Promise.resolve(null);
+    return window.showSaveFilePicker({
+      suggestedName: FILE_NAME,
+      types: [{ description: 'Pawfolio Backup', accept: { 'application/json': ['.json'] } }]
+    }).then(function(handle){
+      return saveHandle(handle).then(function(){ updateLocationLabel(); return handle; });
+    }).catch(function(){ return null; }); // user cancelled or error
+  }
+
+  // ---------- Debounced scheduler hooked into meaningful saves ----------
+  var _debounceTimer = null;
+  function markDirtyAndScheduleBackup(){
+    if (!autoEnabled()) return;
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(function(){
+      // Once-a-day cap: skip the actual write if we already backed up today,
+      // but petPlannerLastExport tracking keeps the Tier 2 reminder accurate.
+      try {
+        if (localStorage.getItem(LAST_AUTO_KEY) === todayStr()) return;
+      } catch(e){}
+      runBackup({ auto:true });
+    }, DEBOUNCE_MS);
+  }
+  // Expose so the app's save choke-points can call it.
+  window.pawfolioMarkDirty = markDirtyAndScheduleBackup;
+
+  // ---------- Settings UI wiring ----------
+  function updateLocationLabel(){
+    var label = document.getElementById('auto-backup-location-label');
+    var btn = document.getElementById('auto-backup-location-btn');
+    if (!label || !btn) return;
+    loadHandle().then(function(h){
+      label.textContent = h ? 'Change backup file' : 'Choose backup file location';
+    });
+  }
+  function setStatus(msg){
+    var el = document.getElementById('auto-backup-status');
+    if (el) el.textContent = msg || '';
+  }
+
+  function wireSettings(){
+    var toggle = document.getElementById('auto-backup-toggle');
+    var nowBtn = document.getElementById('auto-backup-now-btn');
+    var locBtn = document.getElementById('auto-backup-location-btn');
+    if (toggle){
+      toggle.checked = autoEnabled();
+      toggle.addEventListener('change', function(){
+        try { localStorage.setItem(PREF_KEY, toggle.checked ? '1' : '0'); } catch(e){}
+        setStatus(toggle.checked ? 'Automatic backup is on.' : 'Automatic backup is off.');
+        // When turning on with FS support and no file chosen yet, offer to pick one now.
+        if (toggle.checked && SUPPORTS_FS){
+          loadHandle().then(function(h){ if (!h) pickFile().then(updateLocationLabel); });
+        }
+      });
+    }
+    if (nowBtn){
+      nowBtn.addEventListener('click', function(){
+        setStatus('Backing up…');
+        runBackup({ auto:false, interactive:true }).then(function(res){
+          setStatus(res && res.ok ? 'Last backup: just now.' : 'Backup did not complete.');
+        });
+      });
+    }
+    if (locBtn){
+      if (SUPPORTS_FS){ locBtn.style.display = 'flex'; updateLocationLabel(); }
+      else { locBtn.style.display = 'none'; }
+      locBtn.addEventListener('click', function(){
+        pickFile().then(function(h){
+          updateLocationLabel();
+          if (h){ setStatus('Backup location set.'); }
+        });
+      });
+    }
+  }
+
+  function boot(){
+    if (!document.getElementById('auto-backup-toggle')){ return setTimeout(boot, 150); }
+    try { wireSettings(); } catch(e){}
   }
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
