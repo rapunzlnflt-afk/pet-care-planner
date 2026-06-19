@@ -1,6 +1,7 @@
-const CACHE_NAME = 'pet-care-planner-105';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-106';const ASSETS = [
   './',
   './index.html',
+  './sitter.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

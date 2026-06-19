@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.1">
+                          <meta name="app-version" content="3.9.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -424,6 +424,7 @@
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Vet / Clinic Name</label>
          <input type="text" id="vet-name" placeholder="e.g., Happy Paws Clinic">
+         <div data-vet-picker-anchor="vet-name" data-vet-picker-mode="name"></div>
         </div>
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Visit Type</label>
@@ -518,6 +519,7 @@
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Administered By</label>
          <input type="text" id="vacc-vet" placeholder="Vet / clinic name">
+         <div data-vet-picker-anchor="vacc-vet" data-vet-picker-mode="name"></div>
         </div>
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Lot Number</label>
@@ -628,6 +630,7 @@
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Prescribing Vet</label>
          <input type="text" id="med-vet" placeholder="Vet name">
+         <div data-vet-picker-anchor="med-vet" data-vet-picker-mode="name"></div>
         </div>
        </div>
        <div>
@@ -733,7 +736,10 @@
     <section id="tab-pet-sitter" class="tab-content">
      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <h2 class="font-heading text-2xl font-bold text-primary">Pet Sitter Info</h2>
-      <button id="print-sitter-btn" class="btn-primary px-4 py-2 text-sm">Print / Export</button>
+      <div style="display:flex;gap:8px;">
+       <button id="share-sitter-btn" class="btn-primary px-4 py-2 text-sm" style="background:var(--accent-color);">Share to sitter</button>
+       <button id="print-sitter-btn" class="btn-primary px-4 py-2 text-sm">Print / Export</button>
+      </div>
      </div>
      <p class="font-body text-sm text-secondary mb-4">Everything your pet sitter needs to know — fill this out once and print it before any trip.</p>
      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
@@ -750,8 +756,10 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
        <div><label class="block font-body text-xs text-secondary mb-1">Emergency Contact Name</label><input type="text" id="sitter-emerg-name" placeholder="Name"></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Emergency Contact Phone</label><input type="text" id="sitter-emerg-phone" placeholder="Phone"></div>
+       <div style="grid-column:1 / -1;" data-vet-picker-anchor="sitter-vet"></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Vet Name & Phone</label><input type="text" id="sitter-vet" placeholder="Dr. Smith — (555) 123-4567"></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Emergency Vet (24hr)</label><input type="text" id="sitter-emerg-vet" placeholder="VCA Animal Hospital — (555) 999-0000"></div>
+       <div style="grid-column:1 / -1;"><label class="block font-body text-xs text-secondary mb-1">Vet Address</label><input type="text" id="sitter-vet-address" placeholder="123 Main St, Granbury, TX 76048"></div>
       </div>
      </div>
      <div id="sitter-pets-section"></div>
@@ -1531,6 +1539,7 @@
       'sitter-emerg-name': (document.getElementById('sitter-emerg-name')||{}).value||'',
       'sitter-emerg-phone': (document.getElementById('sitter-emerg-phone')||{}).value||'',
       'sitter-vet': (document.getElementById('sitter-vet')||{}).value||'',
+      'sitter-vet-address': (document.getElementById('sitter-vet-address')||{}).value||'',
       'sitter-emerg-vet': (document.getElementById('sitter-emerg-vet')||{}).value||'',
       'sitter-instructions': (document.getElementById('sitter-instructions')||{}).value||'',
     };
@@ -1571,7 +1580,8 @@
           <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Away Dates</p><p class="font-body text-sm font-medium text-primary">${data['sitter-away-dates']||'—'}</p></div>
           <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Contact</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-name']||'—'} ${data['sitter-emerg-phone'] ? '· '+data['sitter-emerg-phone'] : ''}</p></div>
           <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Vet</p><p class="font-body text-sm font-medium text-primary">${data['sitter-vet']||'—'}</p></div>
-          <div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Vet (24hr)</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-vet']||'—'}</p></div>
+          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Vet (24hr)</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-vet']||'—'}</p></div>
+          ${data['sitter-vet-address'] ? `<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Vet Address</p><p class="font-body text-sm font-medium text-primary">${data['sitter-vet-address']}</p></div>` : ''}
         </div>
       </div>
 
@@ -1685,7 +1695,7 @@
   function restoreSitterOwnerFields() {
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-away-dates',
-     'sitter-emerg-name','sitter-emerg-phone','sitter-vet','sitter-emerg-vet','sitter-instructions'].forEach(id => {
+     'sitter-emerg-name','sitter-emerg-phone','sitter-vet','sitter-vet-address','sitter-emerg-vet','sitter-instructions'].forEach(id => {
       const el = document.getElementById(id);
       if(el && data[id]) el.value = data[id];
     });
@@ -1721,6 +1731,7 @@
       <div class="field"><div class="label">Emergency Contact</div><div class="value">${data['sitter-emerg-name']||''} — ${data['sitter-emerg-phone']||''}</div></div>
       <div class="field"><div class="label">Vet</div><div class="value">${data['sitter-vet']||''}</div></div>
       <div class="field"><div class="label">Emergency Vet (24hr)</div><div class="value">${data['sitter-emerg-vet']||''}</div></div>
+      ${data['sitter-vet-address'] ? `<div class="field" style="grid-column:span 2;"><div class="label">Vet Address</div><div class="value">${data['sitter-vet-address']}</div></div>` : ''}
     </div>
     ${pets.map(p => `
     <h2>${p.name} (${p.species}${p.breed ? ' — ' + p.breed : ''})</h2>
@@ -1741,6 +1752,78 @@
     win.document.close();
     win.print();
   });
+
+  // ============ SHARE SITTER SHEET (data-in-link, no server) ============
+  // Build a compact payload of just what a sitter needs, encode it into a link
+  // to the public sitter.html viewer, and offer it via the native share sheet
+  // (falling back to copy-to-clipboard). Nothing is uploaded anywhere — the data
+  // rides inside the link's hash, which never leaves the device except in the
+  // message the owner chooses to send.
+  function buildSitterPayload(){
+    const pets = getList('pets');
+    const d = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    const petsOut = pets.map(p => ({
+      n: p.name || '',
+      sp: p.species || '',
+      br: p.breed || '',
+      feed: d['sitter-feed-'+p.__id] || '',
+      food: d['sitter-food-'+p.__id] || '',
+      walk: d['sitter-walk-'+p.__id] || '',
+      meds: d['sitter-meds-'+p.__id] || '',
+      beh: d['sitter-behavior-'+p.__id] || '',
+      chip: p.microchip || '',
+      allergies: p.allergies || ''
+    }));
+    return {
+      v: 1,
+      owner: { name: d['sitter-owner-name']||'', phone: d['sitter-owner-phone']||'', email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
+      emerg: { name: d['sitter-emerg-name']||'', phone: d['sitter-emerg-phone']||'' },
+      vet: { np: d['sitter-vet']||'', address: d['sitter-vet-address']||'', emerg: d['sitter-emerg-vet']||'' },
+      instructions: d['sitter-instructions']||'',
+      pets: petsOut
+    };
+  }
+  // UTF-8-safe base64 (handles emoji/accents in names & notes).
+  function encodePayload(obj){
+    const json = JSON.stringify(obj);
+    return btoa(unescape(encodeURIComponent(json)));
+  }
+  function buildSitterLink(){
+    const enc = encodePayload(buildSitterPayload());
+    // Point at sitter.html in the same folder as the app.
+    let base = location.href.split('#')[0].split('?')[0];
+    base = base.replace(/[^/]*$/, ''); // strip filename, keep trailing slash
+    return base + 'sitter.html#' + enc;
+  }
+  async function shareSitter(){
+    const status = document.getElementById('sitter-save-status');
+    const link = buildSitterLink();
+    const owner = (JSON.parse(localStorage.getItem('petSitterInfo')||'{}'))['sitter-owner-name'] || '';
+    const msg = (owner ? owner + "'s" : 'My') + ' pet sitter info \u2014 tap to open (phone numbers & address are tappable):\n' + link;
+    // Prefer the native share sheet on phones.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Pet Sitter Info', text: msg });
+        return;
+      } catch(e){
+        if (e && e.name === 'AbortError') return; // user cancelled — do nothing
+        // otherwise fall through to clipboard
+      }
+    }
+    // Fallback: copy to clipboard.
+    try {
+      await navigator.clipboard.writeText(msg);
+      if(status){ status.textContent = '\u2713 Link copied \u2014 paste it into a text or email'; status.style.color = 'var(--accent-color)'; setTimeout(()=>{ if(status.textContent.indexOf('Link copied')>=0) status.textContent=''; }, 4000); }
+      else alert('Sitter link copied to your clipboard. Paste it into a text or email to your sitter.');
+    } catch(e){
+      // Last resort: prompt with the link so it can be copied manually.
+      window.prompt('Copy this link and send it to your sitter:', link);
+    }
+  }
+  (function(){
+    const sb = document.getElementById('share-sitter-btn');
+    if(sb) sb.addEventListener('click', shareSitter);
+  })();
 
   // ============ DOCUMENT VAULT ============
   document.getElementById('doc-form').addEventListener('submit', e => {
@@ -4514,7 +4597,7 @@ try {
 
   function caretHTML(type){
     var rot = expanded[type] ? 'transform:rotate(90deg);' : '';
-    return '<span id="pf-typecaret-' + type + '" aria-hidden="true" style="flex:0 0 auto;font-size:11px;line-height:1;color:#94a3b8;transition:transform 0.15s;' + rot + '">&#9656;</span>';
+    return '<span id="pf-typecaret-' + type + '" aria-hidden="true" style="flex:0 0 auto;font-size:15px;line-height:1;color:#94a3b8;transition:transform 0.15s;' + rot + '">&#9656;</span>';
   }
 
   function blockInnerHTML(type){
@@ -6007,6 +6090,117 @@ try {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 300); });
   else setTimeout(boot, 300);
+})();
+</script>
+<script>
+/* === Pawfolio: "Use a saved vet" picker (v3.9.2) ===
+   Adds a dropdown next to vet-entry fields. Reads the saved Veterinarians list
+   (name/phone/address) plus each pet's Primary Vet name, and lets the user pick
+   one to fill the field. Picking is explicit (never silent), so nothing is
+   overwritten unless the user chooses an option. Hides itself when nothing is saved. */
+(function(){
+  'use strict';
+  function getList(k){ try { return (window.getList ? window.getList(k) : []) || []; } catch(e){ return []; } }
+  function composeAddr(v){
+    if (v && v.address && !v.street && !v.city && !v.state && !v.zip) return String(v.address).trim();
+    var street = (v && v.street ? String(v.street).trim() : '');
+    var city = (v && v.city ? String(v.city).trim() : '');
+    var state = (v && v.state ? String(v.state).trim() : '');
+    var zip = (v && v.zip ? String(v.zip).trim() : '');
+    var cityLine = [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    return [street, cityLine].filter(Boolean).join(', ');
+  }
+  // Build the list of pickable vets: saved Veterinarians first, then any pet
+  // Primary Vet names not already represented.
+  function buildVetOptions(){
+    var out = [];
+    var seen = {};
+    getList('vets').forEach(function(v){
+      var name = (v && v.name ? String(v.name).trim() : '');
+      if(!name) return;
+      var key = name.toLowerCase();
+      seen[key] = true;
+      out.push({ name:name, phone:(v.phone?String(v.phone).trim():''), address:composeAddr(v) });
+    });
+    getList('pets').forEach(function(p){
+      var name = (p && p.vet ? String(p.vet).trim() : '');
+      if(!name) return;
+      var key = name.toLowerCase();
+      if(seen[key]) return;
+      seen[key] = true;
+      out.push({ name:name, phone:'', address:'' });
+    });
+    return out;
+  }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // Label shown in the dropdown for each option.
+  function optLabel(o){
+    var parts = [o.name];
+    if(o.phone) parts.push(o.phone);
+    return parts.join(' \u2014 ');
+  }
+  function applyPick(anchor, opt){
+    var targetId = anchor.getAttribute('data-vet-picker-anchor');
+    var mode = anchor.getAttribute('data-vet-picker-mode') || 'full';
+    var field = document.getElementById(targetId);
+    if(!field) return;
+    if(mode === 'name'){
+      field.value = opt.name;
+    } else {
+      // "full" (sitter): Name \u2014 phone into the vet field, address into companion field if present.
+      field.value = opt.phone ? (opt.name + ' \u2014 ' + opt.phone) : opt.name;
+      var addrEl = document.getElementById('sitter-vet-address');
+      if(addrEl && opt.address){ addrEl.value = opt.address; }
+    }
+    // Fire input so existing auto-save / live-format listeners run.
+    try { field.dispatchEvent(new Event('input', { bubbles:true })); } catch(e){}
+    var addrEl2 = document.getElementById('sitter-vet-address');
+    if(mode!=='name' && addrEl2 && opt.address){ try { addrEl2.dispatchEvent(new Event('input',{bubbles:true})); } catch(e){} }
+  }
+  function renderPickerInto(anchor, opts){
+    // Clear and (re)build.
+    anchor.innerHTML = '';
+    if(!opts.length){ anchor.style.display = 'none'; return; }
+    anchor.style.display = '';
+    var sel = document.createElement('select');
+    sel.className = 'pf-vet-picker';
+    sel.setAttribute('aria-label', 'Use a saved vet');
+    sel.style.cssText = 'margin-top:6px;width:100%;font-size:13px;padding:7px 8px;border-radius:8px;border:1px solid var(--border-color);background:var(--input-bg,transparent);color:var(--text-secondary);cursor:pointer;';
+    var ph = document.createElement('option');
+    ph.value = ''; ph.textContent = '\u2295 Use a saved vet\u2026';
+    sel.appendChild(ph);
+    opts.forEach(function(o, i){
+      var op = document.createElement('option');
+      op.value = String(i); op.textContent = optLabel(o);
+      sel.appendChild(op);
+    });
+    sel.addEventListener('change', function(){
+      var i = parseInt(sel.value, 10);
+      if(!isNaN(i) && opts[i]){ applyPick(anchor, opts[i]); }
+      sel.value = ''; // reset so the same vet can be re-picked
+    });
+    anchor.appendChild(sel);
+  }
+  // Rebuild every picker on the page (called when data changes or a tab opens).
+  function refreshAllPickers(){
+    var opts = buildVetOptions();
+    var anchors = document.querySelectorAll('[data-vet-picker-anchor]');
+    Array.prototype.forEach.call(anchors, function(a){ renderPickerInto(a, opts); });
+  }
+  window.pfRefreshVetPickers = refreshAllPickers;
+  function boot(){
+    refreshAllPickers();
+    // Rebuild when tabs are switched (vet list may have changed) and on focus.
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if(t && (t.matches('.sidebar-item') || t.closest && t.closest('.sidebar-item'))){
+        setTimeout(refreshAllPickers, 60);
+      }
+    }, true);
+    window.addEventListener('focus', function(){ setTimeout(refreshAllPickers, 60); });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 350); });
+  else setTimeout(boot, 350);
 })();
 </script>
 
