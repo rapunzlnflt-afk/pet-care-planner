@@ -1669,7 +1669,7 @@
       return `
         <div style="border:1px solid var(--border-color,rgba(0,0,0,0.1));border-radius:8px;padding:8px 10px;">
           <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="${chkId}" data-medins="${insId}" ${checked?'checked':''} style="margin-top:3px;flex-shrink:0;">
+            <input type="checkbox" id="${chkId}" data-medins="${insId}" ${checked?'checked':''} style="margin-top:3px;flex-shrink:0;width:18px;height:18px;display:inline-block;">
             <span><span class="font-body text-sm font-medium text-primary">${m.name||''}</span>${detail?`<span class="font-body text-xs text-secondary"> · ${detail}</span>`:''}</span>
           </label>
           <input type="text" id="${insId}" value="${(s.instructions||'').replace(/"/g,'&quot;')}" placeholder="Sitter instructions, e.g. 1 tablet with breakfast" style="margin-top:6px;display:${checked?'block':'none'};">
