@@ -150,10 +150,10 @@
         pets.forEach(function(p){
           var sub=[p.sp, p.br].filter(Boolean).join(' &mdash; ');
           var rows='';
-          rows+=fieldText('Feeding Schedule', p.feed);
+          rows+=fieldText('When to Feed', p.feed);
           rows+=fieldText('Feeding Instructions', p.food);
           rows+=fieldText('Walks', p.walk);
-          rows+=fieldText('Medications', p.meds);
+          rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
           rows+=fieldText('Microchip', p.chip);
           rows+=fieldText('Allergies', p.allergies);
           var beh = p.beh ? '<div class="field full"><div class="label">Behavior / Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';

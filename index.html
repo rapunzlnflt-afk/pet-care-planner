@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.9">
+                          <meta name="app-version" content="3.9.10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1627,6 +1627,56 @@
   window.deleteExpense = id => { deleteItem('expenses', id); refreshAll(); };
 
   // ============ PET SITTER INFO ============
+  // Meds the user has selected for a given pet's sitter sheet. Reads the saved
+  // per-pet selection map and joins it against the CURRENT med list, so meds
+  // deleted from the app are silently skipped. Returns [{name,dosage,frequency,instructions}].
+  function sitterSelectedMeds(petId, data) {
+    const sel = (data['sitter-selmeds-'+petId]) || {};
+    const meds = getList('medications').filter(m => m.petId === petId);
+    const out = [];
+    meds.forEach(m => {
+      const s = sel[m.__id];
+      if(s && s.include) {
+        out.push({ name: m.name||'', dosage: m.dosage||'', frequency: m.frequency||'', instructions: (s.instructions||'').trim() });
+      }
+    });
+    return out;
+  }
+  // One-line plain-text summary per selected med, e.g.
+  // "Apoquel (16mg, twice daily) — 1 tablet with breakfast". Used by share payload.
+  function sitterMedLine(m) {
+    const detail = [m.dosage, m.frequency].filter(Boolean).join(', ');
+    let line = m.name;
+    if(detail) line += ' (' + detail + ')';
+    if(m.instructions) line += ' — ' + m.instructions;
+    return line;
+  }
+  // Build the per-pet medication picker for the sitter form: a checkbox + a
+  // reveal-on-check sitter-instructions input per med. Selections are stored in
+  // petSitterInfo under 'sitter-selmeds-<petId>' keyed by med __id.
+  function sitterMedPickerHTML(p, data) {
+    const meds = getList('medications').filter(m => m.petId === p.__id);
+    if(!meds.length) {
+      return `<p class="font-body text-xs text-secondary italic">No medications in your app for this pet. Add them in the Medications tab to include them here.</p>`;
+    }
+    const sel = (data['sitter-selmeds-'+p.__id]) || {};
+    return `<div style="display:flex;flex-direction:column;gap:8px;">` + meds.map(m => {
+      const s = sel[m.__id] || {};
+      const checked = !!s.include;
+      const detail = [m.dosage, m.frequency].filter(Boolean).join(' · ');
+      const chkId = 'sitter-medchk-'+p.__id+'-'+m.__id;
+      const insId = 'sitter-medins-'+p.__id+'-'+m.__id;
+      return `
+        <div style="border:1px solid var(--border-color,rgba(0,0,0,0.1));border-radius:8px;padding:8px 10px;">
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="${chkId}" data-medins="${insId}" ${checked?'checked':''} style="margin-top:3px;flex-shrink:0;">
+            <span><span class="font-body text-sm font-medium text-primary">${m.name||''}</span>${detail?`<span class="font-body text-xs text-secondary"> · ${detail}</span>`:''}</span>
+          </label>
+          <input type="text" id="${insId}" value="${(s.instructions||'').replace(/"/g,'&quot;')}" placeholder="Sitter instructions, e.g. 1 tablet with breakfast" style="margin-top:6px;display:${checked?'block':'none'};">
+        </div>`;
+    }).join('') + `</div>`;
+  }
+
   function renderSitterPets() {
     const pets = getList('pets');
     const section = document.getElementById('sitter-pets-section');
@@ -1636,22 +1686,33 @@
       <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color-2);">
         <h3 class="font-heading text-sm font-bold text-primary mb-3">${p.name} (${p.species})</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Schedule</label><input type="text" id="sitter-feed-${p.__id}" value="${(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">When to Feed</label><input type="text" id="sitter-feed-${p.__id}" value="${(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
           <div><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><input type="text" id="sitter-food-${p.__id}" value="${(sitterData['sitter-food-'+p.__id]||'')}" placeholder="e.g., 1 cup Royal Canin, soak in warm water"></div>
           <div><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
-          <div><label class="block font-body text-xs text-secondary mb-1">Medications (if any)</label><input type="text" id="sitter-meds-${p.__id}" value="${(sitterData['sitter-meds-'+p.__id]||'')}" placeholder="e.g., 1 Apoquel tablet with breakfast"></div>
+        </div>
+        <div style="margin-top:10px;">
+          <label class="block font-body text-xs text-secondary mb-1">Medications</label>
+          ${sitterMedPickerHTML(p, sitterData)}
         </div>
         <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Behavioral Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
       </div>`).join('');
     // Restore values
     setTimeout(() => {
       pets.forEach(p => {
-        ['sitter-feed-','sitter-food-','sitter-walk-','sitter-meds-','sitter-behavior-'].forEach(prefix => {
+        ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].forEach(prefix => {
           const el = document.getElementById(prefix + p.__id);
           if(el && sitterData[prefix + p.__id]) el.value = sitterData[prefix + p.__id];
         });
       });
     }, 50);
+    // Reveal each med's instructions input only while its checkbox is ticked.
+    section.querySelectorAll('input[type="checkbox"][data-medins]').forEach(chk => {
+      chk.addEventListener('change', () => {
+        const ins = document.getElementById(chk.getAttribute('data-medins'));
+        if(ins) ins.style.display = chk.checked ? 'block' : 'none';
+        autoSaveSitter();
+      });
+    });
   }
 
   function collectSitterData() {
@@ -1671,11 +1732,27 @@
       'sitter-evet-address': (document.getElementById('sitter-evet-address')||{}).value||'',
       'sitter-instructions': (document.getElementById('sitter-instructions')||{}).value||'',
     };
+    // Preserve any sitter-selmeds-* that were saved previously; only the pets
+    // whose med pickers are currently in the DOM get their selections rebuilt.
+    const prior = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    Object.keys(prior).forEach(k => { if(k.indexOf('sitter-selmeds-') === 0) data[k] = prior[k]; });
     pets.forEach(p => {
-      ['sitter-feed-','sitter-food-','sitter-walk-','sitter-meds-','sitter-behavior-'].forEach(prefix => {
+      ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].forEach(prefix => {
         const el = document.getElementById(prefix + p.__id);
         if(el) data[prefix + p.__id] = el.value;
       });
+      // Gather med checkbox selections if this pet's picker is rendered.
+      const meds = getList('medications').filter(m => m.petId === p.__id);
+      const anyChk = meds.length && document.getElementById('sitter-medchk-'+p.__id+'-'+meds[0].__id);
+      if(anyChk) {
+        const sel = {};
+        meds.forEach(m => {
+          const chk = document.getElementById('sitter-medchk-'+p.__id+'-'+m.__id);
+          const ins = document.getElementById('sitter-medins-'+p.__id+'-'+m.__id);
+          if(chk) sel[m.__id] = { include: !!chk.checked, instructions: ins ? ins.value : '' };
+        });
+        data['sitter-selmeds-'+p.__id] = sel;
+      }
     });
     return data;
   }
@@ -1733,10 +1810,10 @@
 
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
+            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">When to Feed</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Instructions</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Walk Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-walk-'+p.__id]||'—'}</p></div>
-            ${data['sitter-meds-'+p.__id]?`<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p><p class="font-body text-sm font-medium text-primary">${data['sitter-meds-'+p.__id]}</p></div>`:''}
+            ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(' · '); return `<p class="font-body text-sm font-medium text-primary"><strong>${m.name}</strong>${detail?` <span style="font-weight:400;color:var(--text-secondary);">(${detail})</span>`:''}${m.instructions?` — ${m.instructions}`:''}</p>`; }).join('')}</div>` : ''; })()}
             ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Behavioral Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
           </div>
         </div>`;
@@ -1903,10 +1980,10 @@
       ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${p.allergies}</p>` : ''}
       ${(p.microchip || p.vet) ? `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${p.microchip}</div></div>` : ''}${p.vet ? `<div class="field"><div class="label">Primary Vet</div><div class="value">${p.vet}</div></div>` : ''}</div>` : ''}
       <div class="grid">
-        <div class="field"><div class="label">Feeding Schedule</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
+        <div class="field"><div class="label">When to Feed</div><div class="value">${data['sitter-feed-'+p.__id]||''}</div></div>
         <div class="field"><div class="label">Feeding Instructions</div><div class="value">${data['sitter-food-'+p.__id]||''}</div></div>
         <div class="field"><div class="label">Walk Schedule</div><div class="value">${data['sitter-walk-'+p.__id]||''}</div></div>
-        ${data['sitter-meds-'+p.__id] ? `<div class="field"><div class="label">Medications</div><div class="value">${data['sitter-meds-'+p.__id]}</div></div>` : ''}
+        ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div class="field"><div class="label">Medications</div>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(', '); return `<div class="value"><strong>${m.name}</strong>${detail?` (${detail})`:''}${m.instructions?` — ${m.instructions}`:''}</div>`; }).join('')}</div>` : ''; })()}
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Behavioral Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
     </div>`).join('')}
@@ -2092,7 +2169,7 @@
       feed: d['sitter-feed-'+p.__id] || '',
       food: d['sitter-food-'+p.__id] || '',
       walk: d['sitter-walk-'+p.__id] || '',
-      meds: d['sitter-meds-'+p.__id] || '',
+      meds: sitterSelectedMeds(p.__id, d).map(sitterMedLine).join('\n'),
       beh: d['sitter-behavior-'+p.__id] || '',
       chip: p.microchip || '',
       allergies: p.allergies || ''
