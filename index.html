@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.5">
+                          <meta name="app-version" content="3.9.6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1873,17 +1873,27 @@
       pets: petsOut
     };
   }
-  // UTF-8-safe base64 (handles emoji/accents in names & notes).
+  // UTF-8-safe base64url (handles emoji/accents in names & notes, and survives
+  // travelling through SMS/iMessage where +, / and = can get mangled).
   function encodePayload(obj){
     const json = JSON.stringify(obj);
-    return btoa(unescape(encodeURIComponent(json)));
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   function buildSitterLink(){
     const enc = encodePayload(buildSitterPayload());
-    // Point at sitter.html in the same folder as the app.
-    let base = location.href.split('#')[0].split('?')[0];
-    base = base.replace(/[^/]*$/, ''); // strip filename, keep trailing slash
-    return base + 'sitter.html#' + enc;
+    // Resolve sitter.html in the SAME folder as the app, robustly — works whether
+    // the URL ends in index.html, a trailing slash, or no slash at all (installed
+    // iOS PWAs can report the start URL without a trailing slash, which used to
+    // send the link to the wrong folder).
+    var u = new URL(location.href);
+    var path = u.pathname;
+    if (/\/[^/]*\.[^/]*$/.test(path)) {
+      path = path.replace(/[^/]*$/, '');   // strip a real filename (e.g. index.html)
+    } else if (!path.endsWith('/')) {
+      path = path + '/';                   // no filename, no slash -> treat as folder
+    }
+    return u.origin + path + 'sitter.html#' + enc;
   }
   async function shareSitter(){
     const status = document.getElementById('sitter-save-status');

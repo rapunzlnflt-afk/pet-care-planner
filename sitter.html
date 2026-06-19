@@ -67,7 +67,11 @@
       var h=(location.hash||'').replace(/^#/,'');
       if(!h) return null;
       try{
-        var json=decodeURIComponent(escape(atob(h)));
+        // Accept base64url (new links) and plain base64 (older links).
+        // SMS/iMessage can turn '+' into a space, so undo that too.
+        var b64 = h.replace(/ /g,'+').replace(/-/g,'+').replace(/_/g,'/');
+        while (b64.length % 4) { b64 += '='; }
+        var json=decodeURIComponent(escape(atob(b64)));
         return JSON.parse(json);
       }catch(e){ return null; }
     }
