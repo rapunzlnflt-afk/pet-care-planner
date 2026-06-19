@@ -1949,8 +1949,118 @@
   function wireSitterOverlayButtons() {
     const closeBtn = document.getElementById('sitter-print-close-btn');
     const doBtn = document.getElementById('sitter-print-do-btn');
+    const pdfBtn = document.getElementById('sitter-print-pdf-btn');
     if (closeBtn) closeBtn.addEventListener('click', () => closeSitterPrintOverlay(false));
     if (doBtn) doBtn.addEventListener('click', () => window.print());
+    if (pdfBtn) pdfBtn.addEventListener('click', saveSitterPdf);
+  }
+
+  // ---- Save-as-PDF (client-side, no server) -------------------------------
+  // Lazily load jsPDF + html2canvas from CDN on first use so they never slow the
+  // initial app load. Network-loaded (NOT precached in sw.js) to match how the
+  // Tailwind/Font-Awesome CDNs are referenced — keeps offline behaviour intact.
+  const PDF_CDN = {
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+  };
+  function loadScriptOnce(src){
+    return new Promise((resolve, reject) => {
+      if (document.querySelector('script[data-pdf-lib="'+src+'"]')) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.setAttribute('data-pdf-lib', src);
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function ensurePdfLibs(){
+    if (!(window.jspdf && window.jspdf.jsPDF)) await loadScriptOnce(PDF_CDN.jspdf);
+    if (!window.html2canvas) await loadScriptOnce(PDF_CDN.html2canvas);
+  }
+  function setPdfBtnBusy(busy){
+    const btn = document.getElementById('sitter-print-pdf-btn');
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.textContent = busy ? 'Generating…' : 'Save as PDF';
+    btn.style.opacity = busy ? '0.6' : '';
+  }
+  let _pdfStatusTimer = null;
+  function pdfStatus(msg){
+    let el = document.getElementById('sitter-pdf-status');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'sitter-pdf-status';
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+        'background:#16a34a;color:#fff;padding:9px 16px;border-radius:8px;font-family:Arial,sans-serif;' +
+        'font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10001;max-width:90vw;text-align:center;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(_pdfStatusTimer);
+    _pdfStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
+  async function saveSitterPdf(){
+    const content = document.getElementById('sitter-print-content');
+    if (!content) return;
+    setPdfBtnBusy(true);
+    pdfStatus('Building PDF…');
+    try {
+      await ensurePdfLibs();
+      const canvas = await window.html2canvas(content, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const jsPDF = window.jspdf.jsPDF;
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = canvas.height * (pageW / canvas.width);
+      // Slice the tall canvas image across as many A4 pages as needed.
+      let heightLeft = imgH;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        position -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+      const blob = pdf.output('blob');
+      const fileName = 'Pet-Sitter-Instructions.pdf';
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      // iOS: prefer sharing the PDF as a file so the owner can AirDrop/Message it.
+      if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Pet Sitter Instructions' });
+          pdfStatus('✓ PDF ready');
+          return;
+        } catch(e){
+          if (e && e.name === 'AbortError') { pdfStatus('Cancelled'); return; }
+          // otherwise fall through to download
+        }
+      }
+      // Fallback: trigger a normal download.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      pdfStatus('✓ PDF saved');
+    } catch(e){
+      pdfStatus('Could not create PDF — try Print instead');
+    } finally {
+      setPdfBtnBusy(false);
+    }
   }
   if (document.getElementById('sitter-print-close-btn')) {
     wireSitterOverlayButtons();
@@ -2015,11 +2125,17 @@
     const status = document.getElementById('sitter-save-status');
     const link = buildSitterLink();
     const owner = (JSON.parse(localStorage.getItem('petSitterInfo')||'{}'))['sitter-owner-name'] || '';
-    const msg = (owner ? owner + "'s" : 'My') + ' pet sitter info \u2014 tap to open (phone numbers & address are tappable):\n' + link;
+    // Short label WITHOUT the link. The link is passed as a first-class `url`
+    // field below so iMessage/Mail linkify it reliably and the long #fragment
+    // (which carries all the pet data) survives the tap on the recipient's end.
+    const label = (owner ? owner + "'s" : 'My') + ' pet sitter info \u2014 tap to open';
+    // For clipboard/prompt fallbacks (browsers without navigator.share) we still
+    // send the full link inline.
+    const clipboardMsg = label + '\n' + link;
     // Prefer the native share sheet on phones.
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Pet Sitter Info', text: msg });
+        await navigator.share({ title: 'Pet Sitter Info', text: label, url: link });
         return;
       } catch(e){
         if (e && e.name === 'AbortError') return; // user cancelled — do nothing
@@ -2028,7 +2144,7 @@
     }
     // Fallback: copy to clipboard.
     try {
-      await navigator.clipboard.writeText(msg);
+      await navigator.clipboard.writeText(clipboardMsg);
       if(status){ status.textContent = '\u2713 Link copied \u2014 paste it into a text or email'; status.style.color = 'var(--accent-color)'; setTimeout(()=>{ if(status.textContent.indexOf('Link copied')>=0) status.textContent=''; }, 4000); }
       else alert('Sitter link copied to your clipboard. Paste it into a text or email to your sitter.');
     } catch(e){
@@ -3047,6 +3163,7 @@ refreshAll();
    <div id="sitter-print-bar">
      <span id="sitter-print-title">Pet Sitter Instructions</span>
      <span style="display:flex;gap:8px;">
+       <button id="sitter-print-pdf-btn" type="button">Save as PDF</button>
        <button id="sitter-print-do-btn" type="button">Print</button>
        <button id="sitter-print-close-btn" type="button" aria-label="Close">✕ Close</button>
      </span>
