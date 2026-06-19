@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.7">
+                          <meta name="app-version" content="3.9.8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -227,7 +227,13 @@
 }
 #sitter-print-content h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
 #sitter-print-content h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
-#sitter-print-content .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Single clean column on phones so longer values (feeding schedule, walk
+   schedule, etc.) read cleanly instead of cramming into two ragged columns.
+   Widen to two columns only when there's room (tablets / printed page). */
+#sitter-print-content .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 640px) {
+  #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
+}
 #sitter-print-content .field { margin-bottom: 8px; }
 #sitter-print-content .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
 #sitter-print-content .value { font-size: 13px; font-weight: 600; }
@@ -254,6 +260,8 @@
     padding: 0;
   }
   #sitter-print-content h1 { margin: 0 0 20px; }
+  /* Full page has room for two columns. */
+  #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
 }
   </style>
  </head>
