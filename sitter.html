@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Pet Sitter Info — Pawfolio</title>
+  <style>
+    :root{ --accent:#5B5BD6; --accent-dark:#4C4CC8; --ink:#1f2733; --muted:#64748b; --line:#e6e8ef; --bg:#f6f7fb; --card:#ffffff; }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:rgba(91,91,214,0.15); }
+    html,body{ margin:0; padding:0; }
+    body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.5; }
+    .wrap{ max-width:640px; margin:0 auto; padding:0 16px 48px; }
+    header{ background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; padding:22px 20px; border-radius:0 0 18px 18px; }
+    .brand{ font-size:13px; opacity:0.9; letter-spacing:0.3px; }
+    header h1{ margin:4px 0 2px; font-size:22px; font-weight:800; }
+    header .sub{ font-size:13px; opacity:0.92; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 16px 6px; margin-top:16px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
+    .card h2{ font-size:13px; text-transform:uppercase; letter-spacing:0.6px; color:var(--accent); margin:0 0 12px; font-weight:800; }
+    .row{ display:flex; flex-wrap:wrap; gap:14px 18px; margin-bottom:12px; }
+    .field{ flex:1 1 calc(50% - 18px); min-width:140px; margin-bottom:6px; }
+    .field.full{ flex-basis:100%; }
+    .label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:2px; }
+    .value{ font-size:15px; font-weight:600; word-break:break-word; }
+    a.value, a.value:visited{ color:var(--accent); text-decoration:none; }
+    a.tap{ display:inline-flex; align-items:center; gap:6px; }
+    a.tap::after{ content:attr(data-tap); font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:999px; padding:2px 8px; }
+    .pet{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; background:#fbfbfe; }
+    .pet h3{ margin:0 0 10px; font-size:16px; color:var(--ink); }
+    .pet .tag{ font-size:11px; font-weight:600; color:var(--accent); background:rgba(91,91,214,0.1); border-radius:999px; padding:2px 9px; margin-left:6px; }
+    .notes{ white-space:pre-wrap; font-size:14px; font-weight:500; }
+    .footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px; }
+    .footer strong{ color:var(--accent); }
+    .empty{ text-align:center; padding:60px 20px; color:var(--muted); }
+    .empty h1{ color:var(--ink); font-size:20px; }
+    @media (max-width:420px){ .field{ flex-basis:100%; } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+  (function(){
+    'use strict';
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function telHref(phone){
+      var p=String(phone||''); var plus=p.trim().charAt(0)==='+'?'+':''; var digits=p.replace(/[^0-9]/g,'');
+      return digits?('tel:'+plus+digits):'';
+    }
+    function mapsHref(addr){
+      var a=String(addr||'').trim();
+      return a?('https://maps.google.com/?q='+encodeURIComponent(a)):'';
+    }
+    // Pull "Name — phone" apart so we can make the phone tap-to-call.
+    function splitNamePhone(str){
+      var s=String(str||'').trim();
+      if(!s) return {name:'',phone:''};
+      // Look for a phone-ish chunk (has >=7 digits).
+      var m=s.match(/([+(]?[\d][\d\s().\-]{6,}\d)\s*$/);
+      if(m){
+        var phone=m[1].trim();
+        var name=s.slice(0, s.length-m[0].length).replace(/[\u2014\-\u00b7,;:\s]+$/,'').trim();
+        return {name:name, phone:phone};
+      }
+      return {name:s, phone:''};
+    }
+    function decode(){
+      var h=(location.hash||'').replace(/^#/,'');
+      if(!h) return null;
+      try{
+        var json=decodeURIComponent(escape(atob(h)));
+        return JSON.parse(json);
+      }catch(e){ return null; }
+    }
+    function fieldText(label,val){
+      if(!val) return '';
+      return '<div class="field"><div class="label">'+esc(label)+'</div><div class="value">'+esc(val)+'</div></div>';
+    }
+    function fieldTel(label,raw){
+      var np=splitNamePhone(raw);
+      if(!np.name && !np.phone) return '';
+      var inner;
+      if(np.phone){
+        var disp = np.name ? (esc(np.name)+' &middot; ') : '';
+        inner = disp + '<a class="value tap" data-tap="Call" href="'+telHref(np.phone)+'">'+esc(np.phone)+'</a>';
+      } else {
+        inner = '<span class="value">'+esc(np.name)+'</span>';
+      }
+      return '<div class="field full"><div class="label">'+esc(label)+'</div><div>'+inner+'</div></div>';
+    }
+    function fieldAddr(label,addr){
+      if(!addr) return '';
+      return '<div class="field full"><div class="label">'+esc(label)+'</div><div><a class="value tap" data-tap="Map" href="'+mapsHref(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div></div>';
+    }
+    function render(d){
+      var app=document.getElementById('app');
+      if(!d){
+        app.innerHTML='<div class="empty"><h1>Nothing to show</h1><p>This pet sitter link looks empty or incomplete. Ask the sender to share it again.</p></div>';
+        return;
+      }
+      var o=d.owner||{}, em=d.emerg||{}, vet=d.vet||{}, pets=d.pets||[];
+      var html='';
+      html+='<header><div class="wrap" style="padding:0;max-width:none;">'
+        +'<div class="brand">Pawfolio &bull; Pet Sitter Info</div>'
+        +'<h1>'+(o.name?esc(o.name)+"&rsquo;s pets":'Pet Sitter Info')+'</h1>'
+        +(o.away?'<div class="sub">Away: '+esc(o.away)+'</div>':'')
+        +'</div></header>';
+      html+='<div class="wrap">';
+
+      // Owner & emergency
+      var ownerRows='';
+      ownerRows+=fieldText('Owner', o.name);
+      if(o.phone) ownerRows+='<div class="field"><div class="label">Owner Phone</div><div><a class="value tap" data-tap="Call" href="'+telHref(o.phone)+'">'+esc(o.phone)+'</a></div></div>';
+      ownerRows+=fieldText('Email', o.email);
+      if(em.name||em.phone){
+        if(em.phone) ownerRows+='<div class="field"><div class="label">Emergency Contact</div><div>'+(em.name?esc(em.name)+' &middot; ':'')+'<a class="value tap" data-tap="Call" href="'+telHref(em.phone)+'">'+esc(em.phone)+'</a></div></div>';
+        else ownerRows+=fieldText('Emergency Contact', em.name);
+      }
+      if(ownerRows) html+='<div class="card"><h2>Contacts</h2><div class="row">'+ownerRows+'</div></div>';
+
+      // Vet
+      var vetRows='';
+      vetRows+=fieldTel('Vet', vet.np);
+      vetRows+=fieldAddr('Vet Address', vet.address);
+      vetRows+=fieldTel('Emergency Vet (24hr)', vet.emerg);
+      if(vetRows) html+='<div class="card"><h2>Veterinary</h2><div class="row">'+vetRows+'</div></div>';
+
+      // Pets
+      if(pets.length){
+        var petsHtml='';
+        pets.forEach(function(p){
+          var sub=[p.sp, p.br].filter(Boolean).join(' &mdash; ');
+          var rows='';
+          rows+=fieldText('Feeding', p.feed);
+          rows+=fieldText('Food', p.food);
+          rows+=fieldText('Walks', p.walk);
+          rows+=fieldText('Medications', p.meds);
+          rows+=fieldText('Microchip', p.chip);
+          rows+=fieldText('Allergies', p.allergies);
+          var beh = p.beh ? '<div class="field full"><div class="label">Behavior / Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
+          petsHtml+='<div class="pet"><h3>'+esc(p.n||'Pet')+(sub?'<span class="tag">'+sub+'</span>':'')+'</h3><div class="row">'+rows+beh+'</div></div>';
+        });
+        html+='<div class="card"><h2>Pets</h2>'+petsHtml+'</div>';
+      }
+
+      // Instructions
+      if(d.instructions){
+        html+='<div class="card"><h2>Additional Instructions</h2><div class="notes" style="padding-bottom:10px;">'+esc(d.instructions)+'</div></div>';
+      }
+
+      html+='<div class="footer">Shared from <strong>Pawfolio</strong> by CleartrackApps</div>';
+      html+='</div>';
+      app.innerHTML=html;
+      document.title=(o.name?o.name+"'s pets":'Pet Sitter Info')+' — Pawfolio';
+    }
+    render(decode());
+    window.addEventListener('hashchange', function(){ render(decode()); });
+  })();
+  </script>
+</body>
+</html>
