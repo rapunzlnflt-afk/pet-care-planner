@@ -91,13 +91,30 @@
       if(!addr) return '';
       return '<div class="field full"><div class="label">'+esc(label)+'</div><div><a class="value tap" data-tap="Map" href="'+mapsHref(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div></div>';
     }
+    // Render one vet's grouped info: name (plain), phone (tap-to-call), address (tap-for-maps).
+    function vetBlock(label,v){
+      v=v||{};
+      var name=v.name||'', phone=v.phone||'', addr=v.address||'';
+      if(!name && !phone && !addr) return '';
+      var rows='';
+      if(name) rows+='<div class="value" style="font-weight:600;">'+esc(name)+'</div>';
+      if(phone) rows+='<div><a class="value tap" data-tap="Call" href="'+telHref(phone)+'">'+esc(phone)+'</a></div>';
+      if(addr) rows+='<div><a class="value tap" data-tap="Map" href="'+mapsHref(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div>';
+      return '<div class="field full"><div class="label">'+esc(label)+'</div>'+rows+'</div>';
+    }
     function render(d){
       var app=document.getElementById('app');
       if(!d){
         app.innerHTML='<div class="empty"><h1>Nothing to show</h1><p>This pet sitter link looks empty or incomplete. Ask the sender to share it again.</p></div>';
         return;
       }
-      var o=d.owner||{}, em=d.emerg||{}, vet=d.vet||{}, pets=d.pets||[];
+      var o=d.owner||{}, em=d.emerg||{}, vet=d.vet||{}, evet=d.evet||{}, pets=d.pets||[];
+      // Backward-compat: older links used vet.np / vet.emerg (combined name+phone strings).
+      if((vet.np!==undefined || vet.emerg!==undefined) && !vet.name && !vet.phone && !evet.name && !evet.phone){
+        var pnp=splitNamePhone(vet.np); var enp=splitNamePhone(vet.emerg);
+        vet={ name:pnp.name, phone:pnp.phone, address:vet.address||'' };
+        evet={ name:enp.name, phone:enp.phone, address:'' };
+      }
       var html='';
       html+='<header><div class="wrap" style="padding:0;max-width:none;">'
         +'<div class="brand">Pawfolio &bull; Pet Sitter Info</div>'
@@ -119,9 +136,8 @@
 
       // Vet
       var vetRows='';
-      vetRows+=fieldTel('Vet', vet.np);
-      vetRows+=fieldAddr('Vet Address', vet.address);
-      vetRows+=fieldTel('Emergency Vet (24hr)', vet.emerg);
+      vetRows+=vetBlock('Primary Vet', vet);
+      vetRows+=vetBlock('Emergency Vet (24hr)', evet);
       if(vetRows) html+='<div class="card"><h2>Veterinary</h2><div class="row">'+vetRows+'</div></div>';
 
       // Pets
