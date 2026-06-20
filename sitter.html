@@ -13,6 +13,7 @@
     .wrap{ max-width:640px; margin:0 auto; padding:0 16px 48px; }
     header{ background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; padding:22px 20px; border-radius:0 0 18px 18px; }
     .brand{ font-size:13px; opacity:0.95; letter-spacing:0.3px; display:flex; align-items:center; gap:8px; }
+    .brand .by{ margin-left:auto; font-size:11px; font-weight:600; opacity:0.8; letter-spacing:0.2px; }
     .brand img{ width:26px; height:26px; border-radius:6px; flex-shrink:0; display:block; }
     header h1{ margin:4px 0 2px; font-size:22px; font-weight:800; }
     header .sub{ font-size:13px; opacity:0.92; }
@@ -124,7 +125,7 @@
       }
       var html='';
       html+='<header><div class="wrap" style="padding:0;max-width:none;">'
-        +'<div class="brand"><img src="./icon-192.png" alt="Pawfolio" width="26" height="26">Pawfolio &bull; Pet Sitter Info</div>'
+        +'<div class="brand"><img src="./icon-192.png" alt="Pawfolio" width="26" height="26"><span>Pawfolio &bull; Pet Sitter Info</span><span class="by">CleartrackApps</span></div>'
         +(o.away?'<div class="sub" style="margin-top:6px;">Away: '+esc(o.away)+'</div>':'')
         +'</div></header>';
       html+='<div class="wrap">';
