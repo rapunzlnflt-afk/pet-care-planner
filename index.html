@@ -1857,11 +1857,14 @@
     });
     // Live-format the sitter phone fields the same way the vet form does, and
     // normalize any restored value so saved numbers display with dashes too.
-    ['sitter-owner-phone','sitter-emerg-phone'].forEach(id => {
+    // formatPhone/attachLiveFormat are defined in a later <script> block, so reach
+    // them via window (exposed below) and guard in case they aren't ready yet.
+    var _fmtPhone = window.formatPhone, _attachFmt = window.attachLiveFormat;
+    ['sitter-owner-phone','sitter-emerg-phone','sitter-vet-phone','sitter-evet-phone'].forEach(id => {
       const el = document.getElementById(id);
       if(!el) return;
-      if(el.value) el.value = formatPhone(el.value);
-      if(!el.dataset.liveFmt){ attachLiveFormat(el, formatPhone); el.dataset.liveFmt = '1'; }
+      if(typeof _fmtPhone === 'function' && el.value) el.value = _fmtPhone(el.value);
+      if(typeof _attachFmt === 'function' && typeof _fmtPhone === 'function' && !el.dataset.liveFmt){ _attachFmt(el, _fmtPhone); el.dataset.liveFmt = '1'; }
     });
   }
 
@@ -6638,6 +6641,10 @@ try {
       try { el.setSelectionRange(pos, pos); } catch(e){}
     });
   }
+  // Expose so the sitter form's restore code (in an earlier <script> block) can
+  // reuse the exact same phone formatting the vet form uses.
+  window.formatPhone = formatPhone;
+  window.attachLiveFormat = attachLiveFormat;
   function val(id){ var el = document.getElementById(id); return el ? el.value : ''; }
 
   // ---------- Delete (uses styled confirm if available, else native) ----------
