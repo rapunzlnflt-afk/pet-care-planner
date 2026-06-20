@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.11">
+                          <meta name="app-version" content="3.9.12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -225,8 +225,17 @@
   font-family: Arial, sans-serif;
   color: #2d3748;
 }
-#sitter-print-content h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
-#sitter-print-content h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
+/* Printable header: Pawfolio + icon + CleartrackApps is the main (larger)
+   title; "Pet Sitter Instructions" sits below it in a slightly smaller font. */
+#sitter-print-content .sitter-print-header {
+  background: linear-gradient(135deg,#5B5BD6,#4C4CC8);
+  color: white;
+  padding: 18px 24px;
+  margin: -24px -24px 24px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+#sitter-print-content h2 { font-size: 17px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 22px; }
 /* Single clean column on phones so longer values (feeding schedule, walk
    schedule, etc.) read cleanly instead of cramming into two ragged columns.
    Widen to two columns only when there's room (tablets / printed page). */
@@ -235,9 +244,27 @@
   #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
 }
 #sitter-print-content .field { margin-bottom: 8px; }
-#sitter-print-content .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
-#sitter-print-content .value { font-size: 13px; font-weight: 600; }
+#sitter-print-content .label { font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+#sitter-print-content .value { font-size: 15px; font-weight: 600; }
+#sitter-print-content p { font-size: 15px; }
 #sitter-print-content .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
+/* Pet-card fields always stack in a single column (on-screen overlay AND print)
+   so each pet's details read top-to-bottom instead of cramming into columns. */
+#sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
+/* Pawfolio brand row = the main header title (inside the purple bar). */
+#sitter-print-content .sitter-print-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: Arial, sans-serif;
+  color: #fff;
+}
+#sitter-print-content .sitter-print-brand-icon { width: 34px; height: 34px; border-radius: 8px; }
+#sitter-print-content .sitter-print-brand-name { font-size: 26px; font-weight: 700; }
+#sitter-print-content .sitter-print-brand-sep { color: rgba(255,255,255,0.7); }
+#sitter-print-content .sitter-print-brand-maker { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.92); }
+/* "Pet Sitter Instructions" subtitle, slightly smaller, below the brand. */
+#sitter-print-content .sitter-print-subtitle { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.95); margin-top: 6px; }
 
 /* When printing, show ONLY the overlay's printable content (not the bar, not
    the app behind it). */
@@ -259,9 +286,16 @@
     max-width: none;
     padding: 0;
   }
-  #sitter-print-content h1 { margin: 0 0 20px; }
-  /* Full page has room for two columns. */
+  #sitter-print-content .sitter-print-header { margin: 0 0 20px; }
+  /* Owner/Vet sections can use two columns on the full page; pet cards stay
+     single-column for readability (rule above uses !important). */
   #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
+  #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
+  #sitter-print-content .sitter-print-header,
+  #sitter-print-content .sitter-print-brand {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
   </style>
  </head>
@@ -891,7 +925,6 @@
       <textarea id="sitter-instructions" rows="4" placeholder="Any other important notes for the sitter — home access codes, special behaviors, routines, items to avoid..."></textarea>
      </div>
      <div style="display:flex;align-items:center;gap:14px;">
-       <button id="save-sitter-btn" class="btn-primary px-6 py-2">Save &amp; View Printable</button>
        <span id="sitter-save-status" class="font-body text-sm" style="color:var(--text-secondary);min-height:20px;"></span>
      </div>
      <p class="font-body text-xs text-secondary mt-2" style="font-style:italic;">Your changes save automatically as you type.</p>
@@ -1757,117 +1790,10 @@
     return data;
   }
 
-  function showSitterPreview() {
-    const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
-    const pets = getList('pets');
-    const tab = document.getElementById('tab-pet-sitter');
-
-    // Hide form elements, show preview
-    tab.querySelectorAll('.card, p.font-body').forEach(el => el.style.display = 'none');
-    document.getElementById('save-sitter-btn').style.display = 'none';
-
-    // Remove old preview if any
-    const oldPreview = document.getElementById('sitter-preview');
-    if(oldPreview) oldPreview.remove();
-
-    const preview = document.createElement('div');
-    preview.id = 'sitter-preview';
-    preview.innerHTML = `
-      <!-- Owner & Emergency -->
-      <div class="sitter-section-preview">
-        <div class="sitter-section-header">
-          <h3 class="font-heading text-sm font-bold text-primary">Owner &amp; Emergency Contacts</h3>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Owner</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-name']||'—'}</p></div>
-          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Phone</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-phone']||'—'}</p></div>
-          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Email</p><p class="font-body text-sm font-medium text-primary">${data['sitter-owner-email']||'—'}</p></div>
-          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Away Dates</p><p class="font-body text-sm font-medium text-primary">${data['sitter-away-dates']||'—'}</p></div>
-          <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Contact</p><p class="font-body text-sm font-medium text-primary">${data['sitter-emerg-name']||'—'} ${data['sitter-emerg-phone'] ? '· '+data['sitter-emerg-phone'] : ''}</p></div>
-          <div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm font-medium text-primary">${[data['sitter-vet-name'], data['sitter-vet-phone']].filter(Boolean).join(' \u00b7 ')||'—'}${data['sitter-vet-address'] ? '<br><span style="font-weight:400;color:var(--text-secondary);">'+data['sitter-vet-address']+'</span>' : ''}</p></div>
-          <div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Emergency Vet (24hr)</p><p class="font-body text-sm font-medium text-primary">${[data['sitter-evet-name'], data['sitter-evet-phone']].filter(Boolean).join(' \u00b7 ')||'—'}${data['sitter-evet-address'] ? '<br><span style="font-weight:400;color:var(--text-secondary);">'+data['sitter-evet-address']+'</span>' : ''}</p></div>
-        </div>
-      </div>
-
-      <!-- Per-pet sections -->
-      ${pets.map(p => {
-        const avatar = p.photo
-          ? `<img src="${p.photo}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(91,91,214,0.3);flex-shrink:0;" alt="${p.name}">`
-          : `<div style="width:52px;height:52px;border-radius:50%;background:rgba(91,91,214,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(91,91,214,0.2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
-        return `
-        <div class="sitter-section-preview">
-          <div class="sitter-section-header">
-            <div style="display:flex;align-items:center;gap:10px;">
-              ${avatar}
-              <div>
-                <h3 class="font-heading text-sm font-bold text-primary">${p.name}</h3>
-                <p class="font-body text-xs text-secondary">${p.species}${p.breed?' · '+p.breed:''}</p>
-                ${p.microchip?`<p class="font-body text-xs text-secondary">Microchip: ${p.microchip}</p>`:''}
-                ${p.vet?`<p class="font-body text-xs text-secondary">Primary vet: ${p.vet}</p>`:''}
-                ${p.allergies?`<p class="font-body text-xs" style="color:#e53e3e;font-weight:600;">⚠ Allergies: ${p.allergies}</p>`:''}
-              </div>
-            </div>
-
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">When to Feed</p><p class="font-body text-sm font-medium text-primary">${data['sitter-feed-'+p.__id]||'—'}</p></div>
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Instructions</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
-            <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Walk Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-walk-'+p.__id]||'—'}</p></div>
-            ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(' · '); return `<p class="font-body text-sm font-medium text-primary"><strong>${m.name}</strong>${detail?` <span style="font-weight:400;color:var(--text-secondary);">(${detail})</span>`:''}${m.instructions?` — ${m.instructions}`:''}</p>`; }).join('')}</div>` : ''; })()}
-            ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Additional Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-
-      <!-- Additional instructions -->
-      ${data['sitter-instructions'] ? `
-      <div class="sitter-section-preview">
-        <div class="sitter-section-header">
-          <h3 class="font-heading text-sm font-bold text-primary">Additional Instructions</h3>
-
-        </div>
-        <p class="font-body text-sm text-primary">${data['sitter-instructions']}</p>
-      </div>` : ''}
-
-      <!-- Actions -->
-      <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn-primary px-4 py-2 text-sm" onclick="editSitterSection('all')">Edit</button>
-        <button class="btn-secondary px-4 py-2 text-sm" id="print-sitter-btn-preview">Print / Export</button>
-      </div>
-    `;
-    tab.appendChild(preview);
-
-    // Wire print button in preview
-    document.getElementById('print-sitter-btn-preview').addEventListener('click', () => {
-      document.getElementById('print-sitter-btn').click();
-    });
-  }
-
-  window.editSitterSection = function(section) {
-    // Show all form elements again
-    const tab = document.getElementById('tab-pet-sitter');
-    tab.querySelectorAll('.card, p.font-body').forEach(el => el.style.display = '');
-    document.getElementById('save-sitter-btn').style.display = '';
-    const oldPreview = document.getElementById('sitter-preview');
-    if(oldPreview) oldPreview.remove();
-    renderSitterPets();
-    restoreSitterOwnerFields();
-    // Scroll to specific section
-    if(section === 'owner') document.getElementById('sitter-owner-name').scrollIntoView({behavior:'smooth'});
-    if(section === 'instructions') document.getElementById('sitter-instructions').scrollIntoView({behavior:'smooth'});
-    if(section.startsWith('pet-')) {
-      const petId = section.replace('pet-','');
-      const el = document.getElementById('sitter-feed-'+petId);
-      if(el) el.scrollIntoView({behavior:'smooth'});
-    }
-  };
-
-  document.getElementById('save-sitter-btn').addEventListener('click', () => {
-    const data = collectSitterData();
-    localStorage.setItem('petSitterInfo', JSON.stringify(data));
-    try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
-    showSitterPreview();
-  });
+  // v3.9.12: removed the on-page preview (showSitterPreview), editSitterSection,
+  // and the "Save & View Printable" button. The Print / Export overlay
+  // (openSitterPrintOverlay) is now the single printable view; auto-save below
+  // persists every edit as the user types.
 
   // ---- Auto-save Sitter Info on every keystroke (debounced) ----
   let _sitterSaveTimer = null;
@@ -1938,6 +1864,17 @@
       const el = document.getElementById(id);
       if(el && data[id]) el.value = data[id];
     });
+    // Live-format the sitter phone fields the same way the vet form does, and
+    // normalize any restored value so saved numbers display with dashes too.
+    // formatPhone/attachLiveFormat are defined in a later <script> block, so reach
+    // them via window (exposed below) and guard in case they aren't ready yet.
+    var _fmtPhone = window.formatPhone, _attachFmt = window.attachLiveFormat;
+    ['sitter-owner-phone','sitter-emerg-phone','sitter-vet-phone','sitter-evet-phone'].forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      if(typeof _fmtPhone === 'function' && el.value) el.value = _fmtPhone(el.value);
+      if(typeof _attachFmt === 'function' && typeof _fmtPhone === 'function' && !el.dataset.liveFmt){ _attachFmt(el, _fmtPhone); el.dataset.liveFmt = '1'; }
+    });
   }
 
   // Build the printable sitter document body (reused by the in-app overlay).
@@ -1946,7 +1883,15 @@
     const pets = getList('pets');
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     return `
-    <h1>Pet Sitter Instructions</h1>
+    <div class="sitter-print-header">
+      <div class="sitter-print-brand">
+        <img src="./icon-192.png" alt="Pawfolio" class="sitter-print-brand-icon">
+        <span class="sitter-print-brand-name">Pawfolio</span>
+        <span class="sitter-print-brand-sep">·</span>
+        <span class="sitter-print-brand-maker">CleartrackApps</span>
+      </div>
+      <div class="sitter-print-subtitle">Pet Sitter Instructions</div>
+    </div>
     <h2>Owner Info</h2>
     <div class="grid">
       <div class="field"><div class="label">Owner</div><div class="value">${data['sitter-owner-name']||''}</div></div>
@@ -6707,6 +6652,10 @@ try {
       try { el.setSelectionRange(pos, pos); } catch(e){}
     });
   }
+  // Expose so the sitter form's restore code (in an earlier <script> block) can
+  // reuse the exact same phone formatting the vet form uses.
+  window.formatPhone = formatPhone;
+  window.attachLiveFormat = attachLiveFormat;
   function val(id){ var el = document.getElementById(id); return el ? el.value : ''; }
 
   // ---------- Delete (uses styled confirm if available, else native) ----------
