@@ -12,7 +12,8 @@
     body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.5; }
     .wrap{ max-width:640px; margin:0 auto; padding:0 16px 48px; }
     header{ background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; padding:22px 20px; border-radius:0 0 18px 18px; }
-    .brand{ font-size:13px; opacity:0.9; letter-spacing:0.3px; }
+    .brand{ font-size:13px; opacity:0.95; letter-spacing:0.3px; display:flex; align-items:center; gap:8px; }
+    .brand img{ width:26px; height:26px; border-radius:6px; flex-shrink:0; display:block; }
     header h1{ margin:4px 0 2px; font-size:22px; font-weight:800; }
     header .sub{ font-size:13px; opacity:0.92; }
     .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 16px 6px; margin-top:16px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
@@ -23,10 +24,12 @@
     .label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:2px; }
     .value{ font-size:15px; font-weight:600; word-break:break-word; }
     a.value, a.value:visited{ color:var(--accent); text-decoration:none; }
-    a.tap{ display:inline-flex; align-items:center; gap:6px; }
-    a.tap::after{ content:attr(data-tap); font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:999px; padding:2px 8px; }
+    a.tap{ display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    a.tap::after{ content:attr(data-tap); font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:999px; padding:2px 8px; white-space:nowrap; flex-shrink:0; display:inline-block; line-height:1.4; }
     .pet{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; background:#fbfbfe; }
-    .pet h3{ margin:0 0 10px; font-size:16px; color:var(--ink); }
+    .pet h3{ margin:0 0 10px; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:10px; }
+    .pet-avatar{ width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid rgba(91,91,214,0.3); flex-shrink:0; }
+    .pet-avatar-placeholder{ width:56px; height:56px; border-radius:50%; background:rgba(91,91,214,0.12); border:2px solid rgba(91,91,214,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .pet .tag{ font-size:11px; font-weight:600; color:var(--accent); background:rgba(91,91,214,0.1); border-radius:999px; padding:2px 9px; margin-left:6px; }
     .notes{ white-space:pre-wrap; font-size:14px; font-weight:500; }
     .footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px; }
@@ -121,9 +124,8 @@
       }
       var html='';
       html+='<header><div class="wrap" style="padding:0;max-width:none;">'
-        +'<div class="brand">Pawfolio &bull; Pet Sitter Info</div>'
-        +'<h1>'+(o.name?esc(o.name)+"&rsquo;s pets":'Pet Sitter Info')+'</h1>'
-        +(o.away?'<div class="sub">Away: '+esc(o.away)+'</div>':'')
+        +'<div class="brand"><img src="./icon-192.png" alt="Pawfolio" width="26" height="26">Pawfolio &bull; Pet Sitter Info</div>'
+        +(o.away?'<div class="sub" style="margin-top:6px;">Away: '+esc(o.away)+'</div>':'')
         +'</div></header>';
       html+='<div class="wrap">';
 
@@ -156,8 +158,11 @@
           rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
           rows+=fieldText('Microchip', p.chip);
           rows+=fieldText('Allergies', p.allergies);
-          var beh = p.beh ? '<div class="field full"><div class="label">Behavior / Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
-          petsHtml+='<div class="pet"><h3>'+esc(p.n||'Pet')+(sub?'<span class="tag">'+sub+'</span>':'')+'</h3><div class="row">'+rows+beh+'</div></div>';
+          var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
+          var avatar = p.img
+            ? '<img class="pet-avatar" src="'+esc(p.img)+'" alt="'+esc(p.n||'Pet')+'">'
+            : '<span class="pet-avatar-placeholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>';
+          petsHtml+='<div class="pet"><h3>'+avatar+'<span>'+esc(p.n||'Pet')+(sub?'<span class="tag">'+sub+'</span>':'')+'</span></h3><div class="row">'+rows+beh+'</div></div>';
         });
         html+='<div class="card"><h2>Pets</h2>'+petsHtml+'</div>';
       }
@@ -170,7 +175,7 @@
       html+='<div class="footer">Shared from <strong>Pawfolio</strong> by CleartrackApps</div>';
       html+='</div>';
       app.innerHTML=html;
-      document.title=(o.name?o.name+"'s pets":'Pet Sitter Info')+' — Pawfolio';
+      document.title=(o.name?o.name+"'s pets — ":'')+'Pet Sitter Info — Pawfolio';
     }
     render(decode());
     window.addEventListener('hashchange', function(){ render(decode()); });
