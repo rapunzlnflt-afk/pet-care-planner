@@ -225,8 +225,17 @@
   font-family: Arial, sans-serif;
   color: #2d3748;
 }
-#sitter-print-content h1 { background: linear-gradient(135deg,#5B5BD6,#4C4CC8); color: white; padding: 16px 24px; margin: -24px -24px 24px; font-size: 22px; }
-#sitter-print-content h2 { font-size: 15px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 20px; }
+/* Printable header: Pawfolio + icon + CleartrackApps is the main (larger)
+   title; "Pet Sitter Instructions" sits below it in a slightly smaller font. */
+#sitter-print-content .sitter-print-header {
+  background: linear-gradient(135deg,#5B5BD6,#4C4CC8);
+  color: white;
+  padding: 18px 24px;
+  margin: -24px -24px 24px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+#sitter-print-content h2 { font-size: 17px; font-weight: 700; color: #5B5BD6; border-bottom: 2px solid #5B5BD6; padding-bottom: 6px; margin-top: 22px; }
 /* Single clean column on phones so longer values (feeding schedule, walk
    schedule, etc.) read cleanly instead of cramming into two ragged columns.
    Widen to two columns only when there's room (tablets / printed page). */
@@ -235,28 +244,27 @@
   #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
 }
 #sitter-print-content .field { margin-bottom: 8px; }
-#sitter-print-content .label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
-#sitter-print-content .value { font-size: 13px; font-weight: 600; }
+#sitter-print-content .label { font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+#sitter-print-content .value { font-size: 15px; font-weight: 600; }
+#sitter-print-content p { font-size: 15px; }
 #sitter-print-content .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
 /* Pet-card fields always stack in a single column (on-screen overlay AND print)
    so each pet's details read top-to-bottom instead of cramming into columns. */
 #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
-/* Pawfolio brand row under the printable header. print-color-adjust:exact keeps
-   the icon/colors when printed. */
+/* Pawfolio brand row = the main header title (inside the purple bar). */
 #sitter-print-content .sitter-print-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: -12px 0 20px;
+  gap: 10px;
   font-family: Arial, sans-serif;
-  color: #5B5BD6;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
+  color: #fff;
 }
-#sitter-print-content .sitter-print-brand-icon { width: 22px; height: 22px; border-radius: 6px; }
-#sitter-print-content .sitter-print-brand-name { font-size: 14px; font-weight: 700; }
-#sitter-print-content .sitter-print-brand-sep { color: #a0aec0; }
-#sitter-print-content .sitter-print-brand-maker { font-size: 13px; font-weight: 600; color: #718096; }
+#sitter-print-content .sitter-print-brand-icon { width: 34px; height: 34px; border-radius: 8px; }
+#sitter-print-content .sitter-print-brand-name { font-size: 26px; font-weight: 700; }
+#sitter-print-content .sitter-print-brand-sep { color: rgba(255,255,255,0.7); }
+#sitter-print-content .sitter-print-brand-maker { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.92); }
+/* "Pet Sitter Instructions" subtitle, slightly smaller, below the brand. */
+#sitter-print-content .sitter-print-subtitle { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.95); margin-top: 6px; }
 
 /* When printing, show ONLY the overlay's printable content (not the bar, not
    the app behind it). */
@@ -278,11 +286,12 @@
     max-width: none;
     padding: 0;
   }
-  #sitter-print-content h1 { margin: 0 0 20px; }
+  #sitter-print-content .sitter-print-header { margin: 0 0 20px; }
   /* Owner/Vet sections can use two columns on the full page; pet cards stay
      single-column for readability (rule above uses !important). */
   #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
   #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
+  #sitter-print-content .sitter-print-header,
   #sitter-print-content .sitter-print-brand {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -1874,12 +1883,14 @@
     const pets = getList('pets');
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     return `
-    <h1>Pet Sitter Instructions</h1>
-    <div class="sitter-print-brand">
-      <img src="./icon-192.png" alt="Pawfolio" class="sitter-print-brand-icon">
-      <span class="sitter-print-brand-name">Pawfolio</span>
-      <span class="sitter-print-brand-sep">·</span>
-      <span class="sitter-print-brand-maker">CleartrackApps</span>
+    <div class="sitter-print-header">
+      <div class="sitter-print-brand">
+        <img src="./icon-192.png" alt="Pawfolio" class="sitter-print-brand-icon">
+        <span class="sitter-print-brand-name">Pawfolio</span>
+        <span class="sitter-print-brand-sep">·</span>
+        <span class="sitter-print-brand-maker">CleartrackApps</span>
+      </div>
+      <div class="sitter-print-subtitle">Pet Sitter Instructions</div>
     </div>
     <h2>Owner Info</h2>
     <div class="grid">
