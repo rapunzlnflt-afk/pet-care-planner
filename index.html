@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.13">
+                          <meta name="app-version" content="3.9.14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2054,8 +2054,47 @@
     const b64 = btoa(unescape(encodeURIComponent(json)));
     return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
+  // ---- Encrypted short-link helpers (Excalidraw-style: ciphertext in Supabase,
+  //      decryption key only in the URL #fragment, never sent to any server) ----
+  // base64 <-> ArrayBuffer helpers (url-safe base64 for the KEY in the fragment)
+  function _ab2b64(buf){ var b=new Uint8Array(buf),s=''; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+  function _b64url(b64){ return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+  // Encrypt the sitter payload with a fresh random AES-GCM key.
+  async function encryptSitterPayload(obj){
+    var json = JSON.stringify(obj);
+    var key = await crypto.subtle.generateKey({name:'AES-GCM',length:256}, true, ['encrypt','decrypt']);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var data = new TextEncoder().encode(json);
+    var ct = await crypto.subtle.encrypt({name:'AES-GCM',iv:iv}, key, data);
+    var rawKey = await crypto.subtle.exportKey('raw', key);
+    return {
+      ciphertext: _ab2b64(ct),
+      iv: _ab2b64(iv.buffer),
+      keyStr: _b64url(_ab2b64(rawKey))   // goes in the link #k= (url-safe)
+    };
+  }
+
+  // Generate a short random id for the row.
+  function _shortId(){
+    var a = crypto.getRandomValues(new Uint8Array(9));
+    return _b64url(_ab2b64(a.buffer));   // ~12 url-safe chars
+  }
+
+  // Upload encrypted blob to Supabase, return the id (or null on any failure).
+  async function uploadSitterBlob(enc){
+    try{
+      if(typeof window.getSupabase !== 'function') return null;
+      var sb = await window.getSupabase();
+      if(!sb) return null;
+      var id = _shortId();
+      var res = await sb.from('pawfolio_sitter_links').insert({ id:id, ciphertext:enc.ciphertext, iv:enc.iv }).select('id');
+      if(res.error || !res.data || !res.data.length) return null;
+      return id;
+    }catch(e){ return null; }
+  }
+
   async function buildSitterLink(){
-    const enc = encodePayload(await buildSitterPayload());
     // Resolve sitter.html in the SAME folder as the app, robustly — works whether
     // the URL ends in index.html, a trailing slash, or no slash at all (installed
     // iOS PWAs can report the start URL without a trailing slash, which used to
@@ -2067,7 +2106,17 @@
     } else if (!path.endsWith('/')) {
       path = path + '/';                   // no filename, no slash -> treat as folder
     }
-    return u.origin + path + 'sitter.html#' + enc;
+    var base = u.origin + path + 'sitter.html';
+
+    var payload = await buildSitterPayload();
+    // Prefer the SHORT encrypted link (messaging apps show a clean preview card).
+    try{
+      var enc = await encryptSitterPayload(payload);
+      var id = await uploadSitterBlob(enc);
+      if(id){ return base + '?id=' + encodeURIComponent(id) + '#k=' + enc.keyStr; }
+    }catch(e){ /* fall through to the self-contained long link */ }
+    // Fallback: original long self-contained link (still works, no preview).
+    return base + '#' + encodePayload(payload);
   }
   async function shareSitter(){
     const status = document.getElementById('sitter-save-status');
@@ -6927,6 +6976,13 @@ try {
     });
     return _loadingClient;
   }
+
+  // Expose for the (earlier) sitter-share <script> block, which lives in a
+  // separate scope and can't see these otherwise. Guarded use on that side.
+  window.getSupabase = getSupabase;
+  window.SUPABASE_URL = SUPABASE_URL;
+  window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+  window.isSupabaseConfigured = isConfigured;
 
   function ensureAnonAuth(supabase){
     return supabase.auth.getSession().then(function(res){

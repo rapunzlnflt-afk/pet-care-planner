@@ -98,6 +98,46 @@
         return JSON.parse(json);
       }catch(e){ return null; }
     }
+
+    // ---- Encrypted short-link path (sitter.html?id=<id>#k=<key>) ----
+    // Fetch ciphertext from Supabase REST (no supabase-js needed here) and
+    // decrypt with the key carried only in the URL #fragment. The key never
+    // touches the server, so Supabase only ever holds unreadable ciphertext.
+    var SB_URL  = 'https://mpanuzarzcfgjbheepmj.supabase.co';
+    var SB_ANON = 'sb_publishable_gQ7s_Xuxnn9aYiJmaa6K_w_RYXbQRUk';
+
+    function _b642ab(b64){ var s=atob(b64),a=new Uint8Array(s.length); for(var i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a.buffer; }
+    function _b64urlDecode(s){ s=String(s||'').replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return s; }
+
+    function getParam(name){
+      var m = (location.search||'').match(new RegExp('[?&]'+name+'=([^&]+)'));
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+    function getKeyFromHash(){
+      var h = (location.hash||'').replace(/^#/,'');
+      var m = h.match(/(?:^|&)k=([^&]+)/);
+      return m ? m[1] : '';
+    }
+
+    async function fetchAndDecrypt(id, keyStr){
+      // 1) fetch the encrypted row from Supabase REST
+      var url = SB_URL + '/rest/v1/pawfolio_sitter_links?id=eq.' + encodeURIComponent(id) + '&select=ciphertext,iv';
+      var resp = await fetch(url, { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON } });
+      if(!resp.ok) throw new Error('fetch failed');
+      var rows = await resp.json();
+      if(!rows || !rows.length) throw new Error('not found or expired');
+      var row = rows[0];
+      // 2) import key from #k=
+      var rawKey = _b642ab(_b64urlDecode(keyStr));
+      var key = await crypto.subtle.importKey('raw', rawKey, {name:'AES-GCM'}, false, ['decrypt']);
+      // 3) decrypt
+      var iv = new Uint8Array(_b642ab(row.iv));
+      var ctBuf = _b642ab(row.ciphertext);
+      var plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ctBuf);
+      var json = new TextDecoder().decode(plainBuf);
+      return JSON.parse(json);
+    }
+
     function fieldText(label,val){
       if(!val) return '';
       return '<div class="field"><div class="label">'+esc(label)+'</div><div class="value">'+esc(val)+'</div></div>';
@@ -197,8 +237,28 @@
       app.innerHTML=html;
       document.title=(o.name?o.name+"'s pets — ":'')+'Pet Sitter Info — Pawfolio';
     }
-    render(decode());
-    window.addEventListener('hashchange', function(){ render(decode()); });
+    async function boot(){
+      var app = document.getElementById('app');
+      var id = getParam('id');
+      if(id){
+        var keyStr = getKeyFromHash();
+        if(!keyStr){ render(null); return; }
+        // loading state
+        app.innerHTML = '<div class="empty"><h1>Loading…</h1><p>Fetching the pet sitter instructions…</p></div>';
+        try{
+          var d = await fetchAndDecrypt(id, keyStr);
+          render(d);
+        }catch(e){
+          app.innerHTML = '<div class="empty"><h1>Link unavailable</h1><p>This sitter link may have expired or could not be opened. Ask the sender to share a new one.</p></div>';
+        }
+        return;
+      }
+      // Fallback: legacy long #data link
+      render(decode());
+    }
+    boot();
+    // Keep hashchange working only for the legacy #data path (no ?id).
+    window.addEventListener('hashchange', function(){ if(!getParam('id')) render(decode()); });
   })();
   </script>
 </body>
