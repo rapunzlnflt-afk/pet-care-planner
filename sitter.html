@@ -161,7 +161,7 @@
           var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
           var avatar = p.img
             ? '<img class="pet-avatar" src="'+esc(p.img)+'" alt="'+esc(p.n||'Pet')+'">'
-            : '<span class="pet-avatar-placeholder"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>';
+            : '<span class="pet-avatar-placeholder"><svg width="30" height="30" viewBox="0 0 24 24" fill="#5B5BD6" aria-hidden="true"><ellipse cx="7" cy="9" rx="1.7" ry="2.3"/><ellipse cx="12" cy="6.5" rx="1.7" ry="2.3"/><ellipse cx="17" cy="9" rx="1.7" ry="2.3"/><ellipse cx="19.5" cy="13.5" rx="1.5" ry="2"/><path d="M12 12.5c-2.4 0-4.5 1.7-5.2 3.9-.5 1.6.6 3.1 2.2 3.1.9 0 1.7-.4 3-.4s2.1.4 3 .4c1.6 0 2.7-1.5 2.2-3.1-.7-2.2-2.8-3.9-5.2-3.9z"/></svg></span>';
           petsHtml+='<div class="pet"><h3>'+avatar+'<span>'+esc(p.n||'Pet')+(sub?'<span class="tag">'+sub+'</span>':'')+'</span></h3><div class="row">'+rows+beh+'</div></div>';
         });
         html+='<div class="card"><h2>Pets</h2>'+petsHtml+'</div>';
