@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.10">
+                          <meta name="app-version" content="3.9.11">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1694,7 +1694,7 @@
           <label class="block font-body text-xs text-secondary mb-1">Medications</label>
           ${sitterMedPickerHTML(p, sitterData)}
         </div>
-        <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Behavioral Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
+        <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Additional Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
       </div>`).join('');
     // Restore values
     setTimeout(() => {
@@ -1814,7 +1814,7 @@
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Feeding Instructions</p><p class="font-body text-sm font-medium text-primary">${data['sitter-food-'+p.__id]||'—'}</p></div>
             <div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Walk Schedule</p><p class="font-body text-sm font-medium text-primary">${data['sitter-walk-'+p.__id]||'—'}</p></div>
             ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Medications</p>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(' · '); return `<p class="font-body text-sm font-medium text-primary"><strong>${m.name}</strong>${detail?` <span style="font-weight:400;color:var(--text-secondary);">(${detail})</span>`:''}${m.instructions?` — ${m.instructions}`:''}</p>`; }).join('')}</div>` : ''; })()}
-            ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Behavioral Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
+            ${data['sitter-behavior-'+p.__id]?`<div style="grid-column:span 2;"><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Additional Notes</p><p class="font-body text-sm text-primary">${data['sitter-behavior-'+p.__id]}</p></div>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -1985,7 +1985,7 @@
         <div class="field"><div class="label">Walk Schedule</div><div class="value">${data['sitter-walk-'+p.__id]||''}</div></div>
         ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div class="field"><div class="label">Medications</div>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(', '); return `<div class="value"><strong>${m.name}</strong>${detail?` (${detail})`:''}${m.instructions?` — ${m.instructions}`:''}</div>`; }).join('')}</div>` : ''; })()}
       </div>
-      ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Behavioral Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
+      ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Additional Notes</div><div class="value">${data['sitter-behavior-'+p.__id]}</div></div>` : ''}
     </div>`).join('')}
     ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${data['sitter-instructions']}</p>` : ''}`;
   }
@@ -2034,119 +2034,10 @@
   function wireSitterOverlayButtons() {
     const closeBtn = document.getElementById('sitter-print-close-btn');
     const doBtn = document.getElementById('sitter-print-do-btn');
-    const pdfBtn = document.getElementById('sitter-print-pdf-btn');
     if (closeBtn) closeBtn.addEventListener('click', () => closeSitterPrintOverlay(false));
     if (doBtn) doBtn.addEventListener('click', () => window.print());
-    if (pdfBtn) pdfBtn.addEventListener('click', saveSitterPdf);
   }
 
-  // ---- Save-as-PDF (client-side, no server) -------------------------------
-  // Lazily load jsPDF + html2canvas from CDN on first use so they never slow the
-  // initial app load. Network-loaded (NOT precached in sw.js) to match how the
-  // Tailwind/Font-Awesome CDNs are referenced — keeps offline behaviour intact.
-  const PDF_CDN = {
-    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-  };
-  function loadScriptOnce(src){
-    return new Promise((resolve, reject) => {
-      if (document.querySelector('script[data-pdf-lib="'+src+'"]')) { resolve(); return; }
-      const s = document.createElement('script');
-      s.src = src;
-      s.async = true;
-      s.setAttribute('data-pdf-lib', src);
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load ' + src));
-      document.head.appendChild(s);
-    });
-  }
-  async function ensurePdfLibs(){
-    if (!(window.jspdf && window.jspdf.jsPDF)) await loadScriptOnce(PDF_CDN.jspdf);
-    if (!window.html2canvas) await loadScriptOnce(PDF_CDN.html2canvas);
-  }
-  function setPdfBtnBusy(busy){
-    const btn = document.getElementById('sitter-print-pdf-btn');
-    if (!btn) return;
-    btn.disabled = busy;
-    btn.textContent = busy ? 'Generating…' : 'Save as PDF';
-    btn.style.opacity = busy ? '0.6' : '';
-  }
-  let _pdfStatusTimer = null;
-  function pdfStatus(msg){
-    let el = document.getElementById('sitter-pdf-status');
-    if (!el){
-      el = document.createElement('div');
-      el.id = 'sitter-pdf-status';
-      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
-        'background:#16a34a;color:#fff;padding:9px 16px;border-radius:8px;font-family:Arial,sans-serif;' +
-        'font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10001;max-width:90vw;text-align:center;';
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.style.display = 'block';
-    clearTimeout(_pdfStatusTimer);
-    _pdfStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
-  }
-  async function saveSitterPdf(){
-    const content = document.getElementById('sitter-print-content');
-    if (!content) return;
-    setPdfBtnBusy(true);
-    pdfStatus('Building PDF…');
-    try {
-      await ensurePdfLibs();
-      const canvas = await window.html2canvas(content, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const jsPDF = window.jspdf.jsPDF;
-      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = canvas.height * (pageW / canvas.width);
-      // Slice the tall canvas image across as many A4 pages as needed.
-      let heightLeft = imgH;
-      let position = 0;
-      pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        position -= pageH;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-        heightLeft -= pageH;
-      }
-      const blob = pdf.output('blob');
-      const fileName = 'Pet-Sitter-Instructions.pdf';
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      // iOS: prefer sharing the PDF as a file so the owner can AirDrop/Message it.
-      if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'Pet Sitter Instructions' });
-          pdfStatus('✓ PDF ready');
-          return;
-        } catch(e){
-          if (e && e.name === 'AbortError') { pdfStatus('Cancelled'); return; }
-          // otherwise fall through to download
-        }
-      }
-      // Fallback: trigger a normal download.
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      pdfStatus('✓ PDF saved');
-    } catch(e){
-      pdfStatus('Could not create PDF — try Print instead');
-    } finally {
-      setPdfBtnBusy(false);
-    }
-  }
   if (document.getElementById('sitter-print-close-btn')) {
     wireSitterOverlayButtons();
   } else {
@@ -2159,10 +2050,36 @@
   // (falling back to copy-to-clipboard). Nothing is uploaded anywhere — the data
   // rides inside the link's hash, which never leaves the device except in the
   // message the owner chooses to send.
-  function buildSitterPayload(){
+  // Shrink a stored pet photo (which can be multi-MB) down to a small JPEG so it
+  // fits inside the share link's URL fragment — the whole payload travels in the
+  // URL, there is no server. ~160px longest side, JPEG q0.7. Resolves to a data
+  // URL, or '' if the source is missing/unreadable (never rejects, so one bad
+  // photo can't break the whole link).
+  function resizePhotoForShare(dataUrl){
+    return new Promise(resolve => {
+      if (!dataUrl) { resolve(''); return; }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const max = 160;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } catch(e){ resolve(''); }
+      };
+      img.onerror = () => resolve('');
+      img.src = dataUrl;
+    });
+  }
+  async function buildSitterPayload(){
     const pets = getList('pets');
     const d = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
-    const petsOut = pets.map(p => ({
+    const petsOut = await Promise.all(pets.map(async p => ({
       n: p.name || '',
       sp: p.species || '',
       br: p.breed || '',
@@ -2172,8 +2089,9 @@
       meds: sitterSelectedMeds(p.__id, d).map(sitterMedLine).join('\n'),
       beh: d['sitter-behavior-'+p.__id] || '',
       chip: p.microchip || '',
-      allergies: p.allergies || ''
-    }));
+      allergies: p.allergies || '',
+      img: await resizePhotoForShare(p.photo || '')
+    })));
     return {
       v: 1,
       owner: { name: d['sitter-owner-name']||'', phone: d['sitter-owner-phone']||'', email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
@@ -2191,8 +2109,8 @@
     const b64 = btoa(unescape(encodeURIComponent(json)));
     return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
-  function buildSitterLink(){
-    const enc = encodePayload(buildSitterPayload());
+  async function buildSitterLink(){
+    const enc = encodePayload(await buildSitterPayload());
     // Resolve sitter.html in the SAME folder as the app, robustly — works whether
     // the URL ends in index.html, a trailing slash, or no slash at all (installed
     // iOS PWAs can report the start URL without a trailing slash, which used to
@@ -2208,7 +2126,7 @@
   }
   async function shareSitter(){
     const status = document.getElementById('sitter-save-status');
-    const link = buildSitterLink();
+    const link = await buildSitterLink();
     const owner = (JSON.parse(localStorage.getItem('petSitterInfo')||'{}'))['sitter-owner-name'] || '';
     // Short label WITHOUT the link. The link is passed as a first-class `url`
     // field below so iMessage/Mail linkify it reliably and the long #fragment
@@ -3248,7 +3166,6 @@ refreshAll();
    <div id="sitter-print-bar">
      <span id="sitter-print-title">Pet Sitter Instructions</span>
      <span style="display:flex;gap:8px;">
-       <button id="sitter-print-pdf-btn" type="button">Save as PDF</button>
        <button id="sitter-print-do-btn" type="button">Print</button>
        <button id="sitter-print-close-btn" type="button" aria-label="Close">✕ Close</button>
      </span>
