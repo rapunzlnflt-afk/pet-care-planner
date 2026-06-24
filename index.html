@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.16">
+                          <meta name="app-version" content="3.9.17">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -124,6 +124,11 @@
     .links-jump-chip:active { transform:scale(0.96); }
     [data-theme="dark"] .links-jump-chip { background:#1e2732;border-color:rgba(139,124,248,0.2); }
     [data-theme="dark"] .links-jump-chip:hover { border-color:#8b7cf8;color:#8b7cf8; }
+    .links-back-top { display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:999px;border:1px solid var(--border-color);background:white;color:var(--accent-color);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s; }
+    .links-back-top:hover { border-color:var(--accent-color);box-shadow:0 2px 8px rgba(91,91,214,0.15);transform:translateY(-1px); }
+    .links-back-top:active { transform:scale(0.96); }
+    [data-theme="dark"] .links-back-top { background:#1e2732;border-color:rgba(139,124,248,0.2);color:#8b7cf8; }
+    [data-theme="dark"] .links-back-top:hover { border-color:#8b7cf8; }
     .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
     [data-theme="dark"] .sitter-section-preview { background:#1e2732 !important; }
     .sitter-section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
@@ -983,9 +988,8 @@
 
     <!-- IMPORTANT LINKS TAB -->
     <section id="tab-important-links" class="tab-content">
-     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:24px;">
-      <h2 class="font-heading text-2xl font-bold mb-1" style="color:white;">Important Links</h2>
-      <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:18px 24px;">
+      <h2 class="font-heading text-2xl font-bold" style="color:white;">Important Links</h2>
      </div>
 
      <!-- Quick-jump chip bar -->
@@ -1184,6 +1188,22 @@
        </a>
       </div>
      </div>
+
+     <!-- Back to top -->
+     <div style="text-align:center;margin:8px 0 24px;">
+      <button type="button" class="links-back-top" data-jump-top>↑ Back to top</button>
+     </div>
+     <script>
+      (function(){
+       var btn=document.querySelector('[data-jump-top]');
+       if(!btn) return;
+       btn.addEventListener('click',function(){
+        var sec=document.getElementById('tab-important-links');
+        window.scrollTo({top:0,behavior:'smooth'});
+        if(sec && sec.scrollTo) sec.scrollTo({top:0,behavior:'smooth'});
+       });
+      })();
+     </script>
 
     </section>
 
