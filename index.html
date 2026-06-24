@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.15">
+                          <meta name="app-version" content="3.9.16">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -117,6 +117,13 @@
     .link-card:hover { border-color:var(--accent-color);box-shadow:0 2px 12px rgba(91,91,214,0.15);transform:translateY(-1px); }
     [data-theme="dark"] .link-card { background:#1e2732 !important;border-color:rgba(139,124,248,0.15); }
     [data-theme="dark"] .link-card:hover { border-color:#8b7cf8;box-shadow:0 2px 12px rgba(139,124,248,0.2); }
+    .links-jumpbar { position:sticky;top:0;z-index:20;display:flex;gap:8px;overflow-x:auto;padding:10px 2px;margin-bottom:16px;background:var(--bg-light);-webkit-overflow-scrolling:touch;scrollbar-width:none; }
+    .links-jumpbar::-webkit-scrollbar { display:none; }
+    .links-jump-chip { flex:0 0 auto;padding:8px 16px;border-radius:999px;border:1px solid var(--border-color);background:white;color:var(--text-primary);font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all 0.15s; }
+    .links-jump-chip:hover { border-color:var(--accent-color);color:var(--accent-color);box-shadow:0 2px 8px rgba(91,91,214,0.15); }
+    .links-jump-chip:active { transform:scale(0.96); }
+    [data-theme="dark"] .links-jump-chip { background:#1e2732;border-color:rgba(139,124,248,0.2); }
+    [data-theme="dark"] .links-jump-chip:hover { border-color:#8b7cf8;color:#8b7cf8; }
     .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
     [data-theme="dark"] .sitter-section-preview { background:#1e2732 !important; }
     .sitter-section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
@@ -981,8 +988,29 @@
       <p class="font-body text-sm" style="color:rgba(255,255,255,0.8);">Trusted resources for pet insurance, medications, travel and supplies</p>
      </div>
 
+     <!-- Quick-jump chip bar -->
+     <div class="links-jumpbar" role="navigation" aria-label="Jump to section">
+      <button type="button" class="links-jump-chip" data-jump="links-insurance">Insurance</button>
+      <button type="button" class="links-jump-chip" data-jump="links-pharmacies">Pharmacies</button>
+      <button type="button" class="links-jump-chip" data-jump="links-airlines">Airlines</button>
+      <button type="button" class="links-jump-chip" data-jump="links-shipping">Shipping</button>
+      <button type="button" class="links-jump-chip" data-jump="links-stores">Stores</button>
+     </div>
+     <script>
+      (function(){
+       var bar=document.querySelector('.links-jumpbar');
+       if(!bar) return;
+       bar.addEventListener('click',function(e){
+        var btn=e.target.closest('.links-jump-chip');
+        if(!btn) return;
+        var el=document.getElementById(btn.getAttribute('data-jump'));
+        if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+       });
+      })();
+     </script>
+
      <!-- Pet Insurance -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <div id="links-insurance" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);scroll-margin-top:80px;">
       <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Insurance</h3>
       <p class="font-body text-xs text-secondary mb-4">Top-rated providers — compare plans before enrolling. Prices vary by pet age, breed and location.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -1026,7 +1054,7 @@
      </div>
 
      <!-- Online Pet Pharmacies -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <div id="links-pharmacies" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);scroll-margin-top:80px;">
       <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Pharmacies</h3>
       <p class="font-body text-xs text-secondary mb-4">Always verify your vet prescription is required. Look for VIPPS-accredited pharmacies for safety.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -1058,7 +1086,7 @@
      </div>
 
      <!-- Airline Pet Policies -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <div id="links-airlines" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);scroll-margin-top:80px;">
       <h3 class="font-heading text-base font-bold text-primary mb-1">Airline Pet Policies</h3>
       <p class="font-body text-xs text-secondary mb-4">Policies and fees change — always verify directly with the airline before booking. Most require health certificates within 10 days of travel.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -1098,7 +1126,7 @@
      </div>
 
      <!-- Pet Shipping -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <div id="links-shipping" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);scroll-margin-top:80px;">
       <h3 class="font-heading text-base font-bold text-primary mb-1">Pet Shipping Services</h3>
       <p class="font-body text-xs text-secondary mb-4">For long-distance or international pet transport when flying with your pet is not possible.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -1114,7 +1142,7 @@
      </div>
 
      <!-- Online Pet Stores -->
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <div id="links-stores" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);scroll-margin-top:80px;">
       <h3 class="font-heading text-base font-bold text-primary mb-1">Online Pet Stores</h3>
       <p class="font-body text-xs text-secondary mb-4">Top-rated stores for food, supplies, toys and specialty items.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
