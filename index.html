@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.20">
+                          <meta name="app-version" content="3.9.21">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1337,6 +1337,19 @@
     refreshAll();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Home-screen shortcut deep-links (v3.9.21): ?tab=<name> opens that tab on launch.
+  (function openTabFromUrl(){
+    var allowed = ['overview','pet-profiles','vet-visits','vaccinations','medications','weight-tracker','expenses','pet-sitter','document-vault','important-links'];
+    var go = function(){
+      try {
+        var t = new URLSearchParams(window.location.search).get('tab');
+        if (t && allowed.indexOf(t) !== -1 && typeof window.goToTab === 'function') window.goToTab(t);
+      } catch(e){}
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+    else go();
+  })();
 
   // ============ PET DROPDOWNS ============
   function refreshPetDropdowns() {
