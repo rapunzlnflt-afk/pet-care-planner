@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.19">
+                          <meta name="app-version" content="3.9.20">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -52,6 +52,17 @@
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
     .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
+    .archive-pet-btn { background: none; border: none; color: var(--text-secondary); font-size: 15px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .archive-pet-btn:hover { color: #5B5BD6; }
+    .pet-archived { opacity: 0.6; filter: grayscale(0.85); }
+    .pet-archived .archive-pet-btn { filter: none; opacity: 1; }
+    .pet-archived-badge { display: inline-block; background: rgba(91,91,214,0.12); color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 2px; }
+    .weight-sparkline-wrap { margin: 4px 0 12px; }
+    .weight-sparkline-wrap svg { width: 100%; max-width: 240px; height: 48px; display: block; }
+    .weight-spark-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); max-width: 240px; margin-top: 2px; }
+    .vacc-quickset { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .vacc-quickset button { background: none; border: 1px solid #5B5BD6; color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
+    .vacc-quickset button:hover { background: rgba(91,91,214,0.1); }
 
     /* Mobile */
     .mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: linear-gradient(135deg, #5B5BD6 0%, #8B5BD6 50%, #4C4CC8 100%); border-bottom: 1px solid rgba(255,255,255,0.15); align-items: center; padding: 0 16px; z-index: 1000; gap: 12px; }
@@ -667,6 +678,11 @@
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Next Due Date</label>
          <input type="date" id="vacc-next">
+         <div class="vacc-quickset">
+          <button type="button" onclick="setVaccNext(0,6)">+6 months</button>
+          <button type="button" onclick="setVaccNext(1,0)">+1 year</button>
+          <button type="button" onclick="setVaccNext(3,0)">+3 years</button>
+         </div>
         </div>
        </div>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -839,6 +855,7 @@
       <label class="font-body text-sm text-secondary" style="font-weight:600;">Filter by pet:</label>
       <select id="expense-filter-pet" style="flex:1;min-width:160px;max-width:280px;"><option value="">All pets</option></select>
       <span id="expense-filter-count" class="font-body text-xs text-secondary" style="margin-left:auto;"></span>
+      <button type="button" id="expense-export-csv" onclick="exportExpensesCSV()" class="btn-primary px-3 py-2" style="font-size:13px;">Export CSV</button>
      </div>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-base font-bold text-primary mb-4">Add Expense</h3>
@@ -1323,7 +1340,8 @@
 
   // ============ PET DROPDOWNS ============
   function refreshPetDropdowns() {
-    const pets = getList('pets');
+    // Exclude archived pets from add-pickers so new records aren't logged to a passed pet.
+    const pets = getList('pets').filter(p => !p.archived);
     const opts = pets.map(p => `<option value="${p.__id}">${escHtml(p.name)} (${escHtml(p.species)})</option>`).join('');
     const optsWithAll = `<option value="">All pets / General</option>` + opts;
     ['vet-pet','vacc-pet','med-pet','weight-pet'].forEach(id => {
@@ -1401,19 +1419,24 @@
     container.innerHTML = pets.map(p => {
       const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : null;
       const photoSrc = safeImgSrc(p.photo);
+      const archived = !!p.archived;
       const avatarHtml = photoSrc
         ? `<img src="${photoSrc}" class="pet-avatar" alt="${escHtml(p.name)}">`
         : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
-      return `<div class="card p-5" style="border-left:4px solid var(--accent-color);">
+      return `<div class="card p-5${archived ? ' pet-archived' : ''}" style="border-left:4px solid var(--accent-color);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div style="display:flex;align-items:center;gap:12px;">
             ${avatarHtml}
             <div>
               <h3 class="font-heading text-lg font-bold text-primary">${escHtml(p.name)} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${escHtml(p.species)}${p.breed ? ' — ' + escHtml(p.breed) : ''}</span></h3>
+              ${archived ? `<span class="pet-archived-badge">🌈 Rainbow Bridge${p.archivedDate ? ' · ' + fmtDate(p.archivedDate) : ''}</span>` : ''}
               ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${escHtml(p.sex || '')}</p>` : ''}
             </div>
           </div>
-          <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">✕</button>
+          <div style="display:flex;align-items:center;flex-shrink:0;">
+            <button type="button" class="archive-pet-btn" onclick="toggleArchivePet(${p.__id})" title="${archived ? 'Restore' : 'Move to Rainbow Bridge'}">${archived ? '↩︎' : '🌈'}</button>
+            <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">✕</button>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
           ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${escHtml(p.microchip)}</p></div>` : ''}
@@ -1440,6 +1463,41 @@
       });
     } else if(confirm('Delete this pet profile? This removes the pet and its records.')){
       doDelete();
+    }
+  };
+
+  // Toggle a pet's archived ("Rainbow Bridge") state. Records are kept; the pet is
+  // just hidden from add-pickers/overview/reminders and shown de-emphasized.
+  window.toggleArchivePet = function(id){
+    const pets = getList('pets');
+    const idx = pets.findIndex(p => String(p.__id) === String(id));
+    if(idx < 0) return;
+    const pet = pets[idx];
+    const doArchive = function(){
+      pets[idx] = Object.assign({}, pet, { archived: true, archivedDate: today() });
+      saveList('pets', pets);
+      refreshAll();
+      if(typeof window.toast === 'function') window.toast(pet.name + ' moved to the Rainbow Bridge 🌈');
+    };
+    const doRestore = function(){
+      const restored = Object.assign({}, pet); restored.archived = false; delete restored.archivedDate;
+      pets[idx] = restored;
+      saveList('pets', pets);
+      refreshAll();
+      if(typeof window.toast === 'function') window.toast(pet.name + ' restored');
+    };
+    if(pet.archived){
+      doRestore();
+    } else if(typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Move to the Rainbow Bridge?',
+        message: 'Move ' + escHtml(pet.name) + ' to the Rainbow Bridge? Their records are kept safe and you can restore them anytime.',
+        confirmLabel: 'Move to Rainbow Bridge',
+        cancelLabel: 'Not now',
+        onConfirm: doArchive
+      });
+    } else {
+      doArchive();
     }
   };
 
@@ -1570,6 +1628,21 @@
     refreshAll();
   });
 
+  // Quick-set the Next Due Date based on the administered date (#vacc-date) or today.
+  // years/months added with correct month/leap-year rollover via setFullYear/setMonth.
+  window.setVaccNext = function(years, months){
+    const base = document.getElementById('vacc-date').value || today();
+    const parts = base.split('-');
+    const d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+    if(isNaN(d.getTime())) return;
+    if(years) d.setFullYear(d.getFullYear() + years);
+    if(months) d.setMonth(d.getMonth() + months);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    document.getElementById('vacc-next').value = `${yyyy}-${mm}-${dd}`;
+  };
+
   function renderVaccinations() {
     const vaccs = getList('vaccinations').sort((a,b) => b.date.localeCompare(a.date));
     const el = document.getElementById('vaccinations-list');
@@ -1691,6 +1764,50 @@
     refreshAll();
   });
 
+  // Build a tiny inline SVG sparkline of a pet's weight history (oldest→newest).
+  // entries: weight records for one pet (any order). Returns HTML string ('' if no plottable points).
+  function weightSparkline(entries) {
+    const pts = entries
+      .map(w => ({ lbs: parseFloat(w.lbs), date: w.date }))
+      .filter(p => !isNaN(p.lbs) && p.date)
+      .sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    if(!pts.length) return '';
+    const W = 240, H = 48, pad = 6;
+    const lbsVals = pts.map(p => p.lbs);
+    const min = Math.min(...lbsVals), max = Math.max(...lbsVals);
+    const range = max - min;
+    const n = pts.length;
+    const x = i => n === 1 ? W/2 : pad + (i * (W - 2*pad)) / (n - 1);
+    // Flat line centered vertically when all values equal (avoid divide-by-zero).
+    const y = v => range === 0 ? H/2 : (H - pad) - ((v - min) * (H - 2*pad)) / range;
+    const accent = '#5B5BD6';
+    let inner = '';
+    if(n >= 2) {
+      const coords = pts.map((p,i) => `${x(i).toFixed(1)},${y(p.lbs).toFixed(1)}`).join(' ');
+      const area = `${pad},${H-pad} ${coords} ${(W-pad)},${H-pad}`;
+      inner += `<polygon points="${area}" fill="rgba(91,91,214,0.08)" stroke="none"></polygon>`;
+      inner += `<polyline points="${coords}" fill="none" stroke="${accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>`;
+    }
+    inner += pts.map((p,i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.lbs).toFixed(1)}" r="2.5" fill="${accent}"></circle>`).join('');
+    const latest = pts[n-1].lbs, prev = n >= 2 ? pts[n-2].lbs : null;
+    let trend = '';
+    if(prev !== null) {
+      const delta = latest - prev;
+      const d = Math.abs(delta).toFixed(1);
+      if(delta > 0) trend = `<span style="color:#C0392B;">▲ ${d} lbs</span>`;
+      else if(delta < 0) trend = `<span style="color:#27AE60;">▼ ${d} lbs</span>`;
+      else trend = `<span style="color:var(--text-secondary);">– 0.0 lbs</span>`;
+    }
+    return `<div class="weight-sparkline-wrap">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Weight trend">${inner}</svg>
+      <div class="weight-spark-labels">
+        <span>min ${min} lbs</span>
+        <span style="font-weight:700;color:var(--text-primary);">${latest} lbs ${trend}</span>
+        <span>max ${max} lbs</span>
+      </div>
+    </div>`;
+  }
+
   function renderWeights() {
     const weights = getList('weights').sort((a,b) => b.date.localeCompare(a.date));
     const el = document.getElementById('weight-list');
@@ -1710,6 +1827,7 @@
             ${diff !== null ? `<span class="font-body text-xs ml-2" style="color:${parseFloat(diff)>0?'#e53e3e':'#48bb78'};">${parseFloat(diff)>0?'+':''}${diff} lbs</span>` : ''}
           </div>
         </div>
+        ${weightSparkline(entries)}
         <div class="space-y-1">
           ${entries.map(w => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
             <span class="font-body text-sm text-secondary">${fmtDate(w.date)}${w.notes ? ' · ' + escHtml(w.notes) : ''}</span>
@@ -1799,6 +1917,36 @@
   document.getElementById('expense-filter-pet').addEventListener('change', () => renderExpenses());
 
   window.deleteExpense = id => { deleteItem('expenses', id); refreshAll(); };
+
+  // Export the full expense log as a local CSV download (no upload — privacy preserved).
+  window.exportExpensesCSV = function(){
+    const rows = getList('expenses').slice().sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    if(!rows.length){ if(typeof window.toast === 'function') window.toast('No expenses to export yet.'); return; }
+    const q = v => {
+      const s = String(v == null ? '' : v);
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = ['Date','Pet','Category','Amount','Description'];
+    const lines = [header.map(q).join(',')];
+    rows.forEach(e => {
+      lines.push([
+        q(e.date || ''),
+        q(e.petName || 'General'),
+        q(e.category || ''),
+        q((parseFloat(e.amount) || 0).toFixed(2)),
+        q(e.desc || '')
+      ].join(','));
+    });
+    const csv = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pawfolio-expenses-' + today() + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ try { URL.revokeObjectURL(url); } catch(e){} }, 4000);
+    if(typeof window.toast === 'function') window.toast('Exported ' + rows.length + ' expense' + (rows.length!==1?'s':'') + ' to CSV');
+  };
 
   // ============ PET SITTER INFO ============
   // Meds the user has selected for a given pet's sitter sheet. Reads the saved
@@ -2340,7 +2488,11 @@
 
   // ============ OVERVIEW ============
   function renderOverview() {
-    const pets = getList('pets');
+    // Exclude archived pets from overview cards, reminders, and the pet count.
+    const pets = getList('pets').filter(p => !p.archived);
+    const archivedPetIds = new Set(getList('pets').filter(p => p.archived).map(p => String(p.__id)));
+    const archivedPetNames = new Set(getList('pets').filter(p => p.archived).map(p => p.name));
+    const isArchivedRecord = (r) => archivedPetIds.has(String(r.petId)) || (r.petId == null && archivedPetNames.has(r.petName));
     const visits = getList('vet-visits');
     document.getElementById('stat-pets').textContent = pets.length;
     document.getElementById('stat-visits').textContent = visits.length;
@@ -2380,15 +2532,15 @@
     const remindersEl = document.getElementById('overview-reminders');
     const reminders = [];
     const now = new Date();
-    getList('vaccinations').filter(v => v.next).forEach(v => {
+    getList('vaccinations').filter(v => v.next && !isArchivedRecord(v)).forEach(v => {
       const days = Math.ceil((new Date(v.next) - now) / 86400000);
       if(days <= 60) reminders.push({ type: 'Vaccination', name: v.name, pet: v.petName, days, date: v.next });
     });
-    getList('medications').filter(m => m.refill).forEach(m => {
+    getList('medications').filter(m => m.refill && !isArchivedRecord(m)).forEach(m => {
       const days = Math.ceil((new Date(m.refill) - now) / 86400000);
       if(days <= 30) reminders.push({ type: 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
     });
-    getList('vet-visits').map(v => ({...v, next: v.next || v.date})).filter(v => v.next).forEach(v => {
+    getList('vet-visits').filter(v => !isArchivedRecord(v)).map(v => ({...v, next: v.next || v.date})).filter(v => v.next).forEach(v => {
       const days = Math.ceil((new Date(v.next) - now) / 86400000);
       if(days >= 0 && days <= 60) reminders.push({ type: 'Vet Appointment', name: v.reason || 'Follow-up', pet: v.petName, days, date: v.next });
     });
@@ -4244,16 +4396,21 @@ try {
     if(typeof getList !== 'function') return;
     var reminders = [];
     var now = new Date();
+    // Exclude archived ("Rainbow Bridge") pets from reminders.
+    var _archPets = (getList('pets')||[]).filter(function(p){return p.archived;});
+    var _archIds = new Set(_archPets.map(function(p){return String(p.__id);}));
+    var _archNames = new Set(_archPets.map(function(p){return p.name;}));
+    var _isArch = function(r){ return _archIds.has(String(r.petId)) || (r.petId == null && _archNames.has(r.petName)); };
     try {
-      (getList('vaccinations')||[]).filter(function(v){return v.next;}).forEach(function(v){
+      (getList('vaccinations')||[]).filter(function(v){return v.next && !_isArch(v);}).forEach(function(v){
         var days = Math.ceil((new Date(v.next) - now) / 86400000);
         if(days <= 60) reminders.push({type:'Vaccination', name:v.name, pet:v.petName, days:days, date:v.next, time:'', tab:'vaccinations'});
       });
-      (getList('medications')||[]).filter(function(m){return m.refill;}).forEach(function(m){
+      (getList('medications')||[]).filter(function(m){return m.refill && !_isArch(m);}).forEach(function(m){
         var days = Math.ceil((new Date(m.refill) - now) / 86400000);
         if(days <= 30) reminders.push({type:'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
       });
-      (getList('vet-visits')||[]).forEach(function(v){
+      (getList('vet-visits')||[]).filter(function(v){return !_isArch(v);}).forEach(function(v){
         // Choose appointment date+time (v.date/v.time) OR follow-up date+time (v.next/v.nextTime)
         // If v.next is set, that's a follow-up reminder; otherwise use v.date for scheduled appts.
         var useDate, useTime, vid = v.__id;
