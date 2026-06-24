@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.14">
+                          <meta name="app-version" content="3.9.15">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1090,10 +1090,6 @@
         <p class="font-heading text-sm font-bold text-primary">Frontier Airlines</p>
         <p class="font-body text-xs text-secondary">Cabin · $99 · dogs, cats, rabbits, birds & more</p>
        </a>
-       <a href="https://www.spirit.com/about-spirit/baggage-fees/pet-travel" target="_blank" rel="noopener" class="link-card">
-        <p class="font-heading text-sm font-bold text-primary">Spirit Airlines</p>
-        <p class="font-body text-xs text-secondary">Cabin · $125 · dogs, cats, rabbits & birds</p>
-       </a>
        <a href="https://www.allegiantair.com/service-and-support/traveling-with-pets" target="_blank" rel="noopener" class="link-card">
         <p class="font-heading text-sm font-bold text-primary">Allegiant Air</p>
         <p class="font-body text-xs text-secondary">Cabin only · $50 (most affordable) · cats & dogs only</p>
@@ -2024,6 +2020,13 @@
   async function buildSitterPayload(){
     const pets = getList('pets');
     const d = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    // Always format phone numbers with dashes in the shared link, no matter how
+    // they were originally saved (some were entered before live-formatting
+    // existed, or pasted without dashes). window.formatPhone is exposed by the
+    // vet-form script block; guard in case it isn't ready.
+    const fmtPhone = (typeof window.formatPhone === 'function')
+      ? window.formatPhone
+      : (x => x || '');
     const petsOut = await Promise.all(pets.map(async p => ({
       n: p.name || '',
       sp: p.species || '',
@@ -2039,10 +2042,10 @@
     })));
     return {
       v: 1,
-      owner: { name: d['sitter-owner-name']||'', phone: d['sitter-owner-phone']||'', email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
-      emerg: { name: d['sitter-emerg-name']||'', phone: d['sitter-emerg-phone']||'' },
-      vet: { name: d['sitter-vet-name']||'', phone: d['sitter-vet-phone']||'', address: d['sitter-vet-address']||'' },
-      evet: { name: d['sitter-evet-name']||'', phone: d['sitter-evet-phone']||'', address: d['sitter-evet-address']||'' },
+      owner: { name: d['sitter-owner-name']||'', phone: fmtPhone(d['sitter-owner-phone']||''), email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
+      emerg: { name: d['sitter-emerg-name']||'', phone: fmtPhone(d['sitter-emerg-phone']||'') },
+      vet: { name: d['sitter-vet-name']||'', phone: fmtPhone(d['sitter-vet-phone']||''), address: d['sitter-vet-address']||'' },
+      evet: { name: d['sitter-evet-name']||'', phone: fmtPhone(d['sitter-evet-phone']||''), address: d['sitter-evet-address']||'' },
       instructions: d['sitter-instructions']||'',
       pets: petsOut
     };
