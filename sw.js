@@ -1,10 +1,12 @@
-const CACHE_NAME = 'pet-care-planner-125';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-126';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png'
 ];
 
 self.addEventListener('install', event => {

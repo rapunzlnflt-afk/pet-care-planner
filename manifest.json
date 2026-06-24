@@ -1,21 +1,67 @@
 {
+  "id": "/pet-care-planner/",
   "name": "Pawfolio — Pet Care Planner",
   "short_name": "Pawfolio",
   "description": "All-in-one pet organizer: vet visits, vaccinations, expenses, sitter notes & document vault. Private, offline, and simple.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en-US",
+  "dir": "ltr",
   "background_color": "#f0f4ff",
   "theme_color": "#5B5BD6",
+  "categories": ["lifestyle", "productivity", "utilities"],
   "icons": [
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Vet Visit",
+      "short_name": "Vet Visit",
+      "url": "./index.html?tab=vet-visits",
+      "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Vaccinations",
+      "short_name": "Vaccines",
+      "url": "./index.html?tab=vaccinations",
+      "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Log Expense",
+      "short_name": "Expense",
+      "url": "./index.html?tab=expenses",
+      "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Document Vault",
+      "short_name": "Documents",
+      "url": "./index.html?tab=document-vault",
+      "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
