@@ -124,11 +124,12 @@
     .links-jump-chip:active { transform:scale(0.96); }
     [data-theme="dark"] .links-jump-chip { background:#1e2732;border-color:rgba(139,124,248,0.2); }
     [data-theme="dark"] .links-jump-chip:hover { border-color:#8b7cf8;color:#8b7cf8; }
-    .links-back-top { display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:999px;border:1px solid var(--border-color);background:white;color:var(--accent-color);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s; }
-    .links-back-top:hover { border-color:var(--accent-color);box-shadow:0 2px 8px rgba(91,91,214,0.15);transform:translateY(-1px); }
-    .links-back-top:active { transform:scale(0.96); }
-    [data-theme="dark"] .links-back-top { background:#1e2732;border-color:rgba(139,124,248,0.2);color:#8b7cf8; }
-    [data-theme="dark"] .links-back-top:hover { border-color:#8b7cf8; }
+    .links-fab-top { position:fixed;bottom:20px;right:20px;z-index:50;width:46px;height:46px;border-radius:50%;border:none;background:var(--accent-color);color:white;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(91,91,214,0.4);opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity 0.2s,transform 0.2s,visibility 0.2s; }
+    .links-fab-top.show { opacity:1;visibility:visible;transform:translateY(0); }
+    .links-fab-top:hover { background:#4c4cc8; }
+    .links-fab-top:active { transform:scale(0.92); }
+    [data-theme="dark"] .links-fab-top { background:#8b7cf8;box-shadow:0 4px 14px rgba(139,124,248,0.45); }
+    [data-theme="dark"] .links-fab-top:hover { background:#7c6df0; }
     .sitter-section-preview { padding:16px;border-radius:10px;border:1px solid var(--border-color);margin-bottom:12px;background:white; }
     [data-theme="dark"] .sitter-section-preview { background:#1e2732 !important; }
     .sitter-section-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
@@ -1189,19 +1190,25 @@
       </div>
      </div>
 
-     <!-- Back to top -->
-     <div style="text-align:center;margin:8px 0 24px;">
-      <button type="button" class="links-back-top" data-jump-top>↑ Back to top</button>
-     </div>
+     <!-- Floating back to top -->
+     <button type="button" class="links-fab-top" data-jump-top aria-label="Back to top" title="Back to top">↑</button>
      <script>
       (function(){
-       var btn=document.querySelector('[data-jump-top]');
-       if(!btn) return;
+       var btn=document.querySelector('.links-fab-top');
+       var tab=document.getElementById('tab-important-links');
+       if(!btn||!tab) return;
+       function update(){
+        // only relevant when the Important Links tab is the active/visible one
+        var active=tab.classList.contains('active-tab');
+        if(active && window.scrollY>300){ btn.classList.add('show'); }
+        else { btn.classList.remove('show'); }
+       }
+       window.addEventListener('scroll',update,{passive:true});
+       document.addEventListener('click',update);
        btn.addEventListener('click',function(){
-        var sec=document.getElementById('tab-important-links');
         window.scrollTo({top:0,behavior:'smooth'});
-        if(sec && sec.scrollTo) sec.scrollTo({top:0,behavior:'smooth'});
        });
+       update();
       })();
      </script>
 
