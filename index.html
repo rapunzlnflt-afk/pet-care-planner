@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.18">
+                          <meta name="app-version" content="3.9.19">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1220,14 +1220,47 @@
   <script>
   // ============ DATA STORE ============
   const STORE_KEY = 'petPlannerData_v1';
+  // Future-migration anchor (v3.9.19). Bump when the saved data shape changes.
+  const SCHEMA_VERSION = 1;
+
+  // Collision-proof, monotonic numeric ids (v3.9.19). Date.now() alone collides
+  // during the vet->weight->expense auto-cascade (same millisecond).
+  // Monotonic id generator. Date.now()*1000 gives 3 digits of headroom for an
+  // in-millisecond counter while staying a plain integer (well under
+  // MAX_SAFE_INTEGER) that is backward compatible with old plain-Date.now() ids.
+  // If more than 1000 ids are minted in a single millisecond we borrow from the
+  // next millisecond's space so ids stay strictly increasing and never collide.
+  let __idLastTs = 0;
+  function nextId() {
+    let ts = Date.now() * 1000;
+    if (ts <= __idLastTs) ts = __idLastTs + 1;
+    __idLastTs = ts;
+    return ts;
+  }
 
   function loadData() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { return {}; }
+    try {
+      const d = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      // Old data has no version field; treat it as v1 (no migration needed yet).
+      if (d && typeof d === 'object' && d.schemaVersion == null) d.schemaVersion = SCHEMA_VERSION;
+      return d;
+    } catch(e) { return {}; }
   }
   function saveData(data) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    try {
+      if (data && typeof data === 'object') data.schemaVersion = SCHEMA_VERSION;
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    } catch(e) {
+      var msg = 'Storage is full. Your latest change could not be saved. Please export a backup and remove some document photos to free up space.';
+      try {
+        if (typeof window.toast === 'function') window.toast(msg);
+        else alert(msg);
+      } catch(_) { try { alert(msg); } catch(__){} }
+      return false; // signal failure; in-memory data is untouched.
+    }
     // Meaningful data change -> schedule an automatic backup (debounced, v3.9.5).
     try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
+    return true;
   }
   function getList(type) {
     return loadData()[type] || [];
@@ -1238,7 +1271,7 @@
     saveData(data);
   }
   function addItem(type, item) {
-    item.__id = Date.now();
+    item.__id = nextId();
     const list = getList(type);
     list.push(item);
     saveList(type, list);
@@ -6382,6 +6415,8 @@ try {
       }, 2600);
     } catch(e){}
   }
+  // Expose so cross-block callers (e.g. saveData's storage-full notice) can reuse it.
+  window.toast = toast;
 
   // ---------- Record a successful backup (auto OR manual) ----------
   function recordBackup(isAuto){
@@ -6829,7 +6864,7 @@ try {
         var idx = listNow.findIndex(function(x){ return String(x.__id) === String(v.__id); });
         if (idx >= 0) listNow[idx] = Object.assign({}, listNow[idx], rec);
       } else {
-        listNow.push(Object.assign({ __id: Date.now() }, rec));
+        listNow.push(Object.assign({ __id: (typeof nextId === 'function' ? nextId() : Date.now()) }, rec));
       }
       saveVets(listNow);
       closeForm();
