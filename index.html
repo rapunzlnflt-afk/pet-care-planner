@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.24">
+                          <meta name="app-version" content="3.9.25">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1593,6 +1593,10 @@
     refreshAll();
   });
 
+  // Base renderVetVisits: superseded at runtime by the v3.5.3.1 grouped version
+  // (window.renderVetVisits = newRenderVetVisits). KEPT because it is still the
+  // value of window.renderVetVisits during the synchronous init refreshAll() below,
+  // which runs before the patch boots assign the grouped version. Do not remove.
   function renderVetVisits() {
     const visits = getList('vet-visits').sort((a,b) => b.date.localeCompare(a.date));
     const el = document.getElementById('vet-visits-list');
@@ -3999,69 +4003,11 @@ try {
     }, 60);
   };
 
-  // ---------- 6. Replace renderVetVisits with grouped Upcoming / Past + new actions ----------
-  function cardHTML(v, isUpcoming){
-    var esc = window.escHtml || function(s){ return String(s==null?'':s); };
-    var pid = v.__id;
-    var statusBadge = isUpcoming
-      ? '<span style="background:#f6a623;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
-      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">'+ esc(v.type||'Visit') +'</span>';
-    var dateLine = fmtDateLocal(v.date) + (v.time ? ' · '+fmtTime(v.time) : '') + (v.vet ? ' · '+esc(v.vet) : '');
-    var leftBits = [];
-    leftBits.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'+
-                  '<span class="font-heading font-bold text-primary">'+esc(v.petName||'')+'</span>'+statusBadge+'</div>');
-    leftBits.push('<p class="font-body text-sm text-secondary">'+dateLine+'</p>');
-    if(v.reason) leftBits.push('<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+esc(v.reason)+'</p>');
-    if(!isUpcoming && v.diagnosis) leftBits.push('<p class="font-body text-sm text-secondary mt-1">'+esc(v.diagnosis)+'</p>');
-    if(v.next) leftBits.push('<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Follow-up: '+fmtDateLocal(v.next)+(v.nextTime?' · '+fmtTime(v.nextTime):'')+'</p>');
-
-    var rightBits = [];
-    if(!isUpcoming && v.cost) rightBits.push('<span class="font-heading font-bold text-primary">'+(typeof fmt==='function'?fmt(v.cost):('$'+Number(v.cost).toFixed(2)))+'</span>');
-    if(!isUpcoming && v.weight) rightBits.push('<span class="font-body text-xs text-secondary">'+v.weight+' lbs</span>');
-
-    var actionBtnStyle='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
-    var actions = [];
-    actions.push('<button onclick="pfEditVisit('+pid+')" title="Edit" style="'+actionBtnStyle+'">✎ Edit</button>');
-    if(isUpcoming){
-      actions.push('<button onclick="pfFillInVisitLog('+pid+')" title="Fill in visit log" style="'+actionBtnStyle+'background:rgba(91,91,214,0.08);color:#5B5BD6;border-color:#5B5BD6;">Fill in visit log</button>');
-      actions.push('<button onclick="pfCancelAppt('+pid+')" title="Delete" class="delete-x">✕</button>');
-    } else {
-      actions.push('<button onclick="pfAttachRecord('+pid+')" title="Attach receipt or record" style="'+actionBtnStyle+'">📎 Attach receipt/record</button>');
-      actions.push('<button onclick="deleteVisit('+pid+')" title="Delete" class="delete-x">✕</button>');
-    }
-
-    return '<div class="card p-4">'+
-             '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">'+
-               '<div style="flex:1;min-width:0;">'+leftBits.join('')+'</div>'+
-               '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'+rightBits.join('')+'</div>'+
-             '</div>'+
-             '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end;">'+actions.join('')+'</div>'+
-           '</div>';
-  }
-
-  function newRenderVetVisits(){
-    var list = $('vet-visits-list'); if(!list) return;
-    var all = getList('vet-visits');
-    var today = todayISO();
-    var upcoming = all.filter(function(v){ return v.date && v.date >= today; })
-                     .sort(function(a,b){ return (a.date+(a.time||'')).localeCompare(b.date+(b.time||'')); });
-    var past = all.filter(function(v){ return !v.date || v.date < today; })
-                  .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-    if(!all.length){
-      list.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>';
-      return;
-    }
-    var html='';
-    if(upcoming.length){
-      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Upcoming Appointments</h3>';
-      html += '<div class="space-y-3" style="margin-bottom:18px;">'+ upcoming.map(function(v){return cardHTML(v,true);}).join('') +'</div>';
-    }
-    if(past.length){
-      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Past Visits</h3>';
-      html += '<div class="space-y-3">'+ past.map(function(v){return cardHTML(v,false);}).join('') +'</div>';
-    }
-    list.innerHTML = html;
-  }
+  // ---------- 6. (removed) grouped renderVetVisits — superseded by v3.5.3.1 ----------
+  // This block's cardHTML/newRenderVetVisits were always overwritten by the later
+  // v3.5.3.1 patch (which sets window.renderVetVisits = its own newRenderVetVisits
+  // and re-renders) before the screen settled, so they were dead. Removed for clarity.
+  // The boot() below intentionally keeps injectTimeField/reworkNextAppt/wireForm/applyMode.
 
   // ---------- 7. Boot ----------
   function boot(){
@@ -4070,8 +4016,7 @@ try {
     reworkNextAppt();
     wireForm();
     applyMode();
-    // Replace renderVetVisits with our grouped version
-    window.renderVetVisits = newRenderVetVisits;
+    // renderVetVisits is assigned by the later v3.5.3.1 patch; just refresh here.
     refreshAll();
   }
   if(document.readyState === 'loading'){
