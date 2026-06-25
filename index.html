@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.23">
+                          <meta name="app-version" content="3.9.24">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2221,6 +2221,10 @@
   function buildSitterPrintableHTML() {
     const pets = getList('pets');
     const data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
+    // Format phone numbers consistently (with dashes) on the printable page,
+    // matching the shared sitter link. Older saved entries may have been typed
+    // without dashes; window.formatPhone normalizes them. Falls back to raw.
+    const fmtP = (typeof window.formatPhone === 'function') ? window.formatPhone : (v => v || '');
     return `
     <div class="sitter-print-header">
       <div class="sitter-print-brand">
@@ -2234,26 +2238,26 @@
     <h2>Owner Info</h2>
     <div class="grid">
       <div class="field"><div class="label">Owner</div><div class="value">${escHtml(data['sitter-owner-name']||'')}</div></div>
-      <div class="field"><div class="label">Phone</div><div class="value">${escHtml(data['sitter-owner-phone']||'')}</div></div>
+      <div class="field"><div class="label">Phone</div><div class="value">${escHtml(fmtP(data['sitter-owner-phone']||''))}</div></div>
       <div class="field"><div class="label">Email</div><div class="value">${escHtml(data['sitter-owner-email']||'')}</div></div>
       <div class="field"><div class="label">Away Dates</div><div class="value">${escHtml(data['sitter-away-dates']||'')}</div></div>
     </div>
     <h2>Emergency Contacts</h2>
     <div class="grid">
-      <div class="field"><div class="label">Emergency Contact</div><div class="value">${escHtml(data['sitter-emerg-name']||'')} — ${escHtml(data['sitter-emerg-phone']||'')}</div></div>
+      <div class="field"><div class="label">Emergency Contact</div><div class="value">${escHtml(data['sitter-emerg-name']||'')} — ${escHtml(fmtP(data['sitter-emerg-phone']||''))}</div></div>
     </div>
     <h2>Veterinary</h2>
     <div class="grid">
       <div class="field" style="grid-column:span 2;">
         <div class="label">Primary Vet</div>
         <div class="value">${escHtml(data['sitter-vet-name']||'')}</div>
-        ${data['sitter-vet-phone'] ? `<div class="value">${escHtml(data['sitter-vet-phone'])}</div>` : ''}
+        ${data['sitter-vet-phone'] ? `<div class="value">${escHtml(fmtP(data['sitter-vet-phone']))}</div>` : ''}
         ${data['sitter-vet-address'] ? `<div class="value">${escHtml(data['sitter-vet-address'])}</div>` : ''}
       </div>
       <div class="field" style="grid-column:span 2;">
         <div class="label">Emergency Vet (24hr)</div>
         <div class="value">${escHtml(data['sitter-evet-name']||'')}</div>
-        ${data['sitter-evet-phone'] ? `<div class="value">${escHtml(data['sitter-evet-phone'])}</div>` : ''}
+        ${data['sitter-evet-phone'] ? `<div class="value">${escHtml(fmtP(data['sitter-evet-phone']))}</div>` : ''}
         ${data['sitter-evet-address'] ? `<div class="value">${escHtml(data['sitter-evet-address'])}</div>` : ''}
       </div>
     </div>
@@ -6849,6 +6853,10 @@ try {
       if (rest.length > 6) parts.push(rest.slice(6,10));
       if (rest.length > 10) parts.push(rest.slice(10));
       return plus + out + parts.join('-');
+    }
+    // US/Canada long form: 11 digits starting with 1 -> 1-XXX-XXX-XXXX
+    if (digits.length === 11 && digits.charAt(0) === '1'){
+      return '1-' + digits.slice(1,4) + '-' + digits.slice(4,7) + '-' + digits.slice(7);
     }
     // Domestic: 3-3-4
     var a = digits.slice(0,3), b = digits.slice(3,6), c = digits.slice(6,10), d = digits.slice(10);
