@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.21">
+                          <meta name="app-version" content="3.9.22">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -54,6 +54,8 @@
     .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
     .archive-pet-btn { background: none; border: none; color: var(--text-secondary); font-size: 15px; cursor: pointer; padding: 0 4px; line-height: 1; }
     .archive-pet-btn:hover { color: #5B5BD6; }
+    .edit-pet-btn { background: none; border: none; color: #5B5BD6; font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .edit-pet-btn:hover { color: var(--accent-color-2); }
     .pet-archived { opacity: 0.6; filter: grayscale(0.85); }
     .pet-archived .archive-pet-btn { filter: none; opacity: 1; }
     .pet-archived-badge { display: inline-block; background: rgba(91,91,214,0.12); color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 2px; }
@@ -1446,8 +1448,9 @@
               ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${escHtml(p.sex || '')}</p>` : ''}
             </div>
           </div>
-          <div style="display:flex;align-items:center;flex-shrink:0;">
-            <button type="button" class="archive-pet-btn" onclick="toggleArchivePet(${p.__id})" title="${archived ? 'Restore' : 'Move to Rainbow Bridge'}">${archived ? '↩︎' : '🌈'}</button>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <button type="button" class="edit-pet-btn" onclick="editPet(${p.__id})" title="Edit">✎</button>
+            <button type="button" class="archive-pet-btn" onclick="archiveBtnClick(${p.__id})" title="${archived ? 'Restore' : 'Move to Rainbow Bridge'}">${archived ? '↩︎' : '🌈'}</button>
             <button class="delete-x" onclick="deletePet(${p.__id})" title="Delete">✕</button>
           </div>
         </div>
@@ -1511,6 +1514,40 @@
       });
     } else {
       doArchive();
+    }
+  };
+
+  // 🌈 button entry point: show a one-time Rainbow Bridge explainer the first time a pet is archived.
+  window.archiveBtnClick = function(id){
+    const pets = getList('pets');
+    const pet = pets.find(p => String(p.__id) === String(id));
+    if(!pet) return;
+    // Restore is direct, no explainer.
+    if(pet.archived){ toggleArchivePet(id); return; }
+    var explained = false;
+    try { explained = localStorage.getItem('pawfolio_rainbow_explained') === '1'; } catch(e){}
+    if(explained){ toggleArchivePet(id); return; }
+    if(typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: '🌈 What is the Rainbow Bridge?',
+        message: 'The Rainbow Bridge is a gentle way to set aside a pet who has passed away. ' + escHtml(pet.name) + "'s records — vet visits, vaccinations, weights, photos and more — are all kept safe, and they're quietly hidden from reminders and new-entry lists so nothing surprises you. You can restore them anytime. Would you like to continue?",
+        confirmLabel: 'Continue',
+        cancelLabel: 'Not now',
+        onConfirm: function(){
+          try { localStorage.setItem('pawfolio_rainbow_explained','1'); } catch(e){}
+          // Archive inline (mirrors toggleArchivePet's active→archived branch) to avoid a second confirm popup.
+          const list = getList('pets');
+          const idx = list.findIndex(p => String(p.__id) === String(id));
+          if(idx < 0) return;
+          list[idx] = Object.assign({}, list[idx], { archived: true, archivedDate: today() });
+          saveList('pets', list);
+          refreshAll();
+          if(typeof window.toast === 'function') window.toast(pet.name + ' moved to the Rainbow Bridge 🌈');
+        }
+      });
+    } else {
+      try { localStorage.setItem('pawfolio_rainbow_explained','1'); } catch(e){}
+      toggleArchivePet(id);
     }
   };
 
@@ -3538,6 +3575,7 @@ refreshAll();
 /* Pawfolio v3.5.6 — pencil-next-to-X patch (content-based selectors + MutationObserver) */
 (function(){
   try {
+    return; /* v3.9.22: retired — base renderPets now lays out all action buttons in a flex row; MutationObserver pinning disabled */
     var PENCIL_RE = /✏|🖊|pencil|edit/i;
     var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
     function isVaultActionBtn(el){
@@ -3629,6 +3667,7 @@ refreshAll();
 /* Pawfolio v3.5.22 — normalize pencil & X button boxes (equal size, flex-centered) for level alignment */
 (function(){
 try {
+  return; /* v3.9.22: retired — no longer needed now that buttons are not absolutely pinned */
   var PENCIL_RE = /✏|🖊|pencil|edit/i;
   var X_RE = /^\s*(x|×|✕|✖)\s*$/i;
   function isBtn(el){ if(!el) return false; var tn=el.tagName; return tn==='BUTTON'||tn==='A'; }
