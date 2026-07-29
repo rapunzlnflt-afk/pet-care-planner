@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.9.25">
+                          <meta name="app-version" content="3.10.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -65,6 +65,21 @@
     .vacc-quickset { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
     .vacc-quickset button { background: none; border: 1px solid #5B5BD6; color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
     .vacc-quickset button:hover { background: rgba(91,91,214,0.1); }
+    .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-color); justify-content: flex-end; }
+    .card-actions button { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+    .card-actions button:hover { background: rgba(91,91,214,0.08); }
+    .card-actions button.danger { border-color: #e53e3e; color: #e53e3e; font-weight: 700; }
+    .card-actions button.danger:hover { background: rgba(229,62,62,0.08); }
+    .type-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .type-badge.medication { background: rgba(91,91,214,0.1); color: #5B5BD6; }
+    .type-badge.supplement { background: rgba(72,187,120,0.15); color: #2f855a; }
+    .type-badge.overdue { background: #e53e3e; color: white; }
+    .type-badge.editing { background: #5B5BD6; color: white; }
+    .edit-banner { display: none; background: linear-gradient(135deg, rgba(91,91,214,0.12), rgba(91,91,214,0.04)); border: 1px solid #5B5BD6; border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .edit-banner button { background: transparent; border: 1px solid #5B5BD6; color: #5B5BD6; font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
+    .type-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .type-filter button { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 999px; cursor: pointer; }
+    .type-filter button.active { background: rgba(91,91,214,0.12); border-color: #5B5BD6; color: #5B5BD6; }
 
     /* Mobile */
     .mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: linear-gradient(135deg, #5B5BD6 0%, #8B5BD6 50%, #4C4CC8 100%); border-bottom: 1px solid rgba(255,255,255,0.15); align-items: center; padding: 0 16px; z-index: 1000; gap: 12px; }
@@ -639,7 +654,14 @@
     <section id="tab-vaccinations" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Vaccinations</h2>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-4">Log a Vaccination</h3>
+      <h3 id="vacc-form-title" class="font-heading text-base font-bold text-primary mb-4">Log a Vaccination</h3>
+      <div id="vacc-edit-banner" class="edit-banner">
+       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+        <span class="type-badge editing">EDITING</span>
+        <span id="vacc-edit-banner-label" class="font-body text-sm font-medium text-primary" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+       </div>
+       <button type="button" onclick="cancelVaccEdit()">Cancel edit</button>
+      </div>
       <form id="vacc-form" class="space-y-4">
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
@@ -707,16 +729,31 @@
     <section id="tab-medications" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Medications</h2>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-base font-bold text-primary mb-4">Add a Medication</h3>
+      <h3 id="med-form-title" class="font-heading text-base font-bold text-primary mb-4">Add a Medication</h3>
+      <div id="med-edit-banner" class="edit-banner">
+       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+        <span class="type-badge editing">EDITING</span>
+        <span id="med-edit-banner-label" class="font-body text-sm font-medium text-primary" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+       </div>
+       <button type="button" onclick="cancelMedEdit()">Cancel edit</button>
+      </div>
       <form id="med-form" class="space-y-4">
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Type *</label>
+         <select id="med-type" onchange="handleMedType()">
+          <option value="medication">Medication</option>
+          <option value="supplement">Supplement</option>
+         </select>
+        </div>
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Pet *</label>
          <select id="med-pet" required><option value="">Select pet...</option></select>
         </div>
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Medication *</label>
-         <select id="med-name" required onchange="handleMedOther(this)">
+       </div>
+       <div>
+        <label id="med-name-label" class="block font-body text-sm text-secondary mb-1">Medication *</label>
+        <select id="med-name" required onchange="handleMedOther(this)">
           <option value="">Select medication...</option>
           <optgroup label="Flea, Tick & Heartworm">
            <option value="Heartgard Plus">Heartgard Plus</option>
@@ -764,15 +801,14 @@
           </optgroup>
           <option value="Other">Other (enter below)</option>
          </select>
-        </div>
        </div>
        <div id="med-other-container" style="display:none;">
-        <label class="block font-body text-sm text-secondary mb-1">Medication Name</label>
+        <label id="med-other-label" class="block font-body text-sm text-secondary mb-1">Medication Name</label>
         <input type="text" id="med-other" placeholder="Enter medication name">
        </div>
        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div>
-         <label class="block font-body text-sm text-secondary mb-1">Dosage</label>
+         <label id="med-dosage-label" class="block font-body text-sm text-secondary mb-1">Dosage</label>
          <input type="text" id="med-dosage" placeholder="e.g., 10mg">
         </div>
         <div>
@@ -793,12 +829,12 @@
          <input type="date" id="med-start">
         </div>
        </div>
-       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+       <div id="med-refill-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
-         <label class="block font-body text-sm text-secondary mb-1">Refill Date</label>
+         <label id="med-refill-label" class="block font-body text-sm text-secondary mb-1">Refill Date</label>
          <input type="date" id="med-refill">
         </div>
-        <div>
+        <div id="med-vet-field">
          <label class="block font-body text-sm text-secondary mb-1">Prescribing Vet</label>
          <input type="text" id="med-vet" autocomplete="off" data-vet-autocomplete="name" placeholder="Vet name">
         </div>
@@ -810,6 +846,7 @@
        <button type="submit" class="btn-primary px-4 py-2">Save Medication</button>
       </form>
      </div>
+     <div id="med-filter" class="type-filter"></div>
      <div id="medications-list" class="space-y-3"></div>
     </section>
 
@@ -1670,17 +1707,83 @@
     const pet = getList('pets').find(p => p.__id === petId);
     let name = document.getElementById('vacc-name').value;
     if(name === 'Other') name = document.getElementById('vacc-other').value.trim();
-    addItem('vaccinations', {
+    const fields = {
       petId, petName: pet ? pet.name : '',
       name, date: document.getElementById('vacc-date').value,
       next: document.getElementById('vacc-next').value,
       vet: document.getElementById('vacc-vet').value,
       lot: document.getElementById('vacc-lot').value,
-    });
+    };
+    const editId = vaccEditId();
+    if(editId) {
+      const vaccs = getList('vaccinations');
+      const idx = vaccs.findIndex(v => String(v.__id) === editId);
+      if(idx >= 0) {
+        vaccs[idx] = Object.assign({}, vaccs[idx], fields);
+        saveList('vaccinations', vaccs);
+      }
+      delete e.target.dataset.editId;
+    } else {
+      addItem('vaccinations', fields);
+    }
     e.target.reset();
     document.getElementById('vacc-other-container').style.display = 'none';
+    applyVaccFormMode();
     refreshAll();
   });
+
+  // ---- Editing an existing vaccination (v3.10.0) ----
+  // Until now a saved vaccination could only be deleted, so an overdue shot could
+  // never be renewed in place — the record (and its overdue state) was stuck.
+  function vaccEditId() {
+    const form = document.getElementById('vacc-form');
+    return form ? (form.dataset.editId || '') : '';
+  }
+
+  function applyVaccFormMode() {
+    const editId = vaccEditId();
+    const vacc = editId ? getList('vaccinations').find(v => String(v.__id) === editId) : null;
+    const title = document.getElementById('vacc-form-title');
+    const submit = document.querySelector('#vacc-form button[type="submit"]');
+    const banner = document.getElementById('vacc-edit-banner');
+    const label = document.getElementById('vacc-edit-banner-label');
+    if(title) title.textContent = vacc ? 'Update Vaccination' : 'Log a Vaccination';
+    if(submit) submit.textContent = vacc ? 'Update Vaccination' : 'Save Vaccination';
+    if(label) label.textContent = vacc ? [vacc.petName, vacc.name].filter(Boolean).join(' — ') : '';
+    if(banner) banner.style.display = vacc ? 'flex' : 'none';
+  }
+
+  window.editVacc = id => {
+    const vacc = getList('vaccinations').find(v => String(v.__id) === String(id));
+    const form = document.getElementById('vacc-form');
+    if(!vacc || !form) return;
+    form.dataset.editId = String(id);
+    // A vaccine entered through "Other" is not one of the preset <option>s, so it
+    // has to go back into the free-text field instead of the dropdown.
+    const nameSel = document.getElementById('vacc-name');
+    const isPreset = Array.prototype.some.call(nameSel.options, o => o.value && o.value !== 'Other' && o.value === vacc.name);
+    nameSel.value = isPreset ? vacc.name : 'Other';
+    document.getElementById('vacc-other').value = isPreset ? '' : (vacc.name || '');
+    document.getElementById('vacc-other-container').style.display = isPreset ? 'none' : '';
+    document.getElementById('vacc-pet').value = vacc.petId == null ? '' : String(vacc.petId);
+    document.getElementById('vacc-date').value = vacc.date || '';
+    document.getElementById('vacc-next').value = vacc.next || '';
+    document.getElementById('vacc-vet').value = vacc.vet || '';
+    document.getElementById('vacc-lot').value = vacc.lot || '';
+    applyVaccFormMode();
+    renderVaccinations();
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  window.cancelVaccEdit = () => {
+    const form = document.getElementById('vacc-form');
+    if(!form) return;
+    delete form.dataset.editId;
+    form.reset();
+    document.getElementById('vacc-other-container').style.display = 'none';
+    applyVaccFormMode();
+    renderVaccinations();
+  };
 
   // Quick-set the Next Due Date based on the administered date (#vacc-date) or today.
   // years/months added with correct month/leap-year rollover via setFullYear/setMonth.
@@ -1701,23 +1804,36 @@
     const vaccs = getList('vaccinations').sort((a,b) => b.date.localeCompare(a.date));
     const el = document.getElementById('vaccinations-list');
     if(!vaccs.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No vaccinations logged yet.</p>'; return; }
+    const editId = vaccEditId();
     el.innerHTML = vaccs.map(v => {
       const daysUntil = v.next ? Math.ceil((new Date(v.next) - new Date()) / 86400000) : null;
       const urgency = daysUntil !== null ? (daysUntil < 0 ? 'color:#e53e3e;' : daysUntil < 30 ? 'color:#f6a623;' : 'color:#48bb78;') : '';
-      return `<div class="card p-4" style="display:flex;justify-content:space-between;align-items:center;">
+      const isEditing = editId === String(v.__id);
+      return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
         <div>
-          <p class="font-heading font-bold text-primary">${escHtml(v.name)}</p>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <span class="font-heading font-bold text-primary">${escHtml(v.name)}</span>
+            ${daysUntil !== null && daysUntil < 0 ? '<span class="type-badge overdue">Overdue</span>' : ''}
+            ${isEditing ? '<span class="type-badge editing">EDITING</span>' : ''}
+          </div>
           <p class="font-body text-sm text-secondary">${escHtml(v.petName)} · Given: ${fmtDate(v.date)}${v.vet ? ' · ' + escHtml(v.vet) : ''}</p>
           ${v.next ? `<p class="font-body text-sm mt-1" style="${urgency}">Due: ${fmtDate(v.next)}${daysUntil !== null ? (daysUntil < 0 ? ' (overdue)' : ` (${daysUntil} days)`) : ''}</p>` : ''}
           ${docChipsFor(v.petId, ['Vaccination Records'])}
         </div>
-        <button class="delete-x" onclick="deleteVacc(${v.__id})" title="Delete">✕</button>
+        <div class="card-actions">
+          <button type="button" onclick="editVacc(${v.__id})">✎ Edit</button>
+          <button type="button" class="danger" onclick="deleteVacc(${v.__id})">✕ Delete</button>
+        </div>
       </div>`;
     }).join('');
   }
 
   window.deleteVacc = id => {
-    var doDelete = function(){ deleteItem('vaccinations', id); refreshAll(); };
+    var doDelete = function(){
+      if(vaccEditId() === String(id)) window.cancelVaccEdit();
+      deleteItem('vaccinations', id);
+      refreshAll();
+    };
     if(typeof window.showConfirmModal === 'function'){
       window.showConfirmModal({
         title: 'Delete this vaccination record?',
@@ -1732,9 +1848,61 @@
     }
   };
 
-  // ============ MEDICATIONS ============
+  // ============ MEDICATIONS & SUPPLEMENTS ============
+  // Both live in the 'medications' list, told apart by a `type` field added in
+  // v3.10.0. Records saved before that have no `type`, so anything that isn't
+  // explicitly a supplement counts as a medication — no migration needed.
+  function medType(m) { return (m && m.type === 'supplement') ? 'supplement' : 'medication'; }
+  function isSupplement(m) { return medType(m) === 'supplement'; }
+  window.medType = medType;
+  window.isSupplement = isSupplement;
+
+  // Preset name lists. The medication <optgroup>s live in the markup; the
+  // supplement ones are swapped into the same <select> when the type changes,
+  // which keeps a single required field and so a single validation path.
+  const MED_NAME_OPTIONS_HTML = document.getElementById('med-name').innerHTML;
+  const SUPPLEMENT_PRESETS = {
+    'Joint & Mobility': ['Glucosamine / Chondroitin', 'Cosequin', 'Dasuquin', 'Green-Lipped Mussel', 'MSM'],
+    'Skin & Coat': ['Fish Oil / Omega-3', 'Salmon Oil', 'Biotin', 'Coconut Oil'],
+    'Digestive': ['Probiotic', 'Digestive Enzymes', 'Pumpkin Fiber', 'Slippery Elm'],
+    'Calming': ['Calming Chews', 'L-Theanine', 'Melatonin'],
+    'General Wellness': ['Multivitamin', 'Vitamin B12', 'Vitamin E', 'Milk Thistle', 'Taurine', 'Cranberry (Urinary)', 'Lysine (Cats)'],
+  };
+  const SUPP_NAME_OPTIONS_HTML = '<option value="">Select supplement...</option>'
+    + Object.keys(SUPPLEMENT_PRESETS).map(group =>
+        `<optgroup label="${escHtml(group)}">${SUPPLEMENT_PRESETS[group].map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('')}</optgroup>`
+      ).join('')
+    + '<option value="Other">Other (enter below)</option>';
+
   window.handleMedOther = sel => {
     document.getElementById('med-other-container').style.display = sel.value === 'Other' ? '' : 'none';
+  };
+
+  // Reflect the selected type (and any edit in progress) across the form's
+  // labels, presets and submit button. Supplements aren't prescribed, so the
+  // vet field is dropped and the refill wording becomes reorder wording.
+  window.handleMedType = () => {
+    const supp = document.getElementById('med-type').value === 'supplement';
+    const nameSel = document.getElementById('med-name');
+    const wantedOptions = supp ? SUPP_NAME_OPTIONS_HTML : MED_NAME_OPTIONS_HTML;
+    if(nameSel.innerHTML !== wantedOptions) {
+      nameSel.innerHTML = wantedOptions;
+      document.getElementById('med-other').value = '';
+      document.getElementById('med-other-container').style.display = 'none';
+    }
+    const noun = supp ? 'Supplement' : 'Medication';
+    document.getElementById('med-name-label').textContent = noun + ' *';
+    document.getElementById('med-other-label').textContent = noun + ' Name';
+    document.getElementById('med-other').placeholder = 'Enter ' + noun.toLowerCase() + ' name';
+    document.getElementById('med-dosage-label').textContent = supp ? 'Amount / Serving' : 'Dosage';
+    document.getElementById('med-dosage').placeholder = supp ? 'e.g., 1 chew, 500mg' : 'e.g., 10mg';
+    document.getElementById('med-refill-label').textContent = supp ? 'Reorder Date' : 'Refill Date';
+    document.getElementById('med-vet-field').style.display = supp ? 'none' : '';
+    document.getElementById('med-refill-row').style.gridTemplateColumns = supp ? '1fr' : '1fr 1fr';
+    document.getElementById('med-notes').placeholder = supp
+      ? 'e.g., give with dinner, half a scoop'
+      : 'e.g., give with food, refrigerate';
+    applyMedFormMode();
   };
 
   // Pre-fill prescribing vet from pet's Primary Vet (only if empty)
@@ -1749,56 +1917,166 @@
     e.preventDefault();
     const petId = parseFloat(document.getElementById('med-pet').value);
     const pet = getList('pets').find(p => p.__id === petId);
+    const type = document.getElementById('med-type').value === 'supplement' ? 'supplement' : 'medication';
     let name = document.getElementById('med-name').value;
     if(name === 'Other') name = document.getElementById('med-other').value.trim();
-    addItem('medications', {
-      petId, petName: pet ? pet.name : '',
+    const fields = {
+      petId, petName: pet ? pet.name : '', type,
       name, dosage: document.getElementById('med-dosage').value,
       frequency: document.getElementById('med-frequency').value,
       start: document.getElementById('med-start').value,
       refill: document.getElementById('med-refill').value,
-      vet: document.getElementById('med-vet').value,
+      vet: type === 'supplement' ? '' : document.getElementById('med-vet').value,
       notes: document.getElementById('med-notes').value,
-    });
+    };
+    const editId = medEditId();
+    if(editId) {
+      const meds = getList('medications');
+      const idx = meds.findIndex(m => String(m.__id) === editId);
+      if(idx >= 0) {
+        meds[idx] = Object.assign({}, meds[idx], fields);
+        saveList('medications', meds);
+      }
+      delete e.target.dataset.editId;
+    } else {
+      addItem('medications', fields);
+    }
     e.target.reset();
     document.getElementById('med-other-container').style.display = 'none';
+    handleMedType();
     refreshAll();
   });
 
-  function renderMedications() {
-    const meds = getList('medications');
-    const el = document.getElementById('medications-list');
-    if(!meds.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No medications added yet.</p>'; return; }
-    el.innerHTML = meds.map(m => {
-      const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
-      const refillUrgency = daysToRefill !== null ? (daysToRefill < 0 ? 'color:#e53e3e;' : daysToRefill < 7 ? 'color:#f6a623;' : '') : '';
-      return `<div class="card p-4">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <p class="font-heading font-bold text-primary">${escHtml(m.name)}</p>
-            <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
-            ${m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
-            ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">Refill: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
-            ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
-          </div>
-          <button class="delete-x" onclick="deleteMed(${m.__id})" title="Delete">✕</button>
+  function medEditId() {
+    const form = document.getElementById('med-form');
+    return form ? (form.dataset.editId || '') : '';
+  }
+
+  function applyMedFormMode() {
+    const editId = medEditId();
+    const med = editId ? getList('medications').find(m => String(m.__id) === editId) : null;
+    const noun = document.getElementById('med-type').value === 'supplement' ? 'Supplement' : 'Medication';
+    const title = document.getElementById('med-form-title');
+    const submit = document.querySelector('#med-form button[type="submit"]');
+    const banner = document.getElementById('med-edit-banner');
+    const label = document.getElementById('med-edit-banner-label');
+    if(title) title.textContent = (med ? 'Update ' : 'Add a ') + noun;
+    if(submit) submit.textContent = (med ? 'Update ' : 'Save ') + noun;
+    if(label) label.textContent = med ? [med.petName, med.name].filter(Boolean).join(' — ') : '';
+    if(banner) banner.style.display = med ? 'flex' : 'none';
+  }
+
+  window.editMed = id => {
+    const med = getList('medications').find(m => String(m.__id) === String(id));
+    const form = document.getElementById('med-form');
+    if(!med || !form) return;
+    form.dataset.editId = String(id);
+    // Set the type first: it swaps the preset list the name field is matched against.
+    document.getElementById('med-type').value = medType(med);
+    handleMedType();
+    const nameSel = document.getElementById('med-name');
+    const isPreset = Array.prototype.some.call(nameSel.options, o => o.value && o.value !== 'Other' && o.value === med.name);
+    nameSel.value = isPreset ? med.name : 'Other';
+    document.getElementById('med-other').value = isPreset ? '' : (med.name || '');
+    document.getElementById('med-other-container').style.display = isPreset ? 'none' : '';
+    document.getElementById('med-pet').value = med.petId == null ? '' : String(med.petId);
+    document.getElementById('med-dosage').value = med.dosage || '';
+    document.getElementById('med-frequency').value = med.frequency || '';
+    document.getElementById('med-start').value = med.start || '';
+    document.getElementById('med-refill').value = med.refill || '';
+    document.getElementById('med-vet').value = med.vet || '';
+    document.getElementById('med-notes').value = med.notes || '';
+    applyMedFormMode();
+    renderMedications();
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  window.cancelMedEdit = () => {
+    const form = document.getElementById('med-form');
+    if(!form) return;
+    delete form.dataset.editId;
+    form.reset();
+    document.getElementById('med-other-container').style.display = 'none';
+    handleMedType();
+    renderMedications();
+  };
+
+  // Which type the Medications tab is showing: 'all', 'medication' or 'supplement'.
+  let medListFilter = 'all';
+  window.setMedFilter = f => { medListFilter = f; renderMedications(); };
+
+  function medCardHTML(m, editId) {
+    const supp = isSupplement(m);
+    const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
+    const refillUrgency = daysToRefill !== null ? (daysToRefill < 0 ? 'color:#e53e3e;' : daysToRefill < 7 ? 'color:#f6a623;' : '') : '';
+    const isEditing = editId === String(m.__id);
+    return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+          <span class="font-heading font-bold text-primary">${escHtml(m.name)}</span>
+          <span class="type-badge ${supp ? 'supplement' : 'medication'}">${supp ? 'Supplement' : 'Medication'}</span>
+          ${isEditing ? '<span class="type-badge editing">EDITING</span>' : ''}
         </div>
-      </div>`;
-    }).join('');
+        <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
+        ${!supp && m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
+        ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
+        ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
+      </div>
+      <div class="card-actions">
+        <button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
+        <button type="button" class="danger" onclick="deleteMed(${m.__id})">✕ Delete</button>
+      </div>
+    </div>`;
+  }
+
+  function renderMedications() {
+    const all = getList('medications');
+    const meds = all.filter(m => !isSupplement(m));
+    const supps = all.filter(isSupplement);
+    const filterEl = document.getElementById('med-filter');
+    if(filterEl) {
+      filterEl.innerHTML = !all.length ? '' : [
+        ['all', 'All', all.length],
+        ['medication', 'Medications', meds.length],
+        ['supplement', 'Supplements', supps.length],
+      ].map(([key, label, count]) =>
+        `<button type="button" class="${medListFilter === key ? 'active' : ''}" onclick="setMedFilter('${key}')">${label} (${count})</button>`
+      ).join('');
+    }
+    const el = document.getElementById('medications-list');
+    if(!all.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No medications or supplements added yet.</p>'; return; }
+    const editId = medEditId();
+    const empty = label => `<p class="font-body text-sm text-secondary italic">No ${label} added yet.</p>`;
+    if(medListFilter === 'medication') {
+      el.innerHTML = meds.length ? meds.map(m => medCardHTML(m, editId)).join('') : empty('medications');
+    } else if(medListFilter === 'supplement') {
+      el.innerHTML = supps.length ? supps.map(m => medCardHTML(m, editId)).join('') : empty('supplements');
+    } else {
+      const group = (heading, list) => list.length
+        ? `<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">${heading}</h3>
+           <div class="space-y-3" style="margin-bottom:18px;">${list.map(m => medCardHTML(m, editId)).join('')}</div>`
+        : '';
+      el.innerHTML = group('Medications', meds) + group('Supplements', supps);
+    }
   }
 
   window.deleteMed = id => {
-    var doDelete = function(){ deleteItem('medications', id); refreshAll(); };
+    var doDelete = function(){
+      if(medEditId() === String(id)) window.cancelMedEdit();
+      deleteItem('medications', id);
+      refreshAll();
+    };
+    var noun = isSupplement(getList('medications').find(m => m.__id === id)) ? 'supplement' : 'medication';
     if(typeof window.showConfirmModal === 'function'){
       window.showConfirmModal({
-        title: 'Delete this medication?',
-        message: 'This medication will be permanently removed. This cannot be undone.',
+        title: 'Delete this ' + noun + '?',
+        message: 'This ' + noun + ' will be permanently removed. This cannot be undone.',
         confirmLabel: 'Delete',
         cancelLabel: 'Keep it',
         danger: true,
         onConfirm: doDelete
       });
-    } else if(confirm('Delete this medication?')){
+    } else if(confirm('Delete this ' + noun + '?')){
       doDelete();
     }
   };
@@ -2003,12 +2281,13 @@
   };
 
   // ============ PET SITTER INFO ============
-  // Meds the user has selected for a given pet's sitter sheet. Reads the saved
-  // per-pet selection map and joins it against the CURRENT med list, so meds
-  // deleted from the app are silently skipped. Returns [{name,dosage,frequency,instructions}].
-  function sitterSelectedMeds(petId, data) {
+  // Meds/supplements of one `kind` the user has selected for a given pet's sitter
+  // sheet. Reads the saved per-pet selection map and joins it against the CURRENT
+  // list, so entries deleted from the app are silently skipped.
+  // Returns [{name,dosage,frequency,instructions}].
+  function sitterSelectedMeds(petId, data, kind) {
     const sel = (data['sitter-selmeds-'+petId]) || {};
-    const meds = getList('medications').filter(m => m.petId === petId);
+    const meds = getList('medications').filter(m => m.petId === petId && medType(m) === kind);
     const out = [];
     meds.forEach(m => {
       const s = sel[m.__id];
@@ -2027,13 +2306,15 @@
     if(m.instructions) line += ' — ' + m.instructions;
     return line;
   }
-  // Build the per-pet medication picker for the sitter form: a checkbox + a
-  // reveal-on-check sitter-instructions input per med. Selections are stored in
-  // petSitterInfo under 'sitter-selmeds-<petId>' keyed by med __id.
-  function sitterMedPickerHTML(p, data) {
-    const meds = getList('medications').filter(m => m.petId === p.__id);
+  // Build the per-pet picker for one `kind` (medication or supplement) on the
+  // sitter form: a checkbox + a reveal-on-check sitter-instructions input per
+  // entry. Selections are stored in petSitterInfo under
+  // 'sitter-selmeds-<petId>' keyed by the entry's __id, for both kinds.
+  function sitterMedPickerHTML(p, data, kind) {
+    const supp = kind === 'supplement';
+    const meds = getList('medications').filter(m => m.petId === p.__id && medType(m) === kind);
     if(!meds.length) {
-      return `<p class="font-body text-xs text-secondary italic">No medications in your app for this pet. Add them in the Medications tab to include them here.</p>`;
+      return `<p class="font-body text-xs text-secondary italic">No ${supp ? 'supplements' : 'medications'} in your app for this pet. Add them in the Medications tab to include them here.</p>`;
     }
     const sel = (data['sitter-selmeds-'+p.__id]) || {};
     return `<div style="display:flex;flex-direction:column;gap:8px;">` + meds.map(m => {
@@ -2048,7 +2329,7 @@
             <input type="checkbox" id="${chkId}" data-medins="${insId}" ${checked?'checked':''} style="margin-top:3px;flex-shrink:0;width:18px;height:18px;display:inline-block;">
             <span><span class="font-body text-sm font-medium text-primary">${escHtml(m.name||'')}</span>${detail?`<span class="font-body text-xs text-secondary"> · ${escHtml(detail)}</span>`:''}</span>
           </label>
-          <input type="text" id="${insId}" value="${escHtml(s.instructions||'')}" placeholder="Sitter instructions, e.g. 1 tablet with breakfast" style="margin-top:6px;display:${checked?'block':'none'};">
+          <input type="text" id="${insId}" value="${escHtml(s.instructions||'')}" placeholder="Sitter instructions, e.g. ${supp ? '1 scoop with dinner' : '1 tablet with breakfast'}" style="margin-top:6px;display:${checked?'block':'none'};">
         </div>`;
     }).join('') + `</div>`;
   }
@@ -2068,7 +2349,11 @@
         </div>
         <div style="margin-top:10px;">
           <label class="block font-body text-xs text-secondary mb-1">Medications</label>
-          ${sitterMedPickerHTML(p, sitterData)}
+          ${sitterMedPickerHTML(p, sitterData, 'medication')}
+        </div>
+        <div style="margin-top:10px;">
+          <label class="block font-body text-xs text-secondary mb-1">Supplements</label>
+          ${sitterMedPickerHTML(p, sitterData, 'supplement')}
         </div>
         <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Additional Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
       </div>`).join('');
@@ -2220,6 +2505,15 @@
     });
   }
 
+  // One printable field listing the selected meds or supplements for a pet.
+  function sitterPrintField(label, items) {
+    if(!items.length) return '';
+    return `<div class="field"><div class="label">${label}</div>${items.map(m => {
+      const detail = [m.dosage, m.frequency].filter(Boolean).join(', ');
+      return `<div class="value"><strong>${escHtml(m.name)}</strong>${detail?` (${escHtml(detail)})`:''}${m.instructions?` — ${escHtml(m.instructions)}`:''}</div>`;
+    }).join('')}</div>`;
+  }
+
   // Build the printable sitter document body (reused by the in-app overlay).
   // Returns the inner HTML for the printable area only (no <html>/<body> wrappers).
   function buildSitterPrintableHTML() {
@@ -2275,7 +2569,8 @@
         <div class="field"><div class="label">When to Feed</div><div class="value">${escHtml(data['sitter-feed-'+p.__id]||'')}</div></div>
         <div class="field"><div class="label">Feeding Instructions</div><div class="value">${escHtml(data['sitter-food-'+p.__id]||'')}</div></div>
         <div class="field"><div class="label">Walk Schedule</div><div class="value">${escHtml(data['sitter-walk-'+p.__id]||'')}</div></div>
-        ${(() => { const sm = sitterSelectedMeds(p.__id, data); return sm.length ? `<div class="field"><div class="label">Medications</div>${sm.map(m => { const detail=[m.dosage,m.frequency].filter(Boolean).join(', '); return `<div class="value"><strong>${escHtml(m.name)}</strong>${detail?` (${escHtml(detail)})`:''}${m.instructions?` — ${escHtml(m.instructions)}`:''}</div>`; }).join('')}</div>` : ''; })()}
+        ${sitterPrintField('Medications', sitterSelectedMeds(p.__id, data, 'medication'))}
+        ${sitterPrintField('Supplements', sitterSelectedMeds(p.__id, data, 'supplement'))}
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Additional Notes</div><div class="value">${escHtml(data['sitter-behavior-'+p.__id])}</div></div>` : ''}
     </div>`).join('')}
@@ -2385,7 +2680,8 @@
       feed: d['sitter-feed-'+p.__id] || '',
       food: d['sitter-food-'+p.__id] || '',
       walk: d['sitter-walk-'+p.__id] || '',
-      meds: sitterSelectedMeds(p.__id, d).map(sitterMedLine).join('\n'),
+      meds: sitterSelectedMeds(p.__id, d, 'medication').map(sitterMedLine).join('\n'),
+      supps: sitterSelectedMeds(p.__id, d, 'supplement').map(sitterMedLine).join('\n'),
       beh: d['sitter-behavior-'+p.__id] || '',
       chip: p.microchip || '',
       allergies: p.allergies || '',
@@ -2596,7 +2892,7 @@
     });
     getList('medications').filter(m => m.refill && !isArchivedRecord(m)).forEach(m => {
       const days = Math.ceil((new Date(m.refill) - now) / 86400000);
-      if(days <= 30) reminders.push({ type: 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
+      if(days <= 30) reminders.push({ type: isSupplement(m) ? 'Supplement Reorder' : 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
     });
     getList('vet-visits').filter(v => !isArchivedRecord(v)).map(v => ({...v, next: v.next || v.date})).filter(v => v.next).forEach(v => {
       const days = Math.ceil((new Date(v.next) - now) / 86400000);
@@ -2609,9 +2905,10 @@
       remindersEl.innerHTML = reminders.map(r => {
         const color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
         const label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : `${r.days} days`;
-        const tabMap = { 'Vaccination':'vaccinations', 'Medication Refill':'medications', 'Vet Appointment':'vet-visits' };
+        const tabMap = { 'Vaccination':'vaccinations', 'Medication Refill':'medications', 'Supplement Reorder':'medications', 'Vet Appointment':'vet-visits' };
+        const tabLabel = { 'Vaccination':'Vaccinations', 'Medication Refill':'Medications', 'Supplement Reorder':'Medications', 'Vet Appointment':'Vet Visits' };
         const target = tabMap[r.type];
-        return `<div onclick="window.goToTab('${target}')" title="View in ${r.type === 'Medication Refill' ? 'Medications' : r.type === 'Vaccination' ? 'Vaccinations' : 'Vet Visits'}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(91,91,214,0.08)'" onmouseout="this.style.background='transparent'">
+        return `<div onclick="window.goToTab('${target}')" title="View in ${tabLabel[r.type]}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(91,91,214,0.08)'" onmouseout="this.style.background='transparent'">
           <div>
             <p class="font-body text-sm font-medium text-primary">${escHtml(r.pet)} — ${escHtml(r.name)}</p>
             <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)} · <span style="color:#5B5BD6;">View →</span></p>
@@ -4409,7 +4706,8 @@ try {
       });
       (getList('medications')||[]).filter(function(m){return m.refill && !_isArch(m);}).forEach(function(m){
         var days = Math.ceil((new Date(m.refill) - now) / 86400000);
-        if(days <= 30) reminders.push({type:'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
+        var isSupp = typeof window.isSupplement === 'function' && window.isSupplement(m);
+        if(days <= 30) reminders.push({type:isSupp?'Supplement Reorder':'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
       });
       (getList('vet-visits')||[]).filter(function(v){return !_isArch(v);}).forEach(function(v){
         // Choose appointment date+time (v.date/v.time) OR follow-up date+time (v.next/v.nextTime)
@@ -4430,18 +4728,20 @@ try {
       return;
     }
     var fmtDate = window.fmtDate || fmtDateLocal;
+    var esc = window.escHtml || function(s){ return String(s==null?'':s); };
+    var tabLabel = {'Vaccination':'Vaccinations','Medication Refill':'Medications','Supplement Reorder':'Medications','Vet Appointment':'Vet Visits'};
     el.innerHTML = reminders.map(function(r){
       var color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
       var label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : (r.days + ' days');
       var timeBit = r.time ? (' · ' + fmtTime(r.time)) : '';
-      var titleAttr = 'View in ' + (r.type==='Medication Refill'?'Medications':(r.type==='Vaccination'?'Vaccinations':'Vet Visits'));
+      var titleAttr = 'View in ' + (tabLabel[r.type] || 'Vet Visits');
       var clickAttr = r.visitId
         ? 'window.pfGoToVetVisit('+r.visitId+')'
         : "window.goToTab('"+r.tab+"')";
       return '<div onclick="'+clickAttr+'" title="'+titleAttr+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid var(--border-color);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(91,91,214,0.08)\'" onmouseout="this.style.background=\'transparent\'">'+
         '<div>'+
-          '<p class="font-body text-sm font-medium text-primary">'+r.pet+' — '+r.name+'</p>'+
-          '<p class="font-body text-xs text-secondary">'+r.type+' · '+fmtDate(r.date)+timeBit+' · <span style="color:#5B5BD6;">View →</span></p>'+
+          '<p class="font-body text-sm font-medium text-primary">'+esc(r.pet)+' — '+esc(r.name)+'</p>'+
+          '<p class="font-body text-xs text-secondary">'+esc(r.type)+' · '+fmtDate(r.date)+timeBit+' · <span style="color:#5B5BD6;">View →</span></p>'+
         '</div>'+
         '<span style="background:'+color+';color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">'+label+'</span>'+
       '</div>';
@@ -5224,18 +5524,19 @@ try {
       });
     });
 
-    // 2) Medication refills (refill date, anchored at 9:00am local)
+    // 2) Medication refills / supplement reorders (date anchored at 9:00am local)
     function dateAt9(d){ if(!d) return null; var dt = new Date(d + 'T09:00:00'); return isNaN(dt.getTime()) ? null : dt; }
     function dayLabel(dt){ return dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
     getList('medications').forEach(function(m){
       var dt = dateAt9(m.refill);
       if(!dt) return;
+      var supp = typeof window.isSupplement === 'function' && window.isSupplement(m);
       var pet = m.petName || 'Your pet';
       var detail = [m.dosage, m.frequency].filter(function(s){ return s; }).join(' · ');
       emit('med', {
         source: 'medication', sourceId: m.__id, when: dt.getTime(),
-        titleFor: function(lbl){ return '💊 Refill due in ' + lbl; },
-        body: pet + ' — ' + (m.name || 'Medication') + '\nRefill ' + dayLabel(dt) + (detail ? (' · ' + detail) : '')
+        titleFor: function(lbl){ return (supp ? '🌿 Reorder due in ' : '💊 Refill due in ') + lbl; },
+        body: pet + ' — ' + (m.name || (supp ? 'Supplement' : 'Medication')) + '\n' + (supp ? 'Reorder ' : 'Refill ') + dayLabel(dt) + (detail ? (' · ' + detail) : '')
       });
     });
 
