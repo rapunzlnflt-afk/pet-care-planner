@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.10.0">
+                          <meta name="app-version" content="3.10.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -709,6 +709,7 @@
          </div>
         </div>
        </div>
+       <p id="vacc-overdue-hint" class="font-body text-xs text-secondary" style="display:none;margin:-8px 0 0;font-style:italic;"></p>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
          <label class="block font-body text-sm text-secondary mb-1">Administered By</label>
@@ -1726,6 +1727,7 @@
     } else {
       addItem('vaccinations', fields);
     }
+    delete e.target.dataset.overduePrefill;
     e.target.reset();
     document.getElementById('vacc-other-container').style.display = 'none';
     applyVaccFormMode();
@@ -1740,9 +1742,72 @@
     return form ? (form.dataset.editId || '') : '';
   }
 
+  // ---- Overdue renewal prefill (v3.10.1) ----
+  // Editing an overdue shot is nearly always "I just got this done again", so the
+  // form opens dated today with the next due date carried forward by the interval
+  // the record already used. Non-overdue records are left verbatim: that edit is a
+  // typo fix and silently rewriting the dates would lose real data.
+  const VACC_FALLBACK_MONTHS = 12;
+
+  function parseISODate(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s == null ? '' : s));
+    if(!m) return null;
+    const y = +m[1], mo = +m[2], d = +m[3];
+    const dt = new Date(y, mo - 1, d);
+    return (dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d) ? dt : null;
+  }
+
+  function toISODate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // Clamps into a shorter target month: Jan 31 + 1 month is the last day of
+  // February, not a rollover into March.
+  function addMonthsClamped(date, months) {
+    const total = date.getMonth() + months;
+    const y = date.getFullYear() + Math.floor(total / 12);
+    const m = ((total % 12) + 12) % 12;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(date.getDate(), lastDay));
+  }
+
+  // Whole calendar months when the gap divides cleanly, so an annual shot lands on
+  // the same day-of-month a year out rather than 365 days later. Otherwise the
+  // exact day count. Returns null when no sane interval can be derived.
+  function vaccInterval(givenISO, dueISO) {
+    const given = parseISODate(givenISO), due = parseISODate(dueISO);
+    if(!given || !due || due <= given) return null;
+    const months = (due.getFullYear() - given.getFullYear()) * 12 + (due.getMonth() - given.getMonth());
+    if(months > 0 && addMonthsClamped(given, months).getTime() === due.getTime()) return { months };
+    return { days: Math.round((due - given) / 86400000) };
+  }
+
+  function shiftByInterval(baseISO, interval) {
+    const base = parseISODate(baseISO);
+    if(!base) return '';
+    if(interval.months) return toISODate(addMonthsClamped(base, interval.months));
+    const d = new Date(base.getTime());
+    d.setDate(d.getDate() + interval.days);
+    return toISODate(d);
+  }
+
+  function isVaccOverdue(vacc) {
+    const due = vacc ? parseISODate(vacc.next) : null;
+    const now = parseISODate(today());
+    return !!(due && now && due < now);
+  }
+
   function applyVaccFormMode() {
     const editId = vaccEditId();
     const vacc = editId ? getList('vaccinations').find(v => String(v.__id) === editId) : null;
+    const form = document.getElementById('vacc-form');
+    const hint = document.getElementById('vacc-overdue-hint');
+    if(hint) {
+      const renewing = !!(vacc && form && form.dataset.overduePrefill);
+      // textContent, so nothing here can be interpolated into markup.
+      hint.textContent = renewing ? "Overdue — we've filled in today's date and the next due date. Change them if that's not right." : '';
+      hint.style.display = renewing ? '' : 'none';
+    }
     const title = document.getElementById('vacc-form-title');
     const submit = document.querySelector('#vacc-form button[type="submit"]');
     const banner = document.getElementById('vacc-edit-banner');
@@ -1766,8 +1831,17 @@
     document.getElementById('vacc-other').value = isPreset ? '' : (vacc.name || '');
     document.getElementById('vacc-other-container').style.display = isPreset ? 'none' : '';
     document.getElementById('vacc-pet').value = vacc.petId == null ? '' : String(vacc.petId);
-    document.getElementById('vacc-date').value = vacc.date || '';
-    document.getElementById('vacc-next').value = vacc.next || '';
+    const renewing = isVaccOverdue(vacc);
+    if(renewing) {
+      const interval = vaccInterval(vacc.date, vacc.next) || { months: VACC_FALLBACK_MONTHS };
+      form.dataset.overduePrefill = '1';
+      document.getElementById('vacc-date').value = today();
+      document.getElementById('vacc-next').value = shiftByInterval(today(), interval);
+    } else {
+      delete form.dataset.overduePrefill;
+      document.getElementById('vacc-date').value = vacc.date || '';
+      document.getElementById('vacc-next').value = vacc.next || '';
+    }
     document.getElementById('vacc-vet').value = vacc.vet || '';
     document.getElementById('vacc-lot').value = vacc.lot || '';
     applyVaccFormMode();
@@ -1779,6 +1853,7 @@
     const form = document.getElementById('vacc-form');
     if(!form) return;
     delete form.dataset.editId;
+    delete form.dataset.overduePrefill;
     form.reset();
     document.getElementById('vacc-other-container').style.display = 'none';
     applyVaccFormMode();
