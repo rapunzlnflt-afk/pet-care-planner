@@ -216,6 +216,7 @@
           rows+=fieldText('Feeding Instructions', p.food);
           rows+=fieldText('Walks', p.walk);
           rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
+          rows+=p.supps?('<div class="field full"><div class="label">Supplements</div><div class="value" style="white-space:pre-line;">'+esc(p.supps)+'</div></div>'):'';
           rows+=fieldText('Microchip', p.chip);
           rows+=fieldText('Allergies', p.allergies);
           var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
