@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.10.1">
+                          <meta name="app-version" content="3.10.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1395,7 +1395,11 @@
   function refreshPetDropdowns() {
     // Exclude archived pets from add-pickers so new records aren't logged to a passed pet.
     const pets = getList('pets').filter(p => !p.archived);
-    const opts = pets.map(p => `<option value="${p.__id}">${escHtml(p.name)} (${escHtml(p.species)})</option>`).join('');
+    // v3.10.2: with exactly one pet there is nothing to pick, so preselect it.
+    // Written as the `selected` attribute rather than .value so form.reset()
+    // (used by every add/cancel-edit path) restores the preselection too.
+    const solo = pets.length === 1 ? ' selected' : '';
+    const opts = pets.map(p => `<option value="${p.__id}"${solo}>${escHtml(p.name)} (${escHtml(p.species)})</option>`).join('');
     const optsWithAll = `<option value="">All pets / General</option>` + opts;
     ['vet-pet','vacc-pet','med-pet','weight-pet'].forEach(id => {
       const el = document.getElementById(id);
@@ -5470,6 +5474,30 @@ try {
   ];
   var DEFAULT_LEADS = [24*60*60*1000, 60*60*1000]; // 1 day + 1 hour
 
+  // v3.10.2: a vaccination record only carries a date (reminders are anchored at
+  // 9:00am), so hour/minute leads there are meaningless. Vet visits and meds keep
+  // the full list — vet appointments genuinely have a time of day.
+  var DAY_LEAD_OPTIONS = LEAD_OPTIONS.filter(function(o){ return o.ms >= 24*60*60*1000; });
+  function optionsFor(type){
+    return type === 'vacc' ? DAY_LEAD_OPTIONS : LEAD_OPTIONS;
+  }
+
+  // Saved settings can already hold a sub-day lead for vaccinations — the shared
+  // default seeds 1 hour, so most existing devices do. Snap those to the nearest
+  // lead the type still offers (1 hour -> 1 day) so the checkbox list never shows
+  // nothing checked and reminders keep firing, just a day out.
+  function snapLeads(type, arr){
+    var opts = optionsFor(type);
+    if(opts.length === LEAD_OPTIONS.length) return arr;
+    var out = [];
+    arr.forEach(function(ms){
+      var best = opts[0].ms;
+      opts.forEach(function(o){ if(Math.abs(o.ms - ms) < Math.abs(best - ms)) best = o.ms; });
+      if(out.indexOf(best) === -1) out.push(best);
+    });
+    return out;
+  }
+
   function parseLeads(raw){
     if(raw === null || raw === undefined) return null;
     return raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n > 0; });
@@ -5507,8 +5535,8 @@ try {
   function getLeadsFor(type){
     var raw = localStorage.getItem(LEADS_KEY[type]);
     var arr = parseLeads(raw);
-    if(arr === null) return DEFAULT_LEADS.slice();
-    return arr; // empty array = user unchecked everything
+    if(arr === null) return snapLeads(type, DEFAULT_LEADS.slice());
+    return snapLeads(type, arr); // empty array = user unchecked everything
   }
   function setLeadsFor(type, arr){
     localStorage.setItem(LEADS_KEY[type], arr.join(','));
@@ -5655,7 +5683,7 @@ try {
   function timingHTML(type){
     if(!getNotifOn(type)) return '';
     var leads = getLeadsFor(type);
-    var rows = LEAD_OPTIONS.map(function(o){
+    var rows = optionsFor(type).map(function(o){
       var checked = leads.indexOf(o.ms) !== -1 ? ' checked' : '';
       return '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer;" class="font-body text-secondary">' +
                '<input type="checkbox" class="pf-lead-cb-' + type + '" value="' + o.ms + '"' + checked + ' style="width:16px;height:16px;accent-color:#5B5BD6;cursor:pointer;">' +
