@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.10.2">
+                          <meta name="app-version" content="3.10.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3055,7 +3055,7 @@
   // Reads version.json from the GitHub Pages site, compares to the version baked into this HTML,
   // and lets the user know if a newer version is available. Works for users opening either the
   // live URL or the downloaded HTML file.
-  const VERSION_URL = 'https://rapunzlnflt-afk.github.io/pet-care-planner/version.json';
+  const VERSION_URL = 'https://cleartrackapps.com/pet-care-planner/version.json';
   const CURRENT_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '0.0';
 
   function compareVersions(a, b) {
@@ -5939,7 +5939,7 @@ try {
   'use strict';
   if (window.__pawfolio_stuck_updater) return; window.__pawfolio_stuck_updater = true;
 
-  var VERSION_URL = 'https://rapunzlnflt-afk.github.io/pet-care-planner/version.json';
+  var VERSION_URL = 'https://cleartrackapps.com/pet-care-planner/version.json';
   var LOADED = (document.querySelector('meta[name="app-version"]') || {}).content || '0.0';
   var SEEN_NEWER_KEY = 'pawfolioStuckSince';
 
