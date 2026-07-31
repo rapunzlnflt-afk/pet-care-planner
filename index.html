@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.10.3">
+                          <meta name="app-version" content="3.10.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5474,18 +5474,22 @@ try {
   ];
   var DEFAULT_LEADS = [24*60*60*1000, 60*60*1000]; // 1 day + 1 hour
 
-  // v3.10.2: a vaccination record only carries a date (reminders are anchored at
-  // 9:00am), so hour/minute leads there are meaningless. Vet visits and meds keep
-  // the full list — vet appointments genuinely have a time of day.
+  // v3.10.2 / v3.10.4: vaccination and medication records only carry a date —
+  // both are anchored at 9:00am by dateAt9() below, and neither has a time field
+  // anywhere on the record — so hour/minute leads are meaningless for them. The
+  // medication `frequency` ("Twice daily", "Every 8 hours") is a display label
+  // only; nothing schedules per-dose reminders off it. Vet visits keep the full
+  // list: those have a real user-entered time.
   var DAY_LEAD_OPTIONS = LEAD_OPTIONS.filter(function(o){ return o.ms >= 24*60*60*1000; });
   function optionsFor(type){
-    return type === 'vacc' ? DAY_LEAD_OPTIONS : LEAD_OPTIONS;
+    return (type === 'vacc' || type === 'med') ? DAY_LEAD_OPTIONS : LEAD_OPTIONS;
   }
 
-  // Saved settings can already hold a sub-day lead for vaccinations — the shared
-  // default seeds 1 hour, so most existing devices do. Snap those to the nearest
-  // lead the type still offers (1 hour -> 1 day) so the checkbox list never shows
-  // nothing checked and reminders keep firing, just a day out.
+  // Saved settings can already hold a sub-day lead for these types — each has its
+  // own key seeded from the shared 1-hour default, so most existing devices do.
+  // Snap those to the nearest lead the type still offers (1 hour -> 1 day) so the
+  // checkbox list never shows nothing checked and reminders keep firing, just a
+  // day out.
   function snapLeads(type, arr){
     var opts = optionsFor(type);
     if(opts.length === LEAD_OPTIONS.length) return arr;
