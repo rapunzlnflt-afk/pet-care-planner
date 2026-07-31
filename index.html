@@ -6,7 +6,7 @@
   <title>Pawfolio — Pet Care Planner</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.10.4">
+                          <meta name="app-version" content="3.11.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -839,6 +839,18 @@
          <label class="block font-body text-sm text-secondary mb-1">Prescribing Vet</label>
          <input type="text" id="med-vet" autocomplete="off" data-vet-autocomplete="name" placeholder="Vet name">
         </div>
+       </div>
+       <div>
+        <label id="med-dose-label" class="block font-body text-sm text-secondary mb-1">Dose Times</label>
+        <div id="med-dose-times"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+         <button type="button" id="med-dose-add" class="btn-secondary" style="padding:6px 12px;font-size:14px;width:auto;">+ Add dose time</button>
+         <div style="display:flex;align-items:center;gap:8px;">
+          <span id="med-dose-end-label" class="font-body text-sm text-secondary" style="white-space:nowrap;">Until</span>
+          <input type="date" id="med-dose-end" style="width:auto;">
+         </div>
+        </div>
+        <p id="med-dose-hint" class="font-body text-xs text-secondary mt-1 italic"></p>
        </div>
        <div>
         <label class="block font-body text-sm text-secondary mb-1">Notes</label>
@@ -1957,6 +1969,96 @@
     document.getElementById('med-other-container').style.display = sel.value === 'Other' ? '' : 'none';
   };
 
+  // ---- v3.11.0: dose times ----
+  // `doseTimes` is an array of "HH:MM" strings on the medication record, and
+  // `doseEnd` an optional last day. Both are absent on every record saved before
+  // v3.11.0, so medDoseTimes() returns [] for them and no dose reminder is ever
+  // emitted — that absence IS the backward-compatibility story, no migration.
+  function medDoseTimes(m) {
+    if(!m || !Array.isArray(m.doseTimes)) return [];
+    const out = [];
+    m.doseTimes.forEach(t => {
+      if(typeof t === 'string' && /^\d{2}:\d{2}$/.test(t) && !out.includes(t)) out.push(t);
+    });
+    return out.sort();
+  }
+  window.medDoseTimes = medDoseTimes;
+
+  function fmtDoseTime(t) {
+    const p = String(t).split(':');
+    if(p.length < 2) return t;
+    const h = parseInt(p[0], 10);
+    return (((h + 11) % 12) + 1) + ':' + p[1] + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
+
+  // `frequency` keeps its exact old job: a label, saved verbatim, never read by
+  // the scheduler. Dose times COMPLEMENT it rather than replace it — dropping it
+  // would discard what every existing record already has, and "As needed" or
+  // "Weekly" can't be expressed as daily clock times anyway. Since it's a fixed
+  // <select>, the daily values can offer a starting point; the fill only ever
+  // touches an EMPTY list, and only on a genuine user change, so it can't
+  // clobber times already entered or loaded for edit.
+  const DOSE_TIME_SUGGESTIONS = {
+    'Once daily': ['08:00'],
+    'Twice daily': ['08:00', '20:00'],
+    'Every 8 hours': ['06:00', '14:00', '22:00'],
+  };
+
+  function doseTimeRowHTML(value) {
+    return `<div class="dose-time-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <input type="time" class="dose-time-input" value="${escHtml(value || '')}" style="flex:1;min-width:0;">
+      <button type="button" class="btn-secondary dose-time-remove" aria-label="Remove this dose time" style="padding:6px 12px;font-size:14px;width:auto;flex:0 0 auto;">✕</button>
+    </div>`;
+  }
+
+  function renderDoseTimes(times) {
+    const host = document.getElementById('med-dose-times');
+    if(!host) return;
+    host.innerHTML = (times || []).map(doseTimeRowHTML).join('');
+    updateDoseHint();
+  }
+
+  function readDoseTimes() {
+    const host = document.getElementById('med-dose-times');
+    if(!host) return [];
+    const out = [];
+    host.querySelectorAll('.dose-time-input').forEach(el => {
+      if(/^\d{2}:\d{2}$/.test(el.value) && !out.includes(el.value)) out.push(el.value);
+    });
+    return out.sort();
+  }
+
+  function updateDoseHint() {
+    const hint = document.getElementById('med-dose-hint');
+    if(!hint) return;
+    const n = readDoseTimes().length;
+    const noun = document.getElementById('med-type').value === 'supplement' ? 'serving' : 'dose';
+    hint.textContent = n
+      ? `${n} ${noun} reminder${n === 1 ? '' : 's'} a day. Turn on Dose reminders at the top of this tab to receive them.`
+      : `Optional. Add a time to be reminded when each ${noun} is due — separate from the refill reminder.`;
+  }
+
+  document.getElementById('med-dose-add').addEventListener('click', () => {
+    const host = document.getElementById('med-dose-times');
+    host.insertAdjacentHTML('beforeend', doseTimeRowHTML(''));
+    const inputs = host.querySelectorAll('.dose-time-input');
+    if(inputs.length) inputs[inputs.length - 1].focus();
+    updateDoseHint();
+  });
+  document.getElementById('med-dose-times').addEventListener('click', e => {
+    const row = e.target.closest('.dose-time-remove') && e.target.closest('.dose-time-row');
+    if(!row) return;
+    row.remove();
+    updateDoseHint();
+  });
+  document.getElementById('med-dose-times').addEventListener('change', updateDoseHint);
+  document.getElementById('med-frequency').addEventListener('change', e => {
+    if(readDoseTimes().length) return;
+    const suggested = DOSE_TIME_SUGGESTIONS[e.target.value];
+    if(suggested) renderDoseTimes(suggested.slice());
+  });
+  updateDoseHint();
+
   // Reflect the selected type (and any edit in progress) across the form's
   // labels, presets and submit button. Supplements aren't prescribed, so the
   // vet field is dropped and the refill wording becomes reorder wording.
@@ -1981,6 +2083,8 @@
     document.getElementById('med-notes').placeholder = supp
       ? 'e.g., give with dinner, half a scoop'
       : 'e.g., give with food, refrigerate';
+    document.getElementById('med-dose-label').textContent = supp ? 'Serving Times' : 'Dose Times';
+    updateDoseHint();
     applyMedFormMode();
   };
 
@@ -2005,6 +2109,8 @@
       frequency: document.getElementById('med-frequency').value,
       start: document.getElementById('med-start').value,
       refill: document.getElementById('med-refill').value,
+      doseTimes: readDoseTimes(),
+      doseEnd: document.getElementById('med-dose-end').value,
       vet: type === 'supplement' ? '' : document.getElementById('med-vet').value,
       notes: document.getElementById('med-notes').value,
     };
@@ -2022,6 +2128,8 @@
     }
     e.target.reset();
     document.getElementById('med-other-container').style.display = 'none';
+    // reset() blanks the time inputs but leaves the rows behind — drop them.
+    renderDoseTimes([]);
     handleMedType();
     refreshAll();
   });
@@ -2063,6 +2171,8 @@
     document.getElementById('med-frequency').value = med.frequency || '';
     document.getElementById('med-start').value = med.start || '';
     document.getElementById('med-refill').value = med.refill || '';
+    renderDoseTimes(medDoseTimes(med));
+    document.getElementById('med-dose-end').value = med.doseEnd || '';
     document.getElementById('med-vet').value = med.vet || '';
     document.getElementById('med-notes').value = med.notes || '';
     applyMedFormMode();
@@ -2076,6 +2186,7 @@
     delete form.dataset.editId;
     form.reset();
     document.getElementById('med-other-container').style.display = 'none';
+    renderDoseTimes([]);
     handleMedType();
     renderMedications();
   };
@@ -2089,6 +2200,7 @@
     const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
     const refillUrgency = daysToRefill !== null ? (daysToRefill < 0 ? 'color:#e53e3e;' : daysToRefill < 7 ? 'color:#f6a623;' : '') : '';
     const isEditing = editId === String(m.__id);
+    const doseList = medDoseTimes(m).map(fmtDoseTime).join(', ');
     return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
       <div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
@@ -2099,6 +2211,7 @@
         <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
         ${!supp && m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
         ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
+        ${doseList ? `<p class="font-body text-sm text-secondary mt-1">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
         ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
       </div>
       <div class="card-actions">
@@ -5457,11 +5570,16 @@ try {
 
   // UI type -> Supabase source string (the source CHECK constraint depends on
   // these; the mapping is applied inline in each emit() call below).
-  var TYPES = ['vet','med','vacc'];
-  var LABELS = { vet: 'Vet visit reminders', med: 'Medication reminders', vacc: 'Vaccination reminders' };
-  var SECTION = { vet: 'tab-vet-visits', med: 'tab-medications', vacc: 'tab-vaccinations' };
-  var LEADS_KEY = { vet: 'pawfolioLeads_vet', med: 'pawfolioLeads_med', vacc: 'pawfolioLeads_vacc' };
-  var NOTIF_KEY = { vet: 'pawfolioNotif_vet', med: 'pawfolioNotif_med', vacc: 'pawfolioNotif_vacc' };
+  // v3.11.0: 'med' is renamed in the UI only. It has always emitted exactly one
+  // reminder — the refill/reorder date — so it is now labelled for what it is.
+  // The 'med' string itself stays put: it keys pawfolioLeads_med /
+  // pawfolioNotif_med in localStorage, and renaming it would orphan every saved
+  // setting. 'dose' is the genuinely new type added alongside it.
+  var TYPES = ['vet','med','vacc','dose'];
+  var LABELS = { vet: 'Vet visit reminders', med: 'Refill reminders', vacc: 'Vaccination reminders', dose: 'Dose reminders' };
+  var SECTION = { vet: 'tab-vet-visits', med: 'tab-medications', vacc: 'tab-vaccinations', dose: 'tab-medications' };
+  var LEADS_KEY = { vet: 'pawfolioLeads_vet', med: 'pawfolioLeads_med', vacc: 'pawfolioLeads_vacc', dose: 'pawfolioLeads_dose' };
+  var NOTIF_KEY = { vet: 'pawfolioNotif_vet', med: 'pawfolioNotif_med', vacc: 'pawfolioNotif_vacc', dose: 'pawfolioNotif_dose' };
 
   // Selectable lead times. value = milliseconds before the event.
   var LEAD_OPTIONS = [
@@ -5474,15 +5592,34 @@ try {
   ];
   var DEFAULT_LEADS = [24*60*60*1000, 60*60*1000]; // 1 day + 1 hour
 
-  // v3.10.2 / v3.10.4: vaccination and medication records only carry a date —
-  // both are anchored at 9:00am by dateAt9() below, and neither has a time field
-  // anywhere on the record — so hour/minute leads are meaningless for them. The
-  // medication `frequency` ("Twice daily", "Every 8 hours") is a display label
-  // only; nothing schedules per-dose reminders off it. Vet visits keep the full
-  // list: those have a real user-entered time.
+  // v3.10.2 / v3.10.4: vaccination and medication REFILL records only carry a
+  // date — both are anchored at 9:00am by dateAt9() below, and neither has a
+  // time field anywhere on the record — so hour/minute leads are meaningless for
+  // them. Vet visits keep the full list: those have a real user-entered time.
   var DAY_LEAD_OPTIONS = LEAD_OPTIONS.filter(function(o){ return o.ms >= 24*60*60*1000; });
+
+  // v3.11.0: doses are the opposite case. `m.doseTimes` holds real clock times
+  // the user typed ("08:00", "20:00"), so sub-day leads finally mean something —
+  // and so does a zero lead, which no other type can offer because no other type
+  // is anchored to a minute the user chose. Doses therefore get LEAD_OPTIONS in
+  // full plus "At dose time" on the front.
+  var DOSE_LEAD_OPTIONS = [{ ms: 0, label: 'At dose time' }].concat(LEAD_OPTIONS);
+  var DOSE_DEFAULT_LEADS = [0]; // just the dose time itself; anything else spams
+
+  // Doses repeat, and this page is the only thing that ever writes reminders to
+  // the server, so a single "next occurrence" would go silent the moment it
+  // fired. Instead every dose in the next DOSE_HORIZON_DAYS is queued up front:
+  // the phone keeps firing while the app stays shut, and each open rolls the
+  // horizon forward. The cap is a backstop on the sync payload — 6 leads x 6
+  // doses a day x 8 days would otherwise be ~288 rows from one record.
+  var DOSE_HORIZON_DAYS = 7;
+  var DOSE_MAX_OCCURRENCES = 120;
   function optionsFor(type){
+    if(type === 'dose') return DOSE_LEAD_OPTIONS;
     return (type === 'vacc' || type === 'med') ? DAY_LEAD_OPTIONS : LEAD_OPTIONS;
+  }
+  function defaultLeadsFor(type){
+    return (type === 'dose' ? DOSE_DEFAULT_LEADS : DEFAULT_LEADS).slice();
   }
 
   // Saved settings can already hold a sub-day lead for these types — each has its
@@ -5492,7 +5629,9 @@ try {
   // day out.
   function snapLeads(type, arr){
     var opts = optionsFor(type);
-    if(opts.length === LEAD_OPTIONS.length) return arr;
+    // >= rather than == so 'dose', whose list is a superset of LEAD_OPTIONS,
+    // passes through verbatim exactly like 'vet' does.
+    if(opts.length >= LEAD_OPTIONS.length) return arr;
     var out = [];
     arr.forEach(function(ms){
       var best = opts[0].ms;
@@ -5502,9 +5641,11 @@ try {
     return out;
   }
 
+  // n >= 0 (not > 0) since v3.11.0: 0 is the "At dose time" lead and has to
+  // survive a save/read round-trip. Only 'dose' ever offers it.
   function parseLeads(raw){
     if(raw === null || raw === undefined) return null;
-    return raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n > 0; });
+    return raw.split(',').map(function(s){ return parseInt(s,10); }).filter(function(n){ return !isNaN(n) && n >= 0; });
   }
 
   // ---------- one-time migration ----------
@@ -5528,7 +5669,9 @@ try {
     try { pushWasOn = localStorage.getItem('pawfolioPushEnabled') === '1'; } catch(e){}
     var flagOn = pushWasOn;
     TYPES.forEach(function(t){
-      localStorage.setItem(LEADS_KEY[t], seedLeads.join(','));
+      // Doses ignore the legacy shared seed: a 1-day-before lead on a twice-daily
+      // dose is noise, not a reminder.
+      localStorage.setItem(LEADS_KEY[t], (t === 'dose' ? defaultLeadsFor(t) : seedLeads).join(','));
       localStorage.setItem(NOTIF_KEY[t], flagOn ? '1' : '0');
     });
     // Leave OLD_LEAD_KEY in place for safety/backward compat; just stop using it.
@@ -5539,7 +5682,7 @@ try {
   function getLeadsFor(type){
     var raw = localStorage.getItem(LEADS_KEY[type]);
     var arr = parseLeads(raw);
-    if(arr === null) return snapLeads(type, DEFAULT_LEADS.slice());
+    if(arr === null) return snapLeads(type, defaultLeadsFor(type));
     return snapLeads(type, arr); // empty array = user unchecked everything
   }
   function setLeadsFor(type, arr){
@@ -5561,8 +5704,10 @@ try {
   window.pfAnyNotifOn = anyNotifOn;
 
   // Human label for a lead, used in the notification title.
+  // DOSE_LEAD_OPTIONS is the superset, so this resolves a label for every value
+  // any type can hold, including the dose-only 0.
   function leadLabel(ms){
-    var found = LEAD_OPTIONS.filter(function(o){ return o.ms === ms; })[0];
+    var found = DOSE_LEAD_OPTIONS.filter(function(o){ return o.ms === ms; })[0];
     return found ? found.label.replace(' before','') : 'soon';
   }
   window.pfLeadLabel = leadLabel;
@@ -5603,13 +5748,15 @@ try {
       getLeadsFor(type).forEach(function(lead){
         var fireAt = opts.when - lead;
         if(fireAt <= now) return;
-        if(fireAt >= opts.when) return;
+        // > rather than >= since v3.11.0: a 0 lead fires exactly at the event,
+        // which is the whole point of "At dose time". Negative leads still go.
+        if(fireAt > opts.when) return;
         out.push({
           source: opts.source,
           source_id: opts.sourceId,
           lead: lead,
           fire_at: new Date(fireAt).toISOString(),
-          title: opts.titleFor(leadLabel(lead)),
+          title: opts.titleFor(leadLabel(lead), lead),
           body: opts.body,
           tag: opts.source + '-' + opts.sourceId + ':' + lead,
           url: './index.html'
@@ -5659,6 +5806,49 @@ try {
       });
     });
 
+    // 4) Doses (v3.11.0) — the only reminder anchored to a clock time the user
+    //    actually chose, repeated daily across the rolling horizon.
+    //    source stays 'medication' ON PURPOSE. pawfolio_reminders.source carries
+    //    `check (source in ('vet-visit','medication','vaccination'))`, and
+    //    syncReminders() inserts every occurrence in ONE batch — so a new source
+    //    string would fail that insert and take vet and vaccination reminders
+    //    down with it. Adding a fourth value means a DB migration first.
+    function ymdLocal(dt){
+      var mo = dt.getMonth() + 1, da = dt.getDate();
+      return dt.getFullYear() + '-' + (mo < 10 ? '0' : '') + mo + '-' + (da < 10 ? '0' : '') + da;
+    }
+    var doseCount = 0;
+    getList('medications').forEach(function(m){
+      var times = (typeof window.medDoseTimes === 'function') ? window.medDoseTimes(m) : [];
+      if(!times.length) return;
+      var supp = typeof window.isSupplement === 'function' && window.isSupplement(m);
+      var noun = supp ? 'Serving' : 'Dose';
+      var pet = m.petName || 'Your pet';
+      var detail = m.dosage || '';
+      for(var day = 0; day <= DOSE_HORIZON_DAYS; day++){
+        if(doseCount >= DOSE_MAX_OCCURRENCES) break;
+        var base = new Date(); base.setHours(0,0,0,0); base.setDate(base.getDate() + day);
+        var ds = ymdLocal(base);
+        if(m.start && ds < m.start) continue;   // course hasn't started yet
+        if(m.doseEnd && ds > m.doseEnd) break;  // course has finished
+        var dayName = dayLabel(base);
+        times.forEach(function(t){
+          if(doseCount >= DOSE_MAX_OCCURRENCES) return;
+          var dt = new Date(ds + 'T' + t + ':00');
+          if(isNaN(dt.getTime()) || dt.getTime() <= now) return;
+          doseCount++;
+          emit('dose', {
+            source: 'medication', sourceId: m.__id, when: dt.getTime(),
+            titleFor: function(lbl, ms){
+              return (supp ? '🌿 ' : '💊 ') + (ms === 0 ? (noun + ' due now') : (noun + ' due in ' + lbl));
+            },
+            body: pet + ' — ' + (m.name || (supp ? 'Supplement' : 'Medication')) + '\n' +
+                  dayName + ' · ' + fmtTime(t) + (detail ? (' · ' + detail) : '')
+          });
+        });
+      }
+    });
+
     return out;
   };
 
@@ -5694,9 +5884,18 @@ try {
                '<span>' + o.label + '</span>' +
              '</label>';
     }).join('');
+    // Doses are the only type queued in advance rather than tied to one date, so
+    // say what that means for the user. Deliberately describes the scheduling —
+    // which is what this code controls — and stops short of promising a
+    // notification lands, which depends on the phone's push subscription.
+    var note = (type === 'dose')
+      ? '<p class="font-body text-xs text-secondary mt-1 italic">Queued ' + DOSE_HORIZON_DAYS +
+        ' days ahead — open Pawfolio at least once a week so upcoming doses stay scheduled.</p>'
+      : '';
     return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' +
              '<p class="font-body text-xs text-secondary" style="margin-bottom:4px;">Remind me:</p>' +
              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;">' + rows + '</div>' +
+             note +
            '</div>';
   }
 
@@ -5817,7 +6016,11 @@ try {
     card.id = 'pf-typectl-' + type;
     card.className = 'card mb-5';
     card.style.cssText = 'padding:8px 12px;border-left:3px solid #5B5BD6;margin-top:8px;';
-    if(h2){ h2.insertAdjacentElement('afterend', card); }
+    // Medications hosts two cards. TYPES orders 'med' before 'dose', so anchoring
+    // doses to the refill card keeps them stacked refill-then-dose rather than
+    // both landing directly under the h2 in reverse.
+    var anchor = (type === 'dose') ? ($('pf-typectl-med') || h2) : h2;
+    if(anchor){ anchor.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
     renderBlock(type);
     return true;
