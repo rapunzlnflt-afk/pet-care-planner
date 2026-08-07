@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.12.0">
+                          <meta name="app-version" content="3.12.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -482,6 +482,9 @@
        <p class="font-body text-sm text-secondary italic">Add vaccinations and medications to see upcoming reminders here.</p>
       </div>
      </div>
+
+    <!-- Flagged notes to raise at the next vet visit (v3.12.1) -->
+    <div id="overview-vet-notes" class="card p-5 mb-5" style="display:none;border-left:4px solid var(--accent-color);"></div>
 
     <!-- Quick stats -->
 <div class="stats-row">
@@ -8426,6 +8429,29 @@ try {
            '</div>';
   }
 
+  // Overview panel: the notes still waiting to be raised with the vet.
+  function renderOverviewNotes(){
+    var box = $('overview-vet-notes'); if(!box) return;
+    var flagged = notes().filter(function(n){ return n.flag; })
+                         .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+    if (!flagged.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.style.display = '';
+    var shown = flagged.slice(0, 4);
+    box.innerHTML = '<h3 class="font-heading text-base font-bold text-primary mb-3">\uD83D\uDD16 To Mention at the Vet</h3>' +
+      '<div class="space-y-2">' + shown.map(function(n){
+        var pet = petLabel(n);
+        return '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">' +
+          '<span style="flex-shrink:0;font-size:14px;line-height:1.5;">'+catIcon(n.category)+'</span>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<p class="font-body text-sm text-primary" style="line-height:1.45;">'+esc(n.text)+'</p>' +
+            '<p class="font-body text-xs text-secondary">'+esc(fdate(n.date))+(pet ? ' \u00b7 '+esc(pet) : '')+'</p>' +
+          '</div></div>';
+      }).join('') + '</div>' +
+      (flagged.length > shown.length ? '<p class="font-body text-xs text-secondary mt-2">+ '+(flagged.length - shown.length)+' more.</p>' : '') +
+      '<button type="button" onclick="window.goToTab(\'notes\')" style="margin-top:12px;padding:7px 14px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Open Notes</button>';
+  }
+  window.renderOverviewNotes = renderOverviewNotes;
+
   function renderNotes(){
     var list = $('notes-list'); if(!list) return;
     var all = notes().slice().sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
@@ -8632,6 +8658,7 @@ try {
         if (keepPet !== null && $('note-pet')) $('note-pet').value = keepPet;
         try { renderNotes(); } catch(e){}
         try { renderTimeline(); } catch(e){}
+        try { renderOverviewNotes(); } catch(e){}
         return r;
       };
       window.refreshAll.__v3120notes = true;
@@ -8659,6 +8686,7 @@ try {
     wrapRefreshAll();
     renderNotes();
     renderTimeline();
+    renderOverviewNotes();
   }
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
