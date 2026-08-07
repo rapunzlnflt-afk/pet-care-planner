@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.13.0">
+                          <meta name="app-version" content="3.13.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -8487,7 +8487,7 @@ try {
     var head = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
       (pet ? '<span class="font-heading font-bold text-primary">'+esc(pet)+'</span>' : '<span class="font-heading font-bold text-primary">General</span>') +
       '<span style="'+chip+'">'+catIcon(n.category)+' '+esc(n.category || 'Observation')+'</span>' +
-      (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">🔖 For the vet</span>' : '') +
+      (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">📌 For the vet</span>' : '') +
       '</div>';
     var ctx = opts.ctx || 'n';
     // On the Timeline each update is its own dated entry, so the inline thread
@@ -8528,7 +8528,7 @@ try {
     if (!opts.readOnly){
       actions = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
         '<button type="button" onclick="window.pfShowUpdateForm(\''+ctx+'\','+n.__id+')" style="'+btn+'">+ Add update</button>' +
-        '<button type="button" onclick="window.pfToggleNoteFlag('+n.__id+')" style="'+(n.flag?btnMuted:btn)+'">'+(n.flag ? '✓ Discussed with vet' : '🔖 Flag for vet')+'</button>' +
+        '<button type="button" onclick="window.pfToggleNoteFlag('+n.__id+')" style="'+(n.flag?btnMuted:btn)+'">'+(n.flag ? '✓ Discussed with vet' : '📌 Flag for vet')+'</button>' +
         '<button type="button" onclick="window.pfEditNote('+n.__id+')" style="'+btn+'">✎ Edit</button>' +
         '<button type="button" onclick="window.pfDeleteNote('+n.__id+')" style="'+btnDanger+'">✕ Delete</button>' +
         '</div>';
@@ -8546,7 +8546,7 @@ try {
     if (!flagged.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = '';
     var shown = flagged.slice(0, 4);
-    box.innerHTML = '<h3 class="font-heading text-base font-bold text-primary mb-3">\uD83D\uDD16 To Mention at the Vet</h3>' +
+    box.innerHTML = '<h3 class="font-heading text-base font-bold text-primary mb-3">\uD83D\uDCCC To Mention at the Vet</h3>' +
       '<div class="space-y-2">' + shown.map(function(n){
         var pet = petLabel(n);
         return '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">' +
@@ -8570,7 +8570,7 @@ try {
     if (prep){
       if (flagged.length){
         prep.style.display = '';
-        prep.innerHTML = '<p class="font-body text-sm text-primary" style="font-weight:600;">🔖 '+flagged.length+' note'+(flagged.length===1?'':'s')+' to mention at the next vet visit</p>' +
+        prep.innerHTML = '<p class="font-body text-sm text-primary" style="font-weight:600;">📌 '+flagged.length+' note'+(flagged.length===1?'':'s')+' to mention at the next vet visit</p>' +
           '<ul style="margin:8px 0 0;padding-left:18px;">' + flagged.slice(0,5).map(function(n){
             var pet = petLabel(n);
             var u = latestUpdate(n);
