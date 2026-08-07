@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.13.2">
+                          <meta name="app-version" content="3.14.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -60,6 +60,14 @@
        reads as a layout mistake, especially in the narrow Notes cards. */
     input[type="date"], input[type="time"] { max-width: 200px; }
     @media (max-width: 480px){ input[type="date"], input[type="time"] { max-width: 100%; } }
+    /* ===== Pet insurance block (v3.14.0) ===== */
+    .pet-ins-fieldset { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; background: rgba(91,91,214,0.04); }
+    .pet-ins-panel { margin-top: 12px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: rgba(91,91,214,0.05); }
+    .pet-ins-btn { display: inline-block; font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 700; text-decoration: none; padding: 6px 12px; border-radius: 8px; background: var(--accent-color); color: #fff; white-space: nowrap; }
+    .pet-ins-btn:hover { filter: brightness(1.08); }
+    .pet-ins-btn.secondary { background: transparent; color: var(--accent-color); border: 1.5px solid var(--accent-color); }
+    .pet-ins-label { font-family: 'Karla', sans-serif; font-size: 10px; letter-spacing: .04em; color: var(--text-secondary); text-transform: uppercase; margin: 0; }
+    .pet-ins-renew { font-family: 'Karla', sans-serif; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
     input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
     /* Custom dropdown arrow with breathing room from the right edge. */
     select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 40px; background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
@@ -569,20 +577,73 @@
          <input type="text" id="pet-microchip" placeholder="15-digit number">
         </div>
         <div>
-         <label class="block font-body text-sm text-secondary mb-1">Insurance Provider</label>
-         <input type="text" id="pet-insurance" placeholder="e.g., Trupanion">
-        </div>
-       </div>
-       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-         <label class="block font-body text-sm text-secondary mb-1">Insurance Policy #</label>
-         <input type="text" id="pet-policy" placeholder="Policy number">
-        </div>
-        <div>
          <label class="block font-body text-sm text-secondary mb-1">Primary Vet</label>
          <input type="text" id="pet-vet" placeholder="e.g., Dr. Johnson">
         </div>
        </div>
+       <!-- ===== Pet insurance (v3.14.0) ===== -->
+       <div class="pet-ins-fieldset">
+        <p class="font-heading text-sm font-bold text-primary" style="margin-bottom:2px;">Pet Insurance</p>
+        <p class="font-body text-xs text-secondary" style="margin-bottom:10px;">Start typing your provider and the login link and claims number fill in for you. Everything here is optional.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Insurance Provider</label>
+          <input type="text" id="pet-insurance" list="insurer-list" autocomplete="off" placeholder="e.g., Trupanion">
+         </div>
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Policy #</label>
+          <input type="text" id="pet-policy" placeholder="Policy number">
+         </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Member / Group ID</label>
+          <input type="text" id="pet-ins-member" placeholder="If your plan uses one">
+         </div>
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Claims Phone</label>
+          <input type="tel" id="pet-ins-phone" placeholder="e.g., 888-733-2685">
+         </div>
+        </div>
+        <div style="margin-bottom:12px;">
+         <label class="block font-body text-sm text-secondary mb-1">Website for Login</label>
+         <input type="url" id="pet-ins-url" placeholder="https://members.example.com/login">
+         <p class="font-body text-xs text-secondary" style="margin-top:4px;">A "Log in" button appears on the pet's card so you can jump straight to your account.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:12px;">
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Annual Deductible</label>
+          <input type="text" id="pet-ins-deductible" placeholder="e.g., $250">
+         </div>
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Reimbursement %</label>
+          <input type="text" id="pet-ins-reimburse" placeholder="e.g., 90%">
+         </div>
+         <div>
+          <label class="block font-body text-sm text-secondary mb-1">Annual Limit</label>
+          <input type="text" id="pet-ins-limit" placeholder="e.g., $15,000">
+         </div>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Policy Renewal Date</label>
+         <input type="date" id="pet-ins-renewal">
+         <p class="font-body text-xs text-secondary" style="margin-top:4px;">Shows up in Upcoming Reminders on the Overview tab starting 60 days out.</p>
+        </div>
+       </div>
+       <datalist id="insurer-list">
+      <option value="Trupanion">
+      <option value="Healthy Paws">
+      <option value="Nationwide">
+      <option value="Lemonade">
+      <option value="Embrace Pet Insurance">
+      <option value="Figo Pet Insurance">
+      <option value="Spot Pet Insurance">
+      <option value="Pets Best">
+      <option value="ASPCA Pet Health Insurance">
+      <option value="MetLife Pet Insurance">
+      <option value="Fetch">
+      <option value="Pumpkin Pet Insurance">
+       </datalist>
        <div>
         <label class="block font-body text-sm text-secondary mb-1">Known Allergies</label>
         <input type="text" id="pet-allergies" placeholder="e.g., chicken, bee stings">
@@ -1613,7 +1674,6 @@
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
           ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${escHtml(p.microchip)}</p></div>` : ''}
-          ${p.insurance ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Insurance</p><p class="font-body text-sm">${escHtml(p.insurance)}</p></div>` : ''}
           ${p.vet ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm">${escHtml(p.vet)}</p></div>` : ''}
           ${p.allergies ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Allergies</p><p class="font-body text-sm" style="color:#e53e3e;">${escHtml(p.allergies)}</p></div>` : ''}
           ${p.color ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Color</p><p class="font-body text-sm">${escHtml(p.color)}</p></div>` : ''}
@@ -5004,6 +5064,14 @@ try {
         var isSupp = typeof window.isSupplement === 'function' && window.isSupplement(m);
         if(days <= 30) reminders.push({type:isSupp?'Supplement Reorder':'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
       });
+      // Pet insurance renewals (v3.14.0): surface from 60 days out so there is time
+      // to shop the policy before it auto-renews.
+      (getList('pets')||[]).filter(function(p){return p.insRenewal && !p.archived;}).forEach(function(p){
+        var days = Math.ceil((new Date(p.insRenewal) - now) / 86400000);
+        if(days >= -7 && days <= 60){
+          reminders.push({type:'Insurance Renewal', name:(p.insurance ? p.insurance + ' policy' : 'Policy renewal'), pet:p.name, days:days, date:p.insRenewal, time:'', tab:'pet-profiles'});
+        }
+      });
       (getList('vet-visits')||[]).filter(function(v){return !_isArch(v);}).forEach(function(v){
         // Choose appointment date+time (v.date/v.time) OR follow-up date+time (v.next/v.nextTime)
         // If v.next is set, that's a follow-up reminder; otherwise use v.date for scheduled appts.
@@ -5024,7 +5092,7 @@ try {
     }
     var fmtDate = window.fmtDate || fmtDateLocal;
     var esc = window.escHtml || function(s){ return String(s==null?'':s); };
-    var tabLabel = {'Vaccination':'Vaccinations','Medication Refill':'Medications','Supplement Reorder':'Medications','Vet Appointment':'Vet Visits'};
+    var tabLabel = {'Vaccination':'Vaccinations','Medication Refill':'Medications','Supplement Reorder':'Medications','Vet Appointment':'Vet Visits','Insurance Renewal':'Pet Profiles'};
     el.innerHTML = reminders.map(function(r){
       var color = r.days < 0 ? '#e53e3e' : r.days < 7 ? '#f6a623' : '#48bb78';
       var label = r.days < 0 ? 'Overdue' : r.days === 0 ? 'Today' : (r.days + ' days');
@@ -8835,5 +8903,247 @@ try {
   }
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
+})();
+</script>
+
+<script>
+/* ============================================================================
+   Pawfolio v3.14.0 — Pet insurance
+   Stores insurance details on the pet record and surfaces a quick-login button
+   on the pet card. Runs after the main app so it can wrap renderPets.
+   ========================================================================== */
+(function(){
+  'use strict';
+
+  var INSURERS = [{"name": "Trupanion", "login_url": "https://members.trupanion.com/login/signin", "phone": "888-733-2685"}, {"name": "Healthy Paws", "login_url": "https://myaccount.healthypawspetinsurance.com/", "phone": "1-855-898-8991"}, {"name": "Nationwide", "login_url": "https://my.petinsurance.com/login", "phone": "800-540-2016"}, {"name": "Lemonade", "login_url": "https://www.lemonade.com/login", "phone": "844-733-8666"}, {"name": "Embrace Pet Insurance", "login_url": "https://my.embracepetinsurance.com/", "phone": "1-800-511-9172"}, {"name": "Figo Pet Insurance", "login_url": "https://mypetcloud.com/login", "phone": "844-738-3446"}, {"name": "Spot Pet Insurance", "login_url": "https://spotpet.com/member-center", "phone": "1-800-905-1595"}, {"name": "Pets Best", "login_url": "https://www.petsbest.com/customerportal", "phone": "1-877-738-7237"}, {"name": "ASPCA Pet Health Insurance", "login_url": "https://www.aspcapetinsurance.com/mc-portal/", "phone": "1-866-204-6764"}, {"name": "MetLife Pet Insurance", "login_url": "https://mypets.metlife.com/account/login", "phone": "855-270-7387"}, {"name": "Fetch", "login_url": "https://my.fetchpet.com/login", "phone": "1-866-467-3875"}, {"name": "Pumpkin Pet Insurance", "login_url": "https://member.pumpkin.care/login", "phone": "1-866-273-6369"}];
+
+  var FIELDS = {
+    insurance:        'pet-insurance',
+    policy:           'pet-policy',
+    insMember:        'pet-ins-member',
+    insPhone:         'pet-ins-phone',
+    insUrl:           'pet-ins-url',
+    insDeductible:    'pet-ins-deductible',
+    insReimburse:     'pet-ins-reimburse',
+    insLimit:         'pet-ins-limit',
+    insRenewal:       'pet-ins-renewal'
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){
+    var f = window.escHtml || window.esc;
+    if (typeof f === 'function') return f(s == null ? '' : s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+  /* Only ever emit http/https links - guards against a pasted javascript: URL. */
+  function safeUrl(u){
+    u = String(u || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) {
+      if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(u)) u = 'https://' + u;
+      else return '';
+    }
+    return u;
+  }
+  function telHref(p){
+    var digits = String(p || '').replace(/[^\d+]/g, '');
+    return digits.length >= 7 ? 'tel:' + digits : '';
+  }
+  function fmt(d){
+    if (typeof window.fmtDate === 'function') return window.fmtDate(d);
+    var p = String(d || '').split('-');
+    return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0] : String(d || '');
+  }
+  function daysUntil(d){
+    if (!d) return null;
+    var parts = String(d).split('-');
+    if (parts.length !== 3) return null;
+    var then = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    var now = new Date(); now.setHours(0,0,0,0);
+    return Math.round((then - now) / 86400000);
+  }
+
+  /* ---------------- provider autofill ---------------- */
+  function matchInsurer(name){
+    var n = String(name || '').trim().toLowerCase();
+    if (!n) return null;
+    for (var i = 0; i < INSURERS.length; i++){
+      if (INSURERS[i].name.toLowerCase() === n) return INSURERS[i];
+    }
+    return null;
+  }
+  function autofillProvider(){
+    var hit = matchInsurer($('pet-insurance') && $('pet-insurance').value);
+    if (!hit) return;
+    var url = $('pet-ins-url'), phone = $('pet-ins-phone');
+    /* Never clobber something the user typed themselves. */
+    if (url && !url.value.trim()) url.value = hit.login_url;
+    if (phone && !phone.value.trim()) phone.value = hit.phone || '';
+  }
+
+  /* ---------------- read + write the form ---------------- */
+  function readForm(){
+    var out = {};
+    Object.keys(FIELDS).forEach(function(key){
+      var el = $(FIELDS[key]);
+      out[key] = el ? el.value.trim() : '';
+    });
+    return out;
+  }
+  function writeForm(pet){
+    pet = pet || {};
+    Object.keys(FIELDS).forEach(function(key){
+      var el = $(FIELDS[key]);
+      if (el) el.value = pet[key] || '';
+    });
+  }
+
+  /* The main app's add handler and the v3.5 edit handler each build their own
+     object literal, so rather than patching both we stamp the extra keys onto
+     the stored record right after any pet save. */
+  /* ---------------- pet card panel ---------------- */
+  function panelHTML(p){
+    var url = safeUrl(p.insUrl);
+    var provider = String(p.insurance || '').trim();
+    if (!provider && !url && !p.policy && !p.insRenewal && !p.insMember) return '';
+
+    var buttons = '';
+    if (url){
+      buttons += '<a class="pet-ins-btn" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"' +
+                 ' title="Open ' + esc(provider || 'the insurer') + ' in a new tab">Log in \u2197</a>';
+    }
+    var tel = telHref(p.insPhone);
+    if (tel){
+      buttons += '<a class="pet-ins-btn secondary" href="' + esc(tel) + '">Call claims</a>';
+    }
+
+    var bits = [];
+    if (p.policy)        bits.push('Policy ' + esc(p.policy));
+    if (p.insMember)     bits.push('Member ' + esc(p.insMember));
+    if (p.insDeductible) bits.push(esc(p.insDeductible) + ' deductible');
+    if (p.insReimburse)  bits.push(esc(p.insReimburse) + ' back');
+    if (p.insLimit)      bits.push('limit ' + esc(p.insLimit));
+
+    var renew = '';
+    if (p.insRenewal){
+      var d = daysUntil(p.insRenewal);
+      var bg = '#48bb78', label = 'Renews ' + fmt(p.insRenewal);
+      if (d !== null && d < 0)       { bg = '#94a3b8'; label = 'Renewed ' + fmt(p.insRenewal); }
+      else if (d !== null && d <= 30){ bg = '#f6a623'; label = 'Renews ' + fmt(p.insRenewal) + (d === 0 ? ' \u00b7 today' : ' \u00b7 in ' + d + ' day' + (d === 1 ? '' : 's')); }
+      renew = '<span class="pet-ins-renew" style="background:' + bg + ';color:#fff;">' + label + '</span>';
+    }
+
+    return '<div class="pet-ins-panel">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
+          '<div style="min-width:0;">' +
+            '<p class="pet-ins-label">Insurance</p>' +
+            '<p class="font-body text-sm font-medium text-primary" style="margin:0;">' +
+              (provider ? esc(provider) : 'Policy on file') +
+            '</p>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + renew + buttons + '</div>' +
+        '</div>' +
+        (bits.length ? '<p class="font-body text-xs text-secondary" style="margin:6px 0 0;">' + bits.join(' \u00b7 ') + '</p>' : '') +
+      '</div>';
+  }
+
+  function decorateCards(){
+    var wrap = $('pet-profiles-list') || $('pets-list');
+    if (!wrap || typeof getList !== 'function') return;
+    var pets = getList('pets') || [];
+    pets.forEach(function(p){
+      var card = wrap.querySelector('[data-pet-id="' + p.__id + '"]');
+      if (!card){
+        var x = wrap.querySelector('button.delete-x[onclick*="deletePet(' + p.__id + ')"]');
+        card = x ? x.closest('.card') : null;
+      }
+      if (!card || card.querySelector('.pet-ins-panel')) return;
+      var html = panelHTML(p);
+      if (!html) return;
+      var holder = document.createElement('div');
+      holder.innerHTML = html;
+      card.appendChild(holder.firstChild);
+    });
+  }
+
+  /* ---------------- wiring ---------------- */
+  function boot(){
+    var prov = $('pet-insurance');
+    if (prov){
+      prov.addEventListener('change', autofillProvider);
+      prov.addEventListener('blur', autofillProvider);
+      prov.addEventListener('input', function(){
+        /* Picking from the datalist fires input with the full value. */
+        if (matchInsurer(prov.value)) autofillProvider();
+      });
+    }
+
+    /* Listen on the document, not the form: the v3.5 edit handler is a capture
+       listener on the form itself that calls stopImmediatePropagation(), which
+       would silence a sibling listener there. Document-level capture runs
+       before any of the form's own listeners, so it always gets a look in. */
+    if (!document.__pfInsSubmit){
+      document.__pfInsSubmit = true;
+      document.addEventListener('submit', function(ev){
+        var t = ev.target;
+        if (!t || t.id !== 'pet-form') return;
+        var hidden = $('pet-edit-id');
+        var before = { editId: hidden && hidden.value ? hidden.value : '' };
+        var data = readForm();
+        setTimeout(function(){
+          try {
+            var pets = getList('pets') || [];
+            var target = null;
+            if (before.editId){
+              for (var i = 0; i < pets.length; i++){
+                if (String(pets[i].__id) === String(before.editId)) { target = pets[i]; break; }
+              }
+            } else {
+              target = pets[pets.length - 1];
+            }
+            if (target){
+              Object.keys(data).forEach(function(k){ target[k] = data[k]; });
+              saveList('pets', pets);
+              if (typeof refreshAll === 'function') refreshAll();
+              else decorateCards();
+            }
+          } catch(e){ console.warn('insurance save failed', e); }
+        }, 0);
+      }, true);
+    }
+
+    /* editPet fills the original fields; extend it to the new ones. */
+    if (typeof window.editPet === 'function' && !window.editPet.__insWrapped){
+      var origEdit = window.editPet;
+      window.editPet = function(id){
+        origEdit.apply(this, arguments);
+        try {
+          var pet = (getList('pets') || []).filter(function(p){ return p.__id == id; })[0];
+          if (pet) writeForm(pet);
+        } catch(e){}
+      };
+      window.editPet.__insWrapped = true;
+    }
+
+    if (typeof window.renderPets === 'function' && !window.renderPets.__insWrapped){
+      var origRender = window.renderPets;
+      window.renderPets = function(){
+        var r = origRender.apply(this, arguments);
+        try { decorateCards(); } catch(e){ console.warn('insurance panel failed', e); }
+        return r;
+      };
+      window.renderPets.__insWrapped = true;
+    }
+
+    decorateCards();
+  }
+
+  window.pfInsurancePanel = panelHTML;
+  window.pfDecorateInsurance = decorateCards;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
+  else setTimeout(boot, 0);
 })();
 </script>
