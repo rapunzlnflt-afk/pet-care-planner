@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.12.1">
+                          <meta name="app-version" content="3.13.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -8296,6 +8296,82 @@ try {
     return rec.petName || '';
   }
 
+  // ---------- dated updates on a note ----------
+  // Each note can carry a list of follow-ups: { id, date, text }, kept oldest first
+  // so a note reads as a small story ("limping" → "still limping" → "walking fine").
+  function noteUpdates(n){
+    var u = (n && n.updates) || [];
+    return u.slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+  }
+  function latestUpdate(n){
+    var u = noteUpdates(n);
+    return u.length ? u[u.length-1] : null;
+  }
+  function writeUpdates(noteId, list){
+    var all = notes();
+    for (var i=0;i<all.length;i++){
+      if (String(all[i].__id) === String(noteId)){
+        all[i] = Object.assign({}, all[i], { updates: list });
+        saveNotes(all);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Cards are rendered in two places at once (Notes and Timeline), so every
+  // per-card element id carries a context prefix to keep it unique.
+  function updFormId(ctx, id){ return 'note-upd-' + ctx + '-' + id; }
+
+  window.pfShowUpdateForm = function(ctx, id){
+    var box = document.getElementById(updFormId(ctx, id));
+    if (!box) return;
+    box.style.display = '';
+    var d = document.getElementById(updFormId(ctx, id) + '-date');
+    if (d && !d.value) d.value = iso();
+    var t = document.getElementById(updFormId(ctx, id) + '-text');
+    if (t) t.focus();
+  };
+  window.pfCancelUpdate = function(ctx, id){
+    var box = document.getElementById(updFormId(ctx, id));
+    if (!box) return;
+    var t = document.getElementById(updFormId(ctx, id) + '-text');
+    if (t) t.value = '';
+    box.style.display = 'none';
+  };
+  window.pfSaveUpdate = function(ctx, id){
+    var d = document.getElementById(updFormId(ctx, id) + '-date');
+    var t = document.getElementById(updFormId(ctx, id) + '-text');
+    var date = (d && d.value) || iso();
+    var text = ((t && t.value) || '').trim();
+    if (!text){ if (t) t.focus(); return; }
+    var n = notes().filter(function(x){ return String(x.__id) === String(id); })[0];
+    if (!n) return;
+    var list = ((n.updates) || []).slice();
+    list.push({ id: Date.now() + Math.random(), date: date, text: text });
+    writeUpdates(id, list);
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    say('Update added.');
+  };
+  window.pfDeleteUpdate = function(noteId, updId){
+    var doDelete = function(){
+      var n = notes().filter(function(x){ return String(x.__id) === String(noteId); })[0];
+      if (!n) return;
+      writeUpdates(noteId, ((n.updates) || []).filter(function(u){ return String(u.id) !== String(updId); }));
+      if (typeof window.refreshAll === 'function') window.refreshAll();
+    };
+    if (typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Delete this update?',
+        message: 'Only this update is removed — the original note stays.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: doDelete
+      });
+    } else if (confirm('Delete this update?')) doDelete();
+  };
+
   var CAT_ICON = {
     'Symptom':'🩺','Injury':'🩹','Incident / Exposure':'⚠️','Behavior':'🐾',
     'Appetite / Diet':'🍽️','Bathroom':'🚽','Skin / Coat':'🧴','Medication reaction':'💊',
@@ -8413,12 +8489,45 @@ try {
       '<span style="'+chip+'">'+catIcon(n.category)+' '+esc(n.category || 'Observation')+'</span>' +
       (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">🔖 For the vet</span>' : '') +
       '</div>';
+    var ctx = opts.ctx || 'n';
+    // On the Timeline each update is its own dated entry, so the inline thread
+    // is suppressed there to avoid saying the same thing twice.
+    var updates = opts.hideThread ? [] : noteUpdates(n);
+    var thread = '';
+    if (updates.length){
+      thread = '<div style="margin-top:12px;padding-left:12px;border-left:2px solid var(--border-color);">' +
+        '<p class="font-body text-xs text-secondary" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Updates</p>' +
+        updates.map(function(u){
+          return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">' +
+            '<div style="flex:1;min-width:0;">' +
+              '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+'</p>' +
+              '<p class="font-body text-sm text-primary" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
+            '</div>' +
+            (opts.readOnly ? '' : '<button type="button" title="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;">×</button>') +
+            '</div>';
+        }).join('') + '</div>';
+    }
+    var updForm = '';
+    if (!opts.readOnly){
+      var fid = updFormId(ctx, n.__id);
+      updForm = '<div id="'+fid+'" style="display:none;margin-top:12px;padding:12px;background:rgba(91,91,214,0.05);border-radius:8px;">' +
+        '<label class="block font-body text-xs text-secondary mb-1">Date of this update</label>' +
+        '<input type="date" id="'+fid+'-date" value="'+esc(iso())+'" style="margin-bottom:8px;">' +
+        '<label class="block font-body text-xs text-secondary mb-1">What changed?</label>' +
+        '<textarea id="'+fid+'-text" rows="2" placeholder="e.g., Still limping, but putting a little weight on it"></textarea>' +
+        '<div style="display:flex;gap:8px;margin-top:8px;">' +
+          '<button type="button" onclick="window.pfSaveUpdate(\''+ctx+'\','+n.__id+')" style="padding:6px 12px;background:'+ACCENT+';color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save update</button>' +
+          '<button type="button" onclick="window.pfCancelUpdate(\''+ctx+'\','+n.__id+')" style="padding:6px 12px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+        '</div></div>';
+    }
     var body = head +
       '<p class="font-body text-sm text-secondary">'+esc(fdate(n.date))+'</p>' +
-      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(n.text)+'</p>';
+      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(n.text)+'</p>' +
+      thread + updForm;
     var actions = '';
     if (!opts.readOnly){
       actions = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
+        '<button type="button" onclick="window.pfShowUpdateForm(\''+ctx+'\','+n.__id+')" style="'+btn+'">+ Add update</button>' +
         '<button type="button" onclick="window.pfToggleNoteFlag('+n.__id+')" style="'+(n.flag?btnMuted:btn)+'">'+(n.flag ? '✓ Discussed with vet' : '🔖 Flag for vet')+'</button>' +
         '<button type="button" onclick="window.pfEditNote('+n.__id+')" style="'+btn+'">✎ Edit</button>' +
         '<button type="button" onclick="window.pfDeleteNote('+n.__id+')" style="'+btnDanger+'">✕ Delete</button>' +
@@ -8445,6 +8554,7 @@ try {
           '<div style="flex:1;min-width:0;">' +
             '<p class="font-body text-sm text-primary" style="line-height:1.45;">'+esc(n.text)+'</p>' +
             '<p class="font-body text-xs text-secondary">'+esc(fdate(n.date))+(pet ? ' \u00b7 '+esc(pet) : '')+'</p>' +
+            (function(){ var u = latestUpdate(n); return u ? '<p class="font-body text-xs text-secondary" style="font-style:italic;">Latest '+esc(fdate(u.date))+': '+esc(u.text)+'</p>' : ''; })() +
           '</div></div>';
       }).join('') + '</div>' +
       (flagged.length > shown.length ? '<p class="font-body text-xs text-secondary mt-2">+ '+(flagged.length - shown.length)+' more.</p>' : '') +
@@ -8463,7 +8573,9 @@ try {
         prep.innerHTML = '<p class="font-body text-sm text-primary" style="font-weight:600;">🔖 '+flagged.length+' note'+(flagged.length===1?'':'s')+' to mention at the next vet visit</p>' +
           '<ul style="margin:8px 0 0;padding-left:18px;">' + flagged.slice(0,5).map(function(n){
             var pet = petLabel(n);
-            return '<li class="font-body text-sm text-secondary" style="margin-bottom:2px;">'+esc(fdate(n.date))+(pet?' · '+esc(pet):'')+' — '+esc(n.text)+'</li>';
+            var u = latestUpdate(n);
+            return '<li class="font-body text-sm text-secondary" style="margin-bottom:2px;">'+esc(fdate(n.date))+(pet?' · '+esc(pet):'')+' — '+esc(n.text)+
+              (u ? ' <span style="font-style:italic;">(latest '+esc(fdate(u.date))+': '+esc(u.text)+')</span>' : '')+'</li>';
           }).join('') + '</ul>' +
           (flagged.length > 5 ? '<p class="font-body text-xs text-secondary mt-1">+ '+(flagged.length-5)+' more below.</p>' : '') +
           '<button type="button" onclick="window.goToTab(\'timeline\')" style="margin-top:10px;padding:6px 12px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">See them on the Timeline</button>';
@@ -8512,6 +8624,9 @@ try {
     if (kind === 'all' || kind === 'note' || kind === 'flagged'){
       notes().filter(matchesPet).filter(function(n){ return kind !== 'flagged' || n.flag; }).forEach(function(n){
         out.push({ kind:'note', date: n.date || '', time:'', rec: n });
+        noteUpdates(n).forEach(function(u){
+          out.push({ kind:'update', date: u.date || n.date || '', time:'', rec: n, upd: u });
+        });
       });
     }
     return out;
@@ -8533,6 +8648,24 @@ try {
       '<div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
         '<button type="button" onclick="window.goToTab(\'vet-visits\')" style="'+btn+'">Open in Vet Visits</button>' +
       '</div></div>';
+  }
+
+  // A dated update, shown on the Timeline under its own date with a pointer
+  // back to the note it belongs to.
+  function updateCard(n, u){
+    var pet = petLabel(n);
+    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
+    var origin = n.text || '';
+    if (origin.length > 70) origin = origin.slice(0, 70) + '\u2026';
+    return '<div class="card p-4" style="border-left:3px solid rgba(91,91,214,0.35);">' +
+      '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
+        '<span class="font-heading font-bold text-primary">'+esc(pet || 'General')+'</span>' +
+        '<span style="'+chip+'">\u21b3 Update</span>' +
+      '</div>' +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(u.date))+'</p>' +
+      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(u.text)+'</p>' +
+      '<p class="font-body text-xs text-secondary mt-2">Follow-up to \u201c'+esc(origin)+'\u201d ('+esc(fdate(n.date))+')</p>' +
+      '</div>';
   }
 
   function monthLabel(date){
@@ -8581,7 +8714,9 @@ try {
         currentMonth = ml;
         html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:16px 0 8px;">'+esc(ml)+'</h3><div class="space-y-3">';
       }
-      html += (e.kind === 'vet') ? visitCard(e.rec) : noteCard(e.rec);
+      if (e.kind === 'vet') html += visitCard(e.rec);
+      else if (e.kind === 'update') html += updateCard(e.rec, e.upd);
+      else html += noteCard(e.rec, { ctx:'t', hideThread:true });
     });
     if (currentMonth !== null) html += '</div>';
     list.innerHTML = html;
@@ -8599,6 +8734,11 @@ try {
         if (r.reason) bits.push('Reason: ' + r.reason);
         if (r.diagnosis) bits.push(r.diagnosis);
         return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + bits.join(' — ');
+      }
+      if (e.kind === 'update'){
+        var origin = r.text || '';
+        if (origin.length > 50) origin = origin.slice(0, 50) + '\u2026';
+        return fdate(e.upd.date) + (pet ? ' · ' + pet : '') + ' — Update on “' + origin + '”: ' + e.upd.text;
       }
       return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
     });
