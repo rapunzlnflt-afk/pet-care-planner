@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.11.0">
+                          <meta name="app-version" content="3.12.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -382,6 +382,8 @@
      <button class="sidebar-item active" data-tab="overview">Overview</button>
      <button class="sidebar-item" data-tab="pet-profiles">Pet Profiles</button>
      <button class="sidebar-item" data-tab="vet-visits">Vet Visits</button>
+     <button class="sidebar-item" data-tab="notes">Notes</button>
+     <button class="sidebar-item" data-tab="timeline">Timeline</button>
      <button class="sidebar-item" data-tab="vaccinations">Vaccinations</button>
      <button class="sidebar-item" data-tab="medications">Medications</button>
      <button class="sidebar-item" data-tab="weight-tracker">Weight Tracker</button>
@@ -663,6 +665,84 @@
       </form>
      </div>
      <div id="vet-visits-list" class="space-y-3"></div>
+    </section>
+
+    <!-- NOTES TAB (v3.12.0) -->
+    <section id="tab-notes" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-1">Notes</h2>
+     <p class="font-body text-sm text-secondary mb-4">Jot down anything you notice &mdash; limping, a skunk spray, an off appetite. Flagged notes are easy to hand to your vet at the next visit.</p>
+     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+      <h3 id="note-form-title" class="font-heading text-base font-bold text-primary mb-4">Add a Note</h3>
+      <form id="note-form" class="space-y-4">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Pet</label>
+         <select id="note-pet"><option value="">All pets / General</option></select>
+        </div>
+        <div>
+         <label class="block font-body text-sm text-secondary mb-1">Date *</label>
+         <input type="date" id="note-date" required>
+        </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">What did you notice? *</label>
+        <select id="note-category">
+         <option value="Observation">Observation</option>
+         <option value="Symptom">Symptom</option>
+         <option value="Injury">Injury</option>
+         <option value="Incident / Exposure">Incident / Exposure</option>
+         <option value="Behavior">Behavior</option>
+         <option value="Appetite / Diet">Appetite / Diet</option>
+         <option value="Bathroom">Bathroom</option>
+         <option value="Skin / Coat">Skin / Coat</option>
+         <option value="Medication reaction">Medication reaction</option>
+         <option value="Other">Other</option>
+        </select>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Note *</label>
+        <textarea id="note-text" rows="3" required placeholder="e.g., Rover is limping on his back right leg after the dog park"></textarea>
+       </div>
+       <label for="note-flag" style="display:flex;align-items:center;gap:8px;cursor:pointer;" class="font-body text-sm text-primary">
+        <input type="checkbox" id="note-flag" checked style="width:16px;height:16px;cursor:pointer;accent-color:#5B5BD6;">
+        <span>Mention this at the next vet visit</span>
+       </label>
+       <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <button type="submit" id="note-submit-btn" class="btn-primary px-4 py-2">Save Note</button>
+        <button type="button" id="note-cancel-btn" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel edit</button>
+       </div>
+      </form>
+     </div>
+     <div id="notes-vet-prep" class="card p-4 mb-5" style="display:none;border-left:4px solid var(--accent-color);background:rgba(91,91,214,0.06);"></div>
+     <div id="notes-list" class="space-y-3"></div>
+    </section>
+
+    <!-- TIMELINE TAB (v3.12.0) -->
+    <section id="tab-timeline" class="tab-content">
+     <h2 class="font-heading text-2xl font-bold text-primary mb-1">Timeline</h2>
+     <p class="font-body text-sm text-secondary mb-4">Vet visits and your notes in one dated history, newest first.</p>
+     <div class="card p-4 mb-5">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Pet</label>
+        <select id="timeline-pet"><option value="">All pets</option></select>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Show</label>
+        <select id="timeline-filter">
+         <option value="all">Vet visits &amp; notes</option>
+         <option value="vet">Vet visits only</option>
+         <option value="note">Notes only</option>
+         <option value="flagged">Notes flagged for the vet</option>
+        </select>
+       </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+       <button type="button" id="timeline-copy-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Copy for vet</button>
+       <button type="button" id="timeline-print-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Print</button>
+      </div>
+     </div>
+     <div id="timeline-list" class="space-y-3"></div>
     </section>
 
     <!-- VACCINATIONS TAB -->
@@ -1407,7 +1487,7 @@
 
   // Home-screen shortcut deep-links (v3.9.21): ?tab=<name> opens that tab on launch.
   (function openTabFromUrl(){
-    var allowed = ['overview','pet-profiles','vet-visits','vaccinations','medications','weight-tracker','expenses','pet-sitter','document-vault','important-links'];
+    var allowed = ['overview','pet-profiles','vet-visits','notes','timeline','vaccinations','medications','weight-tracker','expenses','pet-sitter','document-vault','important-links'];
     var go = function(){
       try {
         var t = new URLSearchParams(window.location.search).get('tab');
@@ -1432,7 +1512,7 @@
       const el = document.getElementById(id);
       if(el) el.innerHTML = `<option value="">Select pet...</option>` + opts;
     });
-    ['expense-pet','doc-pet'].forEach(id => {
+    ['expense-pet','doc-pet','note-pet'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.innerHTML = optsWithAll;
     });
@@ -8173,6 +8253,414 @@ try {
     window.addEventListener('focus', requestSync);
   }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
+})();
+</script>
+<script>
+/* === Pawfolio v3.12.0 — Notes + Timeline ===
+   Notes tab: dated observations/incidents ("Rover is limping today", "got sprayed by a
+   skunk") with a category, an optional pet, and a "mention at the next vet visit" flag.
+   Timeline tab: vet visits and notes merged into one dated history with pet/type filters,
+   a copy-for-vet summary, and a printable view.
+   Data lives in the app's own store under the 'notes' list, so it rides along with
+   export/import and the automatic backup with no extra wiring. */
+(function(){
+  'use strict';
+  if (window.__pawfolio_notes_timeline) return; window.__pawfolio_notes_timeline = true;
+
+  var ACCENT = '#5B5BD6';
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (window.escHtml ? window.escHtml(s) : String(s==null?'':s)); }
+  function iso(){ return new Date().toISOString().slice(0,10); }
+  // Matches the app's MM/DD/YYYY display format (the core fmtDate is script-scoped).
+  function fdate(d){
+    if(!d) return 'No date';
+    var p = String(d).split('-');
+    return (p.length === 3) ? (p[1] + '/' + p[2] + '/' + p[0]) : String(d);
+  }
+  function notes(){ try { return (window.getList ? window.getList('notes') : []) || []; } catch(e){ return []; } }
+  function saveNotes(list){ try { if (window.saveList) window.saveList('notes', list); } catch(e){} }
+  function pets(){ try { return (window.getList ? window.getList('pets') : []) || []; } catch(e){ return []; } }
+  function visits(){ try { return (window.getList ? window.getList('vet-visits') : []) || []; } catch(e){ return []; } }
+  function say(msg){ try { if (typeof window.toast === 'function') window.toast(msg); } catch(e){} }
+
+  // Resolve a display name for a record that may only carry petId or only petName.
+  function petLabel(rec){
+    if (rec.petId != null && rec.petId !== '') {
+      var p = pets().filter(function(x){ return String(x.__id) === String(rec.petId); })[0];
+      if (p) return p.name || '';
+    }
+    return rec.petName || '';
+  }
+
+  var CAT_ICON = {
+    'Symptom':'🩺','Injury':'🩹','Incident / Exposure':'⚠️','Behavior':'🐾',
+    'Appetite / Diet':'🍽️','Bathroom':'🚽','Skin / Coat':'🧴','Medication reaction':'💊',
+    'Observation':'📝','Other':'📝'
+  };
+  function catIcon(c){ return CAT_ICON[c] || '📝'; }
+
+  // ---------- form ----------
+  function formEditId(){ var f = $('note-form'); return f ? (f.dataset.editId || '') : ''; }
+  function setFormMode(editing){
+    var title = $('note-form-title'), submit = $('note-submit-btn'), cancel = $('note-cancel-btn');
+    if (title) title.textContent = editing ? 'Edit Note' : 'Add a Note';
+    if (submit) submit.textContent = editing ? 'Save Changes' : 'Save Note';
+    if (cancel) cancel.style.display = editing ? '' : 'none';
+  }
+  function resetForm(){
+    var f = $('note-form'); if(!f) return;
+    delete f.dataset.editId;
+    f.reset();
+    if ($('note-date')) $('note-date').value = iso();
+    if ($('note-flag')) $('note-flag').checked = true;
+    setFormMode(false);
+  }
+
+  function onSubmit(e){
+    e.preventDefault();
+    var text = ($('note-text') && $('note-text').value || '').trim();
+    var date = ($('note-date') && $('note-date').value) || '';
+    if (!text || !date) return;
+    var rawPet = ($('note-pet') && $('note-pet').value) || '';
+    var petId = rawPet === '' ? null : parseFloat(rawPet);
+    var p = petId == null ? null : pets().filter(function(x){ return String(x.__id) === String(petId); })[0];
+    var fields = {
+      petId: petId,
+      petName: p ? p.name : '',
+      date: date,
+      category: ($('note-category') && $('note-category').value) || 'Observation',
+      text: text,
+      flag: !!($('note-flag') && $('note-flag').checked)
+    };
+    var editId = formEditId();
+    if (editId){
+      var list = notes();
+      var idx = -1;
+      for (var i=0;i<list.length;i++){ if (String(list[i].__id) === editId){ idx = i; break; } }
+      if (idx >= 0){ list[idx] = Object.assign({}, list[idx], fields); saveNotes(list); }
+    } else {
+      if (window.addItem) window.addItem('notes', fields);
+    }
+    resetForm();
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    say(editId ? 'Note updated.' : 'Note saved.');
+  }
+
+  window.pfEditNote = function(id){
+    var n = notes().filter(function(x){ return String(x.__id) === String(id); })[0];
+    if (!n) return;
+    var f = $('note-form'); if(!f) return;
+    // Switch tabs first: goToTab() runs refreshAll(), which rebuilds the pet dropdown.
+    var tab = $('tab-notes');
+    if (typeof window.goToTab === 'function' && tab && !tab.classList.contains('active-tab')) window.goToTab('notes');
+    f.dataset.editId = String(n.__id);
+    if ($('note-pet')) $('note-pet').value = (n.petId == null ? '' : String(n.petId));
+    if ($('note-date')) $('note-date').value = n.date || '';
+    if ($('note-category')) $('note-category').value = n.category || 'Observation';
+    if ($('note-text')) $('note-text').value = n.text || '';
+    if ($('note-flag')) $('note-flag').checked = !!n.flag;
+    setFormMode(true);
+    renderNotes();
+    f.scrollIntoView({ behavior:'smooth', block:'start' });
+  };
+
+  window.pfDeleteNote = function(id){
+    var doDelete = function(){
+      if (window.deleteItem) window.deleteItem('notes', id);
+      if (formEditId() === String(id)) resetForm();
+      if (typeof window.refreshAll === 'function') window.refreshAll();
+    };
+    if (typeof window.showConfirmModal === 'function'){
+      window.showConfirmModal({
+        title: 'Delete this note?',
+        message: 'This note will be permanently removed from your Notes and Timeline. This cannot be undone.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep it',
+        danger: true,
+        onConfirm: doDelete
+      });
+    } else if (confirm('Delete this note?')) doDelete();
+  };
+
+  // Flip the "mention at the vet" flag (used to clear items after a visit).
+  window.pfToggleNoteFlag = function(id){
+    var list = notes();
+    for (var i=0;i<list.length;i++){
+      if (String(list[i].__id) === String(id)){
+        list[i] = Object.assign({}, list[i], { flag: !list[i].flag });
+        saveNotes(list);
+        break;
+      }
+    }
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+  };
+
+  // ---------- notes list ----------
+  function noteCard(n, opts){
+    opts = opts || {};
+    var editing = formEditId() === String(n.__id);
+    var pet = petLabel(n);
+    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
+    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var btnMuted = 'padding:5px 10px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var btnDanger = 'padding:5px 10px;background:transparent;color:#dc2626;border:1.5px solid #fecaca;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var head = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
+      (pet ? '<span class="font-heading font-bold text-primary">'+esc(pet)+'</span>' : '<span class="font-heading font-bold text-primary">General</span>') +
+      '<span style="'+chip+'">'+catIcon(n.category)+' '+esc(n.category || 'Observation')+'</span>' +
+      (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">🔖 For the vet</span>' : '') +
+      '</div>';
+    var body = head +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(n.date))+'</p>' +
+      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(n.text)+'</p>';
+    var actions = '';
+    if (!opts.readOnly){
+      actions = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
+        '<button type="button" onclick="window.pfToggleNoteFlag('+n.__id+')" style="'+(n.flag?btnMuted:btn)+'">'+(n.flag ? '✓ Discussed with vet' : '🔖 Flag for vet')+'</button>' +
+        '<button type="button" onclick="window.pfEditNote('+n.__id+')" style="'+btn+'">✎ Edit</button>' +
+        '<button type="button" onclick="window.pfDeleteNote('+n.__id+')" style="'+btnDanger+'">✕ Delete</button>' +
+        '</div>';
+    }
+    return '<div class="card p-4" style="position:relative;'+(editing?'box-shadow:0 0 0 2px '+ACCENT+';border-color:'+ACCENT+';':'')+'">' +
+             '<div>'+body+'</div>'+actions+
+           '</div>';
+  }
+
+  function renderNotes(){
+    var list = $('notes-list'); if(!list) return;
+    var all = notes().slice().sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+    var prep = $('notes-vet-prep');
+    var flagged = all.filter(function(n){ return n.flag; });
+    if (prep){
+      if (flagged.length){
+        prep.style.display = '';
+        prep.innerHTML = '<p class="font-body text-sm text-primary" style="font-weight:600;">🔖 '+flagged.length+' note'+(flagged.length===1?'':'s')+' to mention at the next vet visit</p>' +
+          '<ul style="margin:8px 0 0;padding-left:18px;">' + flagged.slice(0,5).map(function(n){
+            var pet = petLabel(n);
+            return '<li class="font-body text-sm text-secondary" style="margin-bottom:2px;">'+esc(fdate(n.date))+(pet?' · '+esc(pet):'')+' — '+esc(n.text)+'</li>';
+          }).join('') + '</ul>' +
+          (flagged.length > 5 ? '<p class="font-body text-xs text-secondary mt-1">+ '+(flagged.length-5)+' more below.</p>' : '') +
+          '<button type="button" onclick="window.goToTab(\'timeline\')" style="margin-top:10px;padding:6px 12px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">See them on the Timeline</button>';
+      } else {
+        prep.style.display = 'none';
+        prep.innerHTML = '';
+      }
+    }
+    if (!all.length){
+      list.innerHTML = '<p class="font-body text-sm text-secondary italic">No notes yet. Anything you notice — limping, itching, a skunk encounter — belongs here so you can mention it at the next vet visit.</p>';
+      return;
+    }
+    list.innerHTML = all.map(function(n){ return noteCard(n); }).join('');
+  }
+  window.renderNotes = renderNotes;
+
+  // ---------- timeline ----------
+  function fillTimelinePets(){
+    var sel = $('timeline-pet'); if(!sel) return;
+    var prev = sel.value;
+    var opts = '<option value="">All pets</option>';
+    pets().forEach(function(p){
+      opts += '<option value="'+p.__id+'">'+esc(p.name)+(p.archived?' (Rainbow Bridge)':'')+'</option>';
+    });
+    sel.innerHTML = opts;
+    if (prev) sel.value = prev;
+    if (sel.value !== prev) sel.value = '';
+  }
+
+  function timelineEntries(){
+    var petFilter = ($('timeline-pet') && $('timeline-pet').value) || '';
+    var kind = ($('timeline-filter') && $('timeline-filter').value) || 'all';
+    var matchesPet = function(rec){
+      if (!petFilter) return true;
+      if (rec.petId != null && rec.petId !== '') return String(rec.petId) === String(petFilter);
+      // Older records may only carry a name.
+      var p = pets().filter(function(x){ return String(x.__id) === String(petFilter); })[0];
+      return !!(p && rec.petName && rec.petName === p.name);
+    };
+    var out = [];
+    if (kind === 'all' || kind === 'vet'){
+      visits().filter(matchesPet).forEach(function(v){
+        out.push({ kind:'vet', date: v.date || '', time: v.time || '', rec: v });
+      });
+    }
+    if (kind === 'all' || kind === 'note' || kind === 'flagged'){
+      notes().filter(matchesPet).filter(function(n){ return kind !== 'flagged' || n.flag; }).forEach(function(n){
+        out.push({ kind:'note', date: n.date || '', time:'', rec: n });
+      });
+    }
+    return out;
+  }
+
+  function visitCard(v){
+    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
+    var pet = petLabel(v);
+    var lines = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
+      '<span class="font-heading font-bold text-primary">'+esc(pet || 'Vet visit')+'</span>' +
+      '<span style="'+chip+'">🩺 '+esc(v.type || 'Vet Visit')+'</span>' +
+      '</div>' +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(v.date))+(v.vet ? ' · '+esc(v.vet) : '')+'</p>' +
+      (v.reason ? '<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+esc(v.reason)+'</p>' : '') +
+      (v.diagnosis ? '<p class="font-body text-sm text-secondary mt-1" style="white-space:pre-wrap;">'+esc(v.diagnosis)+'</p>' : '') +
+      (v.next ? '<p class="font-body text-sm mt-1" style="color:'+ACCENT+';">Next appointment: '+esc(fdate(v.next))+'</p>' : '');
+    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    return '<div class="card p-4"><div>'+lines+'</div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
+        '<button type="button" onclick="window.goToTab(\'vet-visits\')" style="'+btn+'">Open in Vet Visits</button>' +
+      '</div></div>';
+  }
+
+  function monthLabel(date){
+    if (!date) return 'Undated';
+    var parts = String(date).split('-');
+    if (parts.length < 2) return 'Undated';
+    var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var m = parseInt(parts[1],10);
+    if (!m || m < 1 || m > 12) return 'Undated';
+    return names[m-1] + ' ' + parts[0];
+  }
+
+  function renderTimeline(){
+    var list = $('timeline-list'); if(!list) return;
+    fillTimelinePets();
+    var entries = timelineEntries();
+    if (!entries.length){
+      list.innerHTML = '<p class="font-body text-sm text-secondary italic">Nothing on the timeline yet. Log a vet visit or add a note and it will show up here.</p>';
+      return;
+    }
+    var today = iso();
+    var upcoming = entries.filter(function(e){ return e.kind === 'vet' && e.date && e.date > today; })
+                          .sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
+    // A past visit can also carry a scheduled follow-up date — surface those too.
+    var followUps = entries.filter(function(e){ return e.kind === 'vet' && e.rec.next && e.rec.next > today && upcoming.indexOf(e) === -1; })
+                           .sort(function(a,b){ return String(a.rec.next).localeCompare(String(b.rec.next)); });
+    var pastEntries = entries.filter(function(e){ return upcoming.indexOf(e) === -1; })
+                             .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+    var html = '';
+    if (upcoming.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Coming Up</h3>';
+      html += '<div class="space-y-3" style="margin-bottom:18px;">' + upcoming.map(function(e){ return visitCard(e.rec); }).join('') + '</div>';
+    }
+    if (followUps.length){
+      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Follow-ups Scheduled</h3>';
+      html += '<div class="space-y-3" style="margin-bottom:18px;">' + followUps.map(function(e){
+        var pet = petLabel(e.rec);
+        return '<div class="card p-4"><p class="font-body text-sm text-primary"><strong>'+esc(fdate(e.rec.next))+'</strong>'+(pet?' · '+esc(pet):'')+' — follow-up from the '+esc(fdate(e.rec.date))+' visit'+(e.rec.vet?' at '+esc(e.rec.vet):'')+'.</p></div>';
+      }).join('') + '</div>';
+    }
+    var currentMonth = null;
+    pastEntries.forEach(function(e){
+      var ml = monthLabel(e.date);
+      if (ml !== currentMonth){
+        if (currentMonth !== null) html += '</div>';
+        currentMonth = ml;
+        html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:16px 0 8px;">'+esc(ml)+'</h3><div class="space-y-3">';
+      }
+      html += (e.kind === 'vet') ? visitCard(e.rec) : noteCard(e.rec);
+    });
+    if (currentMonth !== null) html += '</div>';
+    list.innerHTML = html;
+  }
+  window.renderTimeline = renderTimeline;
+
+  // ---------- copy / print ----------
+  function summaryLines(){
+    var entries = timelineEntries().slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+    return entries.map(function(e){
+      var r = e.rec, pet = petLabel(r);
+      if (e.kind === 'vet'){
+        var bits = ['Vet visit' + (r.type ? ' (' + r.type + ')' : '')];
+        if (r.vet) bits.push(r.vet);
+        if (r.reason) bits.push('Reason: ' + r.reason);
+        if (r.diagnosis) bits.push(r.diagnosis);
+        return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + bits.join(' — ');
+      }
+      return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
+    });
+  }
+
+  function summaryText(){
+    var sel = $('timeline-pet');
+    var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
+    var lines = summaryLines();
+    return 'Pawfolio timeline — ' + who + ' (' + fdate(iso()) + ')\n\n' + (lines.length ? lines.join('\n') : 'No entries.');
+  }
+
+  function copySummary(){
+    var text = summaryText();
+    var fallback = function(){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        say('Timeline copied to your clipboard.');
+      } catch(e){ say('Could not copy. Try the Print option instead.'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText && document.hasFocus()){
+      // Some embedded/in-app browsers leave this promise pending forever, so time it out.
+      var done = false;
+      var finish = function(ok){ if (done) return; done = true; if (ok) say('Timeline copied to your clipboard.'); else fallback(); };
+      setTimeout(function(){ finish(false); }, 1200);
+      navigator.clipboard.writeText(text).then(function(){ finish(true); }, function(){ finish(false); });
+    } else fallback();
+  }
+
+  function printSummary(){
+    var sel = $('timeline-pet');
+    var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
+    var rows = summaryLines().map(function(l){ return '<li>'+esc(l)+'</li>'; }).join('');
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pawfolio Timeline</title>' +
+      '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1e293b;padding:28px;line-height:1.55;}' +
+      'h1{color:'+ACCENT+';font-size:20px;margin:0 0 2px;}p.meta{color:#64748b;font-size:12px;margin:0 0 18px;}' +
+      'li{margin-bottom:8px;font-size:13px;}footer{margin-top:26px;color:#94a3b8;font-size:11px;}</style></head><body>' +
+      '<h1>Pawfolio Timeline</h1><p class="meta">'+esc(who)+' · printed '+esc(fdate(iso()))+'</p>' +
+      (rows ? '<ol>'+rows+'</ol>' : '<p>No entries.</p>') +
+      '<footer>Created with Pawfolio</footer></body></html>';
+    var w = window.open('', '_blank');
+    if (!w){ say('Please allow pop-ups to print the timeline.'); return; }
+    w.document.write(html); w.document.close();
+    setTimeout(function(){ try { w.focus(); w.print(); } catch(e){} }, 250);
+  }
+
+  // ---------- wiring ----------
+  function wrapRefreshAll(){
+    if (typeof window.refreshAll === 'function' && !window.refreshAll.__v3120notes){
+      var orig = window.refreshAll;
+      window.refreshAll = function(){
+        // refreshAll() rebuilds the pet dropdowns, so keep the in-progress note selection.
+        var keepPet = ($('note-pet') && formEditId()) ? $('note-pet').value : null;
+        var r = orig.apply(this, arguments);
+        if (keepPet !== null && $('note-pet')) $('note-pet').value = keepPet;
+        try { renderNotes(); } catch(e){}
+        try { renderTimeline(); } catch(e){}
+        return r;
+      };
+      window.refreshAll.__v3120notes = true;
+    }
+  }
+
+  function boot(){
+    var form = $('note-form');
+    if (!form || typeof window.getList !== 'function') return setTimeout(boot, 80);
+    if (!form.dataset.v3120){
+      form.dataset.v3120 = '1';
+      form.addEventListener('submit', onSubmit);
+    }
+    var cancel = $('note-cancel-btn');
+    if (cancel && !cancel.dataset.v3120){ cancel.dataset.v3120 = '1'; cancel.addEventListener('click', resetForm); }
+    if ($('note-date') && !$('note-date').value) $('note-date').value = iso();
+    ['timeline-pet','timeline-filter'].forEach(function(id){
+      var el = $(id);
+      if (el && !el.dataset.v3120){ el.dataset.v3120 = '1'; el.addEventListener('change', renderTimeline); }
+    });
+    var copyBtn = $('timeline-copy-btn');
+    if (copyBtn && !copyBtn.dataset.v3120){ copyBtn.dataset.v3120 = '1'; copyBtn.addEventListener('click', copySummary); }
+    var printBtn = $('timeline-print-btn');
+    if (printBtn && !printBtn.dataset.v3120){ printBtn.dataset.v3120 = '1'; printBtn.addEventListener('click', printSummary); }
+    wrapRefreshAll();
+    renderNotes();
+    renderTimeline();
+  }
+  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
 })();
 </script>

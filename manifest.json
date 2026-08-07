@@ -46,6 +46,12 @@
       "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
+      "name": "Add Note",
+      "short_name": "Note",
+      "url": "./index.html?tab=notes",
+      "icons": [{ "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
       "name": "Vaccinations",
       "short_name": "Vaccines",
       "url": "./index.html?tab=vaccinations",
