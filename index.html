@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.14.0">
+                          <meta name="app-version" content="3.14.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -68,6 +68,12 @@
     .pet-ins-btn.secondary { background: transparent; color: var(--accent-color); border: 1.5px solid var(--accent-color); }
     .pet-ins-label { font-family: 'Karla', sans-serif; font-size: 10px; letter-spacing: .04em; color: var(--text-secondary); text-transform: uppercase; margin: 0; }
     .pet-ins-renew { font-family: 'Karla', sans-serif; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+    /* ===== Add-a-Pet edit mode (v3.14.1) ===== */
+    #add-pet-edit-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding: 9px 12px; border: 1px solid #f6a623; border-radius: 8px; background: rgba(246,166,35,0.12); }
+    #add-pet-edit-banner p { font-family: 'Karla', sans-serif; font-size: 13px; color: var(--text-primary); margin: 0; }
+    #add-pet-cancel-edit { font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: 1.5px solid #f6a623; background: transparent; color: #b06f00; cursor: pointer; white-space: nowrap; }
+    #add-pet-cancel-edit:hover { background: rgba(246,166,35,0.2); }
+    #add-pet-card.is-editing { border-top-color: #f6a623 !important; }
     input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
     /* Custom dropdown arrow with breathing room from the right edge. */
     select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 40px; background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
@@ -9142,6 +9148,176 @@ try {
 
   window.pfInsurancePanel = panelHTML;
   window.pfDecorateInsurance = decorateCards;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
+  else setTimeout(boot, 0);
+})();
+</script>
+
+<script>
+/* ============================================================================
+   Pawfolio v3.14.1 — Add-a-Pet edit mode
+   The pencil on a pet card reuses the "Add a Pet" panel as an edit form. This
+   makes that state visible (banner + retitled header + amber card edge) and
+   escapable (Cancel button), and clears it whenever you collapse the panel,
+   leave the tab, or finish a save - so the panel is never quietly still
+   editing someone.
+   ========================================================================== */
+(function(){
+  'use strict';
+
+  var EDITING_NAME = '';
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){
+    var f = window.escHtml || window.esc;
+    if (typeof f === 'function') return f(s == null ? '' : s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+  function heading(){
+    var t = $('add-pet-toggle');
+    return t ? t.querySelector('h3') : null;
+  }
+  function isEditing(){
+    var hidden = $('pet-edit-id');
+    return !!(hidden && hidden.value);
+  }
+
+  function ensureBanner(){
+    var banner = $('add-pet-edit-banner');
+    if (banner) return banner;
+    var wrap = $('add-pet-form-wrap');
+    var form = $('pet-form');
+    if (!wrap || !form) return null;
+    banner = document.createElement('div');
+    banner.id = 'add-pet-edit-banner';
+    banner.innerHTML = '<p id="add-pet-edit-text">Editing an existing pet</p>' +
+      '<button type="button" id="add-pet-cancel-edit">Cancel editing</button>';
+    wrap.insertBefore(banner, form);
+    banner.querySelector('#add-pet-cancel-edit').addEventListener('click', function(){
+      exitEdit(true);
+    });
+    return banner;
+  }
+
+  function showEditing(name){
+    EDITING_NAME = name || '';
+    var banner = ensureBanner();
+    if (banner){
+      var txt = $('add-pet-edit-text');
+      if (txt) txt.innerHTML = EDITING_NAME
+        ? 'You are editing <strong>' + esc(EDITING_NAME) + '</strong> \u2014 saving updates that profile instead of adding a new pet.'
+        : 'You are editing an existing pet \u2014 saving updates that profile instead of adding a new pet.';
+      banner.style.display = 'flex';
+    }
+    var h = heading();
+    if (h) h.textContent = EDITING_NAME ? 'Edit ' + EDITING_NAME : 'Edit Pet';
+    var card = $('add-pet-card');
+    if (card) card.classList.add('is-editing');
+  }
+
+  /* Drop edit state and put the panel back to a clean "Add a Pet" form.
+     collapse=true also folds the card away, which is what Cancel should do. */
+  function exitEdit(collapse){
+    var hidden = $('pet-edit-id');
+    var wasEditing = isEditing();
+    if (hidden) hidden.value = '';
+    EDITING_NAME = '';
+
+    var form = $('pet-form');
+    if (form && wasEditing){
+      try { form.reset(); } catch(e){}
+    }
+    var preview = $('pet-photo-preview');
+    if (preview && wasEditing){
+      delete preview.dataset.photo;
+      preview.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
+    }
+    var submit = document.querySelector('#pet-form button[type=submit]');
+    if (submit) submit.textContent = 'Save Pet Profile';
+
+    var banner = $('add-pet-edit-banner');
+    if (banner) banner.style.display = 'none';
+    var h = heading();
+    if (h) h.textContent = 'Add a Pet';
+    var card = $('add-pet-card');
+    if (card) card.classList.remove('is-editing');
+
+    if (collapse && typeof window.setAddPetExpanded === 'function'){
+      window.setAddPetExpanded(false);
+    } else if (collapse) {
+      var wrap = $('add-pet-form-wrap');
+      if (wrap) wrap.style.display = 'none';
+      var chev = $('add-pet-chevron');
+      if (chev) chev.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  function boot(){
+    /* setAddPetExpanded lives in the main script's closure; expose it so this
+       module (and any future one) can fold the card. */
+    if (typeof setAddPetExpanded === 'function' && !window.setAddPetExpanded){
+      window.setAddPetExpanded = setAddPetExpanded;
+    }
+
+    if (typeof window.editPet === 'function' && !window.editPet.__editModeWrapped){
+      var origEdit = window.editPet;
+      window.editPet = function(id){
+        var r = origEdit.apply(this, arguments);
+        try {
+          var pet = (getList('pets') || []).filter(function(p){ return p.__id == id; })[0];
+          showEditing(pet ? pet.name : '');
+        } catch(e){}
+        return r;
+      };
+      window.editPet.__editModeWrapped = true;
+    }
+
+    /* Collapsing the panel by hand means "I'm done" - drop the edit. */
+    var toggle = $('add-pet-toggle');
+    if (toggle && !toggle.dataset.editModeBound){
+      toggle.dataset.editModeBound = '1';
+      toggle.addEventListener('click', function(){
+        var wrap = $('add-pet-form-wrap');
+        /* This fires after the main handler, so display already reflects the
+           new state: hidden means it was just collapsed. */
+        if (wrap && wrap.style.display === 'none' && isEditing()) exitEdit(false);
+      });
+    }
+
+    /* Leaving the tab drops the edit too, so coming back is always a fresh form. */
+    if (typeof window.goToTab === 'function' && !window.goToTab.__editModeWrapped){
+      var origGo = window.goToTab;
+      window.goToTab = function(name){
+        try { if (name !== 'pet-profiles' && isEditing()) exitEdit(false); } catch(e){}
+        return origGo.apply(this, arguments);
+      };
+      window.goToTab.__editModeWrapped = true;
+    }
+    var navButtons = document.querySelectorAll('.sidebar-item[data-tab]');
+    Array.prototype.forEach.call(navButtons, function(btn){
+      if (btn.dataset.editModeBound) return;
+      btn.dataset.editModeBound = '1';
+      btn.addEventListener('click', function(){
+        if (btn.getAttribute('data-tab') !== 'pet-profiles' && isEditing()) exitEdit(false);
+      });
+    });
+
+    /* After any save the app clears the hidden id itself; clear the chrome. */
+    if (!document.__pfEditModeSubmit){
+      document.__pfEditModeSubmit = true;
+      document.addEventListener('submit', function(ev){
+        if (!ev.target || ev.target.id !== 'pet-form') return;
+        setTimeout(function(){ exitEdit(false); }, 60);
+      }, true);
+    }
+
+    if (isEditing()) showEditing('');
+  }
+
+  window.pfExitPetEdit = exitEdit;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
   else setTimeout(boot, 0);
