@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.13.1">
+                          <meta name="app-version" content="3.13.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -55,6 +55,11 @@
     input, select, textarea { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 9px 14px; font-family: 'Karla', sans-serif; font-size: 16px; width: 100%; outline: none; transition: border-color 0.2s; background: white; color: var(--text-primary); }
     input, textarea { padding-left: 14px !important; padding-right: 14px !important; }
     select { padding-left: 14px !important; }
+    /* Date and time inputs only ever hold a fixed-width value, so they are capped
+       rather than stretched to the full column - a full-width box for "08/07/2026"
+       reads as a layout mistake, especially in the narrow Notes cards. */
+    input[type="date"], input[type="time"] { max-width: 200px; }
+    @media (max-width: 480px){ input[type="date"], input[type="time"] { max-width: 100%; } }
     input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
     /* Custom dropdown arrow with breathing room from the right edge. */
     select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 40px; background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
