@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.15.0">
+                          <meta name="app-version" content="3.16.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3304,17 +3304,25 @@
     const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme'];
     const data = {};
     keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const json = JSON.stringify(data, null, 2);
+    const fname = 'pet-planner-backup-' + today() + '.json';
+    const recordSaved = () => {
+      localStorage.setItem('petPlannerLastExport', today());
+      localStorage.removeItem('backupReminderSnoozed');
+      renderBackupReminder();
+    };
+    // v3.16.0: same one-tap save path as the full backup (share sheet on phones).
+    if (typeof window.pawfolioSaveBackupFile === 'function'){
+      return window.pawfolioSaveBackupFile(fname, json).then(recordSaved).catch(() => {});
+    }
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pet-planner-backup-' + today() + '.json';
+    a.download = fname;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    // Record export timestamp and refresh banner
-    localStorage.setItem('petPlannerLastExport', today());
-    localStorage.removeItem('backupReminderSnoozed');
-    renderBackupReminder();
+    recordSaved();
   }
   // Preferred export: full backup that ALSO includes document photos from IndexedDB.
   // Falls back to the legacy localStorage-only export if the helper isn't ready.
@@ -3323,8 +3331,10 @@
       window.pawfolioDownloadFullBackup().then(function(){
         try { localStorage.setItem('petPlannerLastExport', today()); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
         if (typeof renderBackupReminder === 'function') renderBackupReminder();
-      }).catch(function(){
-        // If the full backup fails for any reason, fall back so the user still gets a file.
+      }).catch(function(err){
+        // A dismissed share sheet is a deliberate cancel — don't re-prompt with the
+        // legacy export. Any real failure still falls back so the user gets a file.
+        if (err && err.cancelled) return;
         exportPlannerDataLegacy();
       });
       return;
@@ -3613,6 +3623,12 @@
     if (typeof window.pawfolioBuildBackupPayload === 'function') {
       return window.pawfolioBuildBackupPayload().then(payload => {
         const json = JSON.stringify(payload);
+        // v3.16.0: share sheet on phones so the pre-import safety copy actually
+        // lands somewhere; cancelling it is not treated as an error.
+        if (typeof window.pawfolioSaveBackupFile === 'function'){
+          return window.pawfolioSaveBackupFile(fname, json, 'Pawfolio safety backup taken before an import.')
+            .catch(err => { if (!(err && err.cancelled)) throw err; });
+        }
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -7143,17 +7159,27 @@ try {
   function downloadFullBackup(){
     return buildFullBackup().then(function(payload){
       var json = JSON.stringify(payload);
+      var stamp = new Date().toISOString().slice(0,10);
+      var filename = 'pawfolio-full-backup-' + stamp + '.json';
+      var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
+      function recordSaved(){
+        try { localStorage.setItem('petPlannerLastExport', stamp); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
+        return { ok: true, photoCount: photoCount, bytes: json.length };
+      }
+      // v3.16.0: share sheet first on phones (Save to Files / Mail / AirDrop),
+      // anchor download everywhere else. Rejects if the sheet is cancelled so no
+      // caller records a backup that never landed anywhere.
+      if (typeof window.pawfolioSaveBackupFile === 'function'){
+        return window.pawfolioSaveBackupFile(filename, json).then(recordSaved);
+      }
       var blob = new Blob([json], { type: 'application/json' });
       var url = URL.createObjectURL(blob);
-      var stamp = new Date().toISOString().slice(0,10);
       var a = document.createElement('a');
       a.href = url;
-      a.download = 'pawfolio-full-backup-' + stamp + '.json';
+      a.download = filename;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ try { URL.revokeObjectURL(url); } catch(e){} }, 4000);
-      try { localStorage.setItem('petPlannerLastExport', stamp); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
-      var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
-      return { ok: true, photoCount: photoCount, bytes: json.length };
+      return recordSaved();
     });
   }
   window.pawfolioDownloadFullBackup = downloadFullBackup;
@@ -9498,5 +9524,121 @@ try {
   function start(){ setTimeout(boot, 350); setTimeout(boot, 1200); }
   if (document.readyState === 'complete') start();
   else window.addEventListener('load', start);
+})();
+</script>
+
+<script>
+/* ============================================================
+   Pawfolio v3.16.0 — One-tap backup save (MedRecords parity)
+
+   Why: on iPhone, Safari and installed PWAs ignore the `download`
+   attribute on <a>. Tapping Export used to either do nothing
+   visible or navigate the tab to raw JSON, so saving a backup to
+   the phone took extra steps (or failed outright).
+
+   MedRecords solves this in client/src/lib/save-backup.ts by
+   handing the JSON to navigator.share({ files: [File] }), which
+   opens the native share sheet with Save to Files, Mail, AirDrop
+   and iCloud Drive. This is the same helper for Pawfolio, so both
+   apps save data in one tap with identical wording.
+
+   Desktop and Android Chrome keep the anchor-download path.
+   ============================================================ */
+(function(){
+  'use strict';
+  if (window.pawfolioSaveJsonBackup) return;
+
+  /* iPadOS 13+ reports as a Mac, so fall back to touch points. */
+  function isIosLike(){
+    try {
+      var ua = navigator.userAgent || '';
+      var isIpadOS = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+      return /iPad|iPhone|iPod/.test(ua) || isIpadOS;
+    } catch(e){ return false; }
+  }
+  window.pawfolioIsIosLike = isIosLike;
+
+  function anchorDownload(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    /* Some Safari builds invalidate the blob before the download starts. */
+    setTimeout(function(){ try { URL.revokeObjectURL(url); } catch(e){} }, 60000);
+  }
+
+  /* Resolves { kind: 'shared' | 'downloaded' | 'cancelled' } and rejects only
+     when nothing could be saved at all. */
+  function saveJsonBackup(opts){
+    opts = opts || {};
+    var filename = opts.filename || 'pawfolio-backup.json';
+    var json = opts.json || '{}';
+    var blob = new Blob([json], { type: 'application/json' });
+
+    var file = null, canShareFiles = false;
+    try {
+      file = new File([blob], filename, { type: 'application/json' });
+      canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share);
+    } catch(e){ canShareFiles = false; }
+
+    if (canShareFiles){
+      var payload = { files: [file], title: opts.shareTitle || 'Pawfolio Backup' };
+      if (opts.shareText) payload.text = opts.shareText;
+      return navigator.share(payload).then(function(){
+        return { kind: 'shared' };
+      }).catch(function(err){
+        /* Safari throws AbortError when the sheet is dismissed — a normal cancel,
+           not a failure, so callers can stay quiet and change nothing. */
+        if (err && err.name === 'AbortError') return { kind: 'cancelled' };
+        try { anchorDownload(blob, filename); return { kind: 'downloaded' }; }
+        catch(e){ return Promise.reject(e); }
+      });
+    }
+
+    try { anchorDownload(blob, filename); }
+    catch(e){ return Promise.reject(e); }
+    return Promise.resolve({ kind: 'downloaded' });
+  }
+  window.pawfolioSaveJsonBackup = saveJsonBackup;
+
+  /* Shared post-save wording, matching the MedRecords toasts. */
+  function announce(outcome, filename){
+    var msg;
+    if (!outcome) return;
+    if (outcome.kind === 'shared'){
+      msg = isIosLike()
+        ? 'Backup ready — choose Save to Files (or mail it to yourself) to keep it safe.'
+        : 'Backup ready — choose where to save it.';
+    } else if (outcome.kind === 'downloaded'){
+      msg = 'Backup saved' + (filename ? ' — ' + filename : '') + '.';
+    } else if (outcome.kind === 'cancelled'){
+      msg = 'Save cancelled — your data is unchanged.';
+    }
+    if (msg){ try { if (typeof window.toast === 'function') window.toast(msg); } catch(e){} }
+  }
+  window.pawfolioAnnounceBackupSave = announce;
+
+  /* One call for every manual backup path: save, tell the user, and reject on
+     cancel so callers never treat a dismissed sheet as a saved backup. */
+  window.pawfolioSaveBackupFile = function(filename, json, shareText){
+    return saveJsonBackup({
+      filename: filename,
+      json: json,
+      shareTitle: 'Pawfolio Backup',
+      shareText: shareText || 'My Pawfolio pet records backup.'
+    }).then(function(outcome){
+      announce(outcome, filename);
+      if (outcome.kind === 'cancelled'){
+        var err = new Error('backup save cancelled');
+        err.cancelled = true;
+        throw err;
+      }
+      return outcome;
+    });
+  };
 })();
 </script>
