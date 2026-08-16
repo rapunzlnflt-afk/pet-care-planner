@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.16.1">
+                          <meta name="app-version" content="3.16.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -9586,11 +9586,20 @@ try {
     } catch(e){ canShareFiles = false; }
 
     if (canShareFiles){
-      /* Files only, no text. Attaching share text makes iOS rank Messages and
-         contact suggestions first, pushing Save to Files behind "More". */
-      var payload = { files: [file], title: opts.shareTitle || 'Pawfolio Backup' };
-      if (opts.shareText) payload.text = opts.shareText;
-      if (opts.filesOnly) delete payload.text;
+      /* For backups, share the File and NOTHING else. Any text or title
+         alongside it nudges iOS toward "you're sending this to a person", which
+         ranks Messages and contact suggestions above Save to Files. iOS also
+         ignores title on file shares anyway.
+         Note: the row of suggested contacts at the very top of the sheet is
+         iOS Siri Suggestions and cannot be removed by a web app at all — it is
+         turned off in Settings > Siri & Search > Show When Sharing. */
+      var payload;
+      if (opts.filesOnly){
+        payload = { files: [file] };
+      } else {
+        payload = { files: [file], title: opts.shareTitle || 'Pawfolio Backup' };
+        if (opts.shareText) payload.text = opts.shareText;
+      }
       return navigator.share(payload).then(function(){
         return { kind: 'shared' };
       }).catch(function(err){
@@ -9633,7 +9642,6 @@ try {
     return saveJsonBackup({
       filename: filename,
       json: json,
-      shareTitle: 'Pawfolio Backup',
       filesOnly: true
     }).then(function(outcome){
       announce(outcome, filename);
