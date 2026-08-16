@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.16.0">
+                          <meta name="app-version" content="3.16.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -9586,8 +9586,11 @@ try {
     } catch(e){ canShareFiles = false; }
 
     if (canShareFiles){
+      /* Files only, no text. Attaching share text makes iOS rank Messages and
+         contact suggestions first, pushing Save to Files behind "More". */
       var payload = { files: [file], title: opts.shareTitle || 'Pawfolio Backup' };
       if (opts.shareText) payload.text = opts.shareText;
+      if (opts.filesOnly) delete payload.text;
       return navigator.share(payload).then(function(){
         return { kind: 'shared' };
       }).catch(function(err){
@@ -9610,9 +9613,11 @@ try {
     var msg;
     if (!outcome) return;
     if (outcome.kind === 'shared'){
+      /* The share promise resolves only after the user finishes choosing a
+         destination, so this fires AFTER the save — past tense, no instructions. */
       msg = isIosLike()
-        ? 'Backup ready — choose Save to Files (or mail it to yourself) to keep it safe.'
-        : 'Backup ready — choose where to save it.';
+        ? 'Backup saved to the app you picked.'
+        : 'Backup saved to your chosen destination.';
     } else if (outcome.kind === 'downloaded'){
       msg = 'Backup saved' + (filename ? ' — ' + filename : '') + '.';
     } else if (outcome.kind === 'cancelled'){
@@ -9624,12 +9629,12 @@ try {
 
   /* One call for every manual backup path: save, tell the user, and reject on
      cancel so callers never treat a dismissed sheet as a saved backup. */
-  window.pawfolioSaveBackupFile = function(filename, json, shareText){
+  window.pawfolioSaveBackupFile = function(filename, json){
     return saveJsonBackup({
       filename: filename,
       json: json,
       shareTitle: 'Pawfolio Backup',
-      shareText: shareText || 'My Pawfolio pet records backup.'
+      filesOnly: true
     }).then(function(outcome){
       announce(outcome, filename);
       if (outcome.kind === 'cancelled'){
