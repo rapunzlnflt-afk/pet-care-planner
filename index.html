@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.14.1">
+                          <meta name="app-version" content="3.15.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -9321,5 +9321,182 @@ try {
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
   else setTimeout(boot, 0);
+})();
+</script>
+
+<script>
+/* ============================================================
+   Pawfolio v3.15.0 — Collapsible cards
+   Turns selected cards into tap-to-open panels. Each targeted
+   card keeps its heading visible, gains a chevron, and hides the
+   rest of the card until the header row is tapped. Cards always
+   start collapsed on load (no saved state), matching the tidy
+   default already used by the notification reminder cards.
+   ============================================================ */
+(function(){
+  'use strict';
+  if (window.__pawfolioCollapsibleCards) return;
+  window.__pawfolioCollapsibleCards = true;
+
+  /* Cards to collapse. Form cards are found by their form id (their headings
+     are rewritten at runtime, e.g. "Log a Vet Visit" becomes "Schedule Vet
+     Appointment"); the rest are matched on heading text. */
+  var TARGETS = [
+    { formId: 'vet-form' },
+    { formId: 'note-form' },
+    { formId: 'vacc-form' },
+    { formId: 'med-form' },
+    { formId: 'weight-form' },
+    { formId: 'expense-form' },
+    { formId: 'doc-form' },
+    { sec: 'tab-pet-sitter', head: 'Owner Contact Info' },
+    { sec: 'tab-pet-sitter', head: 'Emergency Contacts' },
+    { sec: 'tab-pet-sitter', head: 'Veterinary' },
+    { sec: 'tab-pet-sitter', head: 'Additional Instructions' },
+    { sec: 'tab-important-links', head: 'Pet Insurance' },
+    { sec: 'tab-important-links', head: 'Online Pet Pharmacies' },
+    { sec: 'tab-important-links', head: 'Airline Pet Policies' },
+    { sec: 'tab-important-links', head: 'Pet Shipping Services' },
+    { sec: 'tab-important-links', head: 'Online Pet Stores' }
+  ];
+
+  var seq = 0;
+
+  function txt(el){ return (el.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+  /* Resolve a spec to { card, heading }. */
+  function resolve(spec){
+    if (spec.formId){
+      var form = document.getElementById(spec.formId);
+      if (!form || !form.closest) return null;
+      var c = form.closest('.card');
+      if (!c) return null;
+      var h = c.querySelector('h3');
+      return h ? { card: c, heading: h } : null;
+    }
+    var sec = document.getElementById(spec.sec);
+    if (!sec) return null;
+    var hs = sec.querySelectorAll('h3');
+    for (var i = 0; i < hs.length; i++){
+      if (txt(hs[i]) === spec.head){
+        var card = hs[i].closest ? hs[i].closest('.card') : null;
+        if (card) return { card: card, heading: hs[i] };
+      }
+    }
+    return null;
+  }
+
+  function makeCollapsible(spec){
+    var found = resolve(spec);
+    if (!found) return;
+    var card = found.card, h = found.heading;
+    if (card.dataset.pfCollapsible === '1') return;
+    /* Leave cards that already have their own disclosure alone (e.g. Add a Pet). */
+    if (card.querySelector('[aria-expanded]')) return;
+
+    var id = 'pf-collapse-' + (++seq);
+
+    /* Header row: the existing heading plus a chevron, wrapped in a button. */
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pf-collapse-head';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', id);
+    btn.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+      'background:transparent;border:none;padding:0;margin:0;cursor:pointer;font-family:inherit;color:inherit;text-align:left;';
+
+    var chev = document.createElement('span');
+    chev.className = 'pf-collapse-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.style.cssText = 'flex:0 0 auto;font-size:20px;font-weight:bold;line-height:1;color:#64748b;transition:transform .2s;';
+    chev.innerHTML = '\u25B6';
+
+    /* Everything in the card except the heading becomes the collapsible body,
+       in its original order (mode toggles and edit banners included). */
+    var body = document.createElement('div');
+    body.id = id;
+    body.className = 'pf-collapse-body';
+    var kids = [], i;
+    for (i = 0; i < card.childNodes.length; i++) kids.push(card.childNodes[i]);
+    for (i = 0; i < kids.length; i++){
+      if (kids[i] !== h) body.appendChild(kids[i]);
+    }
+
+    card.appendChild(btn);
+    /* Heading margins move to the wrapper so a collapsed card stays tight. */
+    h.className = h.className.replace(/\bmb-\d+\b/g, '').trim();
+    h.style.margin = '0';
+    btn.appendChild(h);
+    btn.appendChild(chev);
+    card.appendChild(body);
+
+    card.dataset.pfCollapsible = '1';
+    setOpen(card, false);
+
+    btn.addEventListener('click', function(){
+      setOpen(card, card.dataset.pfOpen !== '1');
+    });
+
+    /* Later app code sometimes inserts hints or edit banners right after the
+       heading. Keep the header row to heading + chevron only. */
+    if (window.MutationObserver){
+      new MutationObserver(function(){
+        var extra = [], n;
+        for (var k = 0; k < btn.childNodes.length; k++){
+          n = btn.childNodes[k];
+          if (n !== h && n !== chev && n.nodeType === 1) extra.push(n);
+        }
+        for (var j = 0; j < extra.length; j++) body.insertBefore(extra[j], body.firstChild);
+      }).observe(btn, { childList: true });
+    }
+  }
+
+  function setOpen(card, open){
+    var btn = card.querySelector('.pf-collapse-head');
+    var body = card.querySelector('.pf-collapse-body');
+    var chev = card.querySelector('.pf-collapse-chev');
+    if (!btn || !body) return;
+    card.dataset.pfOpen = open ? '1' : '0';
+    body.style.display = open ? 'block' : 'none';
+    body.style.marginTop = open ? '14px' : '0';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (chev) chev.style.transform = 'rotate(' + (open ? 90 : 0) + 'deg)';
+  }
+
+  /* Open a collapsed card (and any collapsed parents) containing el. */
+  function expandFor(el){
+    var node = el;
+    while (node && node.nodeType === 1){
+      if (node.dataset && node.dataset.pfCollapsible === '1' && node.dataset.pfOpen !== '1'){
+        setOpen(node, true);
+      }
+      node = node.parentElement;
+    }
+  }
+  window.pfExpandCardFor = expandFor;
+
+  /* Existing edit and jump-to flows scroll to a form or card; make that reveal
+     the card too, so editing a record never lands on a collapsed form. */
+  var nativeScrollIntoView = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function(){
+    try { expandFor(this); } catch(e){}
+    return nativeScrollIntoView.apply(this, arguments);
+  };
+
+  /* If a field inside a collapsed card is focused programmatically, open it. */
+  document.addEventListener('focusin', function(e){
+    if (e.target) { try { expandFor(e.target); } catch(err){} }
+  });
+
+  function boot(){
+    for (var i = 0; i < TARGETS.length; i++){
+      try { makeCollapsible(TARGETS[i]); } catch(e){}
+    }
+  }
+
+  /* Run after the app's own startup patches have injected their extra rows. */
+  function start(){ setTimeout(boot, 350); setTimeout(boot, 1200); }
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start);
 })();
 </script>
