@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-148';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-149';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -84,6 +84,23 @@ self.addEventListener('push', event => {
 // re-creates and re-registers the subscription the next time the app opens.
 self.addEventListener('pushsubscriptionchange', () => {});
 
+// v3.17.0 — compare the app-version meta of the cached page against the freshly
+// fetched one. If they differ, ping any open client so it can run its own
+// version check immediately instead of waiting for tomorrow's daily check.
+function versionOf(html) {
+  const m = /<meta\s+name=["']app-version["']\s+content=["']([^"']+)["']/i.exec(html || '');
+  return m ? m[1] : null;
+}
+function notifyIfChanged(cachedRes, freshRes) {
+  Promise.all([cachedRes.text(), freshRes.text()]).then(([oldHtml, newHtml]) => {
+    const a = versionOf(oldHtml), b = versionOf(newHtml);
+    if (!a || !b || a === b) return;
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      clients.forEach(c => c.postMessage({ type: 'pawfolio-new-version-cached', version: b }));
+    });
+  }).catch(() => {});
+}
+
 self.addEventListener('fetch', event => {
   // Only handle same-origin GET requests
   if (event.request.method !== 'GET') return;
@@ -101,18 +118,30 @@ self.addEventListener('fetch', event => {
     url.pathname.endsWith('/index.html');
 
   if (isPageDocument) {
-    // NETWORK-FIRST for the page: always try to load the live version so phones
-    // stay up to date. Fall back to the cached copy only when offline.
+    // v3.17.0 — STALE-WHILE-REVALIDATE for the page.
+    //
+    // This used to be network-first, which meant every single open sat waiting on a
+    // ~130 KB download of index.html before the phone could paint anything. On a weak
+    // signal that is the difference between "instant" and "several seconds of white".
+    //
+    // Now the cached copy is served immediately and a fresh copy is fetched in the
+    // background for next time. Staying current is still covered, three ways:
+    //   1. the page's own daily version.json check prompts when a newer build exists,
+    //   2. the "stuck update" banner + Force Refresh path is untouched,
+    //   3. if the background fetch lands a genuinely different page, we tell the open
+    //      client so it can run its version check right away.
     event.respondWith(
-      fetch(req).then(response => {
-        if (response && response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
-        }
-        return response;
-      }).catch(() =>
-        caches.match(req).then(cached => cached || caches.match('./index.html'))
-      )
+      caches.match(req).then(cached => {
+        const network = fetch(req).then(response => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+            if (cached) notifyIfChanged(cached.clone(), response.clone());
+          }
+          return response;
+        }).catch(() => cached || caches.match('./index.html'));
+        return cached || network;
+      })
     );
     return;
   }
