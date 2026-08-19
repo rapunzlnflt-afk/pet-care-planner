@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.2">
+                          <meta name="app-version" content="3.17.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -819,6 +819,11 @@
          <label class="block font-body text-sm text-secondary mb-1">Date *</label>
          <input type="date" id="note-date" required>
         </div>
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">Time <span class="text-xs">(optional)</span></label>
+        <input type="time" id="note-time" style="min-width:0;">
+        <p class="font-body text-xs text-secondary mt-1">Add a time and the note sits in the right spot on the Timeline for that day.</p>
        </div>
        <div>
         <label class="block font-body text-sm text-secondary mb-1">What did you notice? *</label>
@@ -8471,6 +8476,14 @@ try {
   function esc(s){ return (window.escHtml ? window.escHtml(s) : String(s==null?'':s)); }
   function iso(){ return new Date().toISOString().slice(0,10); }
   // Matches the app's MM/DD/YYYY display format (the core fmtDate is script-scoped).
+  // This module has no fmtTime of its own — the other copies are scoped to
+  // their own closures.
+  function ftime(t){
+    if(!t) return '';
+    var p = String(t).split(':'); if (p.length < 2) return String(t);
+    var h = parseInt(p[0],10); if (isNaN(h)) return String(t);
+    return (((h+11)%12)+1) + ':' + p[1] + ' ' + (h>=12 ? 'PM' : 'AM');
+  }
   function fdate(d){
     if(!d) return 'No date';
     var p = String(d).split('-');
@@ -8587,6 +8600,7 @@ try {
     delete f.dataset.editId;
     f.reset();
     if ($('note-date')) $('note-date').value = iso();
+    if ($('note-time')) $('note-time').value = '';
     if ($('note-flag')) $('note-flag').checked = true;
     setFormMode(false);
   }
@@ -8603,6 +8617,7 @@ try {
       petId: petId,
       petName: p ? p.name : '',
       date: date,
+      time: ($('note-time') && $('note-time').value) || '',
       category: ($('note-category') && $('note-category').value) || 'Observation',
       text: text,
       flag: !!($('note-flag') && $('note-flag').checked)
@@ -8631,6 +8646,7 @@ try {
     f.dataset.editId = String(n.__id);
     if ($('note-pet')) $('note-pet').value = (n.petId == null ? '' : String(n.petId));
     if ($('note-date')) $('note-date').value = n.date || '';
+    if ($('note-time')) $('note-time').value = n.time || '';
     if ($('note-category')) $('note-category').value = n.category || 'Observation';
     if ($('note-text')) $('note-text').value = n.text || '';
     if ($('note-flag')) $('note-flag').checked = !!n.flag;
@@ -8716,7 +8732,7 @@ try {
         '</div></div>';
     }
     var body = head +
-      '<p class="font-body text-sm text-secondary">'+esc(fdate(n.date))+'</p>' +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(n.date))+(n.time ? ' \u00b7 '+esc(ftime(n.time)) : '')+'</p>' +
       '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(n.text)+'</p>' +
       thread + updForm;
     var actions = '';
@@ -8818,7 +8834,7 @@ try {
     }
     if (kind === 'all' || kind === 'note' || kind === 'flagged'){
       notes().filter(matchesPet).filter(function(n){ return kind !== 'flagged' || n.flag; }).forEach(function(n){
-        out.push({ kind:'note', date: n.date || '', time:'', rec: n });
+        out.push({ kind:'note', date: n.date || '', time: n.time || '', rec: n });
         noteUpdates(n).forEach(function(u){
           out.push({ kind:'update', date: u.date || n.date || '', time:'', rec: n, upd: u });
         });
@@ -8888,7 +8904,13 @@ try {
     var followUps = entries.filter(function(e){ return e.kind === 'vet' && e.rec.next && e.rec.next > today && upcoming.indexOf(e) === -1; })
                            .sort(function(a,b){ return String(a.rec.next).localeCompare(String(b.rec.next)); });
     var pastEntries = entries.filter(function(e){ return upcoming.indexOf(e) === -1; })
-                             .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+                             .sort(function(a,b){
+                               var d = String(b.date||'').localeCompare(String(a.date||''));
+                               if (d !== 0) return d;
+                               // Same day: latest first. Times are zero-padded
+                               // HH:MM so a plain string compare is correct.
+                               return String(b.time||'').localeCompare(String(a.time||''));
+                             });
 
     // v3.17.0 — render as a proper vertical timeline: a continuous rail with one dot per
     // entry, colour-coded by kind, and month markers pinned to the rail.
