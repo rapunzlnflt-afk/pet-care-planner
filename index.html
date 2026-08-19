@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.1">
+                          <meta name="app-version" content="3.17.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -10210,6 +10210,259 @@ try {
     if (typeof window.refreshAll === 'function') window.refreshAll();
     else { pruneOverviewReminders(); }
   }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+<script>
+/* ============================================================================
+   Pawfolio v3.17.2 — link an existing document to a vet visit
+
+   v3.17.0 added receipt chips on the vet visit card, but only receipts attached
+   through the "Attach receipt/record" button ever got linked. Anything saved
+   before that release — which is most of an existing archive — had no link and
+   so never showed a chip, with no way to create one.
+
+   This adds that control to each Document Vault card: pick a visit, link it,
+   and unlink it again. It reuses the durable pawfolioVisitDocLinks map added in
+   v3.17.1 (via pfLinkExistingDoc / pfUnlinkDoc), so links made here behave
+   exactly like links made by the attach flow.
+
+   The Document Vault rebuilds its list with innerHTML on every render, which
+   wipes anything injected into it. Rather than edit that renderer in place, we
+   re-inject after each render and use a MutationObserver to catch renders we
+   don't trigger ourselves.
+   ========================================================================== */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3172) return; window.__pawfolio_v3172 = true;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function list(name){
+    try { return (window.getList && window.getList(name)) || []; } catch(e){ return []; }
+  }
+  function esc(s){
+    if (typeof window.escHtml === 'function') return window.escHtml(s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c];
+    });
+  }
+  // Date-only strings must not go through new Date('YYYY-MM-DD'), which parses as
+  // UTC and can render as the previous day west of Greenwich.
+  function fmtDate(iso){
+    if (!iso) return 'no date';
+    var p = String(iso).split('-');
+    if (p.length !== 3) return String(iso);
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function visitLabel(v){
+    return [v.petName, v.type || 'Vet visit', fmtDate(v.date)].filter(Boolean).join(' \u2014 ');
+  }
+
+  function linkedVisitId(docId){
+    try {
+      var map = JSON.parse(localStorage.getItem('pawfolioVisitDocLinks') || '{}');
+      if (map && map[String(docId)]) return String(map[String(docId)]);
+    } catch(e){}
+    var d = list('documents').filter(function(x){ return String(x.__id) === String(docId); })[0];
+    return d && d.__vetVisitId ? String(d.__vetVisitId) : '';
+  }
+
+  function visitById(id){
+    return list('vet-visits').filter(function(v){ return String(v.__id) === String(id); })[0] || null;
+  }
+
+  // Visits for this document's pet first, then everything else; newest first within
+  // each group, so the likely match is at the top without hiding the other options.
+  function visitOptions(doc){
+    var all = list('vet-visits').filter(function(v){ return v && v.__id != null; });
+    var byDate = function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); };
+    if (!doc || doc.petId == null) return all.sort(byDate);
+    var mine = all.filter(function(v){ return String(v.petId) === String(doc.petId); }).sort(byDate);
+    var rest = all.filter(function(v){ return String(v.petId) !== String(doc.petId); }).sort(byDate);
+    return mine.concat(rest);
+  }
+
+  var ROW_CLASS = 'pf-doc-visit-row';
+
+  function buildRow(doc){
+    var row = document.createElement('div');
+    row.className = ROW_CLASS;
+    row.style.cssText = 'margin-top:9px;padding-top:9px;border-top:1px dashed var(--border,#e5e7eb);';
+
+    var vid = linkedVisitId(doc.__id);
+    var v = vid ? visitById(vid) : null;
+
+    // A link can point at a visit that has since been deleted. Say so plainly and
+    // offer to clear it rather than showing a dead reference.
+    if (vid && !v){
+      row.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="font-body text-sm text-secondary" style="flex:1;min-width:140px;">' +
+            'Linked to a vet visit that no longer exists.' +
+          '</span>' +
+          '<button type="button" data-pfunlink="' + doc.__id + '" style="' + btnStyle() + '">Clear link</button>' +
+        '</div>';
+      return row;
+    }
+
+    if (v){
+      row.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="font-body text-sm" style="flex:1;min-width:140px;color:#276749;">' +
+            '\uD83D\uDC3E Linked to <strong>' + esc(visitLabel(v)) + '</strong>' +
+          '</span>' +
+          '<button type="button" data-pfgovisit="' + v.__id + '" style="' + btnStyle('#5B5BD6') + '">Open visit</button>' +
+          '<button type="button" data-pfunlink="' + doc.__id + '" style="' + btnStyle() + '">Unlink</button>' +
+        '</div>';
+      return row;
+    }
+
+    var opts = visitOptions(doc);
+    if (!opts.length){
+      row.innerHTML = '<span class="font-body text-sm text-secondary">No vet visits recorded yet, so there is nothing to link this to.</span>';
+      return row;
+    }
+
+    row.innerHTML =
+      '<div data-pfpickwrap="' + doc.__id + '" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<span class="font-body text-sm text-secondary" style="flex:1;min-width:140px;">Not linked to a vet visit.</span>' +
+        '<button type="button" data-pfpick="' + doc.__id + '" style="' + btnStyle('#5B5BD6') + '">\uD83D\uDD17 Link to a visit</button>' +
+      '</div>' +
+      '<div data-pfpicker="' + doc.__id + '" style="display:none;margin-top:8px;">' +
+        '<select data-pfselect="' + doc.__id + '" class="font-body text-sm" ' +
+          'style="width:100%;min-width:0;padding:7px 10px;border:1px solid var(--border,#cbd5e1);' +
+          'border-radius:6px;margin-bottom:7px;background:#fff;color:inherit;font-family:inherit;">' +
+          opts.map(function(o){
+            return '<option value="' + esc(o.__id) + '">' + esc(visitLabel(o)) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<div style="display:flex;gap:7px;flex-wrap:wrap;">' +
+          '<button type="button" data-pfconfirm="' + doc.__id + '" style="' + btnStyleFill() + '">Link</button>' +
+          '<button type="button" data-pfcancel="' + doc.__id + '" style="' + btnStyle() + '">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    return row;
+  }
+
+  function btnStyle(color){
+    return 'border:1px solid ' + (color ? 'rgba(91,91,214,0.4)' : 'var(--border-color,#cbd5e1)') + ';' +
+           'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;' +
+           'background:#fff;color:' + (color || 'var(--text-secondary,#64748b)') + ';white-space:nowrap;' +
+           'flex:0 0 auto;font-family:inherit;';
+  }
+  function btnStyleFill(){
+    return 'border:1px solid #5B5BD6;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;' +
+           'padding:5px 11px;line-height:1;background:#5B5BD6;color:#fff;white-space:nowrap;flex:0 0 auto;' +
+           'font-family:inherit;';
+  }
+
+  var enhancing = false;
+
+  function enhance(){
+    var el = $('documents-list');
+    if (!el || enhancing) return;
+    enhancing = true;
+    try {
+      var docs = list('documents');
+      var byId = {};
+      docs.forEach(function(d){ byId[String(d.__id)] = d; });
+      // Each card exposes its id on the collapse body; use that to pair card to record.
+      Array.prototype.forEach.call(el.querySelectorAll('[data-body]'), function(body){
+        if (body.querySelector('.' + ROW_CLASS)) return;      // already enhanced
+        var id = body.getAttribute('data-body');
+        var doc = byId[String(id)];
+        if (!doc) return;
+        body.appendChild(buildRow(doc));
+      });
+    } catch(e){
+      // Never let this break the vault.
+    }
+    enhancing = false;
+  }
+
+  function scheduleEnhance(){
+    if (scheduleEnhance._t) clearTimeout(scheduleEnhance._t);
+    scheduleEnhance._t = setTimeout(enhance, 30);
+  }
+
+  function onClick(e){
+    var t = e.target;
+    if (!t || !t.getAttribute) return;
+
+    var pick = t.getAttribute('data-pfpick');
+    if (pick){
+      e.preventDefault(); e.stopPropagation();
+      var wrap = document.querySelector('[data-pfpickwrap="' + pick + '"]');
+      var picker = document.querySelector('[data-pfpicker="' + pick + '"]');
+      if (wrap) wrap.style.display = 'none';
+      if (picker) picker.style.display = 'block';
+      return;
+    }
+
+    var cancel = t.getAttribute('data-pfcancel');
+    if (cancel){
+      e.preventDefault(); e.stopPropagation();
+      var w2 = document.querySelector('[data-pfpickwrap="' + cancel + '"]');
+      var p2 = document.querySelector('[data-pfpicker="' + cancel + '"]');
+      if (p2) p2.style.display = 'none';
+      if (w2) w2.style.display = 'flex';
+      return;
+    }
+
+    var confirmId = t.getAttribute('data-pfconfirm');
+    if (confirmId){
+      e.preventDefault(); e.stopPropagation();
+      var sel = document.querySelector('[data-pfselect="' + confirmId + '"]');
+      if (!sel || !sel.value) return;
+      if (typeof window.pfLinkExistingDoc === 'function') window.pfLinkExistingDoc(confirmId, sel.value);
+      var v = visitById(sel.value);
+      say('Linked to ' + (v ? visitLabel(v) : 'the visit') + '.');
+      scheduleEnhance();
+      return;
+    }
+
+    var unlink = t.getAttribute('data-pfunlink');
+    if (unlink){
+      e.preventDefault(); e.stopPropagation();
+      if (typeof window.pfUnlinkDoc === 'function') window.pfUnlinkDoc(unlink);
+      say('Link removed.');
+      scheduleEnhance();
+      return;
+    }
+
+    var go = t.getAttribute('data-pfgovisit');
+    if (go){
+      e.preventDefault(); e.stopPropagation();
+      if (typeof window.pfGoToVetVisit === 'function') window.pfGoToVetVisit(Number(go));
+      return;
+    }
+  }
+
+  function say(msg){
+    if (typeof window.say === 'function') return window.say(msg);
+    if (typeof window.toast === 'function') return window.toast(msg);
+  }
+
+  function boot(){
+    var el = $('documents-list');
+    if (!el || typeof window.getList !== 'function'){
+      return setTimeout(boot, 120);
+    }
+    // Capture phase so the vault's own card-collapse handler doesn't swallow these.
+    document.addEventListener('click', onClick, true);
+    // The vault replaces innerHTML on every render, so watch for that and re-inject.
+    try {
+      new MutationObserver(function(){ scheduleEnhance(); })
+        .observe(el, { childList:true });
+    } catch(e){}
+    enhance();
+  }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
