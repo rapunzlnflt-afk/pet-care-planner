@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.0">
+                          <meta name="app-version" content="3.17.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3682,7 +3682,7 @@
 
   // Known localStorage keys that a backup is allowed to write. Mirrors LS_BACKUP_KEYS
   // in the vault block (different scope), so the legacy import can't write arbitrary keys.
-  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome'];
+  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
   // Timestamp like 2026-06-24-1430 for safety-backup filenames.
   function importSafetyStamp(){
     const d = new Date();
@@ -7170,7 +7170,7 @@ try {
   // A normal export only saves localStorage. Document photos live in IndexedDB, so a true
   // "lose nothing" backup must include them. We read every Blob, turn it into a base64 data
   // URL, and bundle it alongside the localStorage data into one downloadable JSON file.
-  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome'];
+  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
 
   function blobToDataUrl(blob){
     return new Promise(function(resolve, reject){
@@ -7413,7 +7413,7 @@ try {
       return window.pawfolioBuildBackupPayload().then(function(p){ return JSON.stringify(p); });
     }
     // Fallback: localStorage-only snapshot (matches the legacy export shape).
-    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome'];
+    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
     var ls = {};
     keys.forEach(function(k){ try { var v = localStorage.getItem(k); if (v != null) ls[k] = v; } catch(e){} });
     var payload = { __pawfolioBackup: true, version: '0.0', savedAt: new Date().toISOString(), localStorage: ls, photos: {} };
@@ -9937,9 +9937,97 @@ try {
      FIX 3 — receipts link back to the visit, and saving one returns you there
      ======================================================================== */
 
-  function docsForVisit(id){
-    return list('documents').filter(function(d){ return String(d.__vetVisitId || '') === String(id); });
+  /* The visit<->document link cannot live only on the document record.
+     The v3.7.0 camera hook reads the documents list at submit time, then writes that
+     same snapshot back once the compressed photo has finished saving to IndexedDB.
+     That write is asynchronous and its snapshot predates our tag, so for a photo
+     receipt it silently clobbers __vetVisitId — the link was only surviving for
+     link-only receipts, where the hook bails out early.
+
+     So the durable record is a small side map in its own storage key, and
+     __vetVisitId becomes a convenience mirror that we re-heal whenever it gets
+     wiped. The map is the source of truth. */
+  var LINKS_KEY = 'pawfolioVisitDocLinks';
+
+  function readLinks(){
+    try {
+      var raw = localStorage.getItem(LINKS_KEY);
+      var obj = raw ? JSON.parse(raw) : {};
+      return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+    } catch(e){ return {}; }
   }
+  function writeLinks(map){
+    try { localStorage.setItem(LINKS_KEY, JSON.stringify(map)); } catch(e){}
+  }
+  function linkDocToVisit(docId, visitId){
+    var map = readLinks();
+    map[String(docId)] = String(visitId);
+    writeLinks(map);
+  }
+  function unlinkDoc(docId){
+    var map = readLinks();
+    if (map.hasOwnProperty(String(docId))){ delete map[String(docId)]; writeLinks(map); }
+  }
+
+  // Drop links whose document is gone, and restore __vetVisitId where the map still
+  // knows the pairing but the field was overwritten. Returns true if docs were saved.
+  function reconcileLinks(){
+    var map = readLinks();
+    var ids = Object.keys(map);
+    if (!ids.length) return false;
+    var docs = list('documents');
+    var byId = {};
+    docs.forEach(function(d){ byId[String(d.__id)] = d; });
+
+    var mapChanged = false, docsChanged = false;
+    ids.forEach(function(docId){
+      var d = byId[docId];
+      if (!d){ delete map[docId]; mapChanged = true; return; }
+      if (String(d.__vetVisitId || '') !== String(map[docId])){
+        d.__vetVisitId = String(map[docId]);
+        docsChanged = true;
+      }
+    });
+    // Anything tagged on the record but missing from the map (e.g. saved by an older
+    // build) is adopted into the map so it survives from here on.
+    docs.forEach(function(d){
+      if (d.__vetVisitId && !map.hasOwnProperty(String(d.__id))){
+        map[String(d.__id)] = String(d.__vetVisitId);
+        mapChanged = true;
+      }
+    });
+
+    if (mapChanged) writeLinks(map);
+    if (docsChanged && typeof window.saveList === 'function') window.saveList('documents', docs);
+    return docsChanged;
+  }
+
+  function docsForVisit(id){
+    var map = readLinks();
+    return list('documents').filter(function(d){
+      return String(d.__vetVisitId || '') === String(id) ||
+             String(map[String(d.__id)] || '') === String(id);
+    });
+  }
+
+  // Exposed so the user can attach an older receipt that predates this release.
+  window.pfLinkExistingDoc = function(docId, visitId){
+    linkDocToVisit(docId, visitId);
+    reconcileLinks();
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    return true;
+  };
+  window.pfUnlinkDoc = function(docId){
+    unlinkDoc(docId);
+    var docs = list('documents');
+    var d = docs.filter(function(x){ return String(x.__id) === String(docId); })[0];
+    if (d && d.__vetVisitId){
+      delete d.__vetVisitId;
+      if (typeof window.saveList === 'function') window.saveList('documents', docs);
+    }
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    return true;
+  };
 
   // Called from cardHTML. Returns the receipt chip row for a visit, or '' if none.
   window.pfVisitReceiptChips = function(visitId){
@@ -9947,7 +10035,7 @@ try {
     if (!docs.length) return '';
     var toUrl = window.safeUrl || function(){ return ''; };
     var chipStyle = 'display:inline-flex;align-items:center;gap:5px;max-width:100%;background:rgba(72,187,120,0.10);' +
-                    'color:#2f855a;font-size:12px;font-weight:600;padding:4px 10px;border-radius:12px;' +
+                    'color:#276749;font-size:12px;font-weight:600;padding:4px 10px;border-radius:12px;' +
                     'border:1px solid rgba(72,187,120,0.35);cursor:pointer;font-family:inherit;' +
                     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     var chips = docs.map(function(d){
@@ -10034,6 +10122,9 @@ try {
   }
 
   function tagDoc(docId, visitId){
+    // Write the durable side map first — it is what actually makes the link stick if
+    // the camera hook's delayed save overwrites the documents list afterwards.
+    linkDocToVisit(docId, visitId);
     var docs = list('documents');
     var d = docs.filter(function(x){ return String(x.__id) === String(docId); })[0];
     if (!d || String(d.__vetVisitId || '') === String(visitId)) return;
@@ -10098,6 +10189,8 @@ try {
       normalizeStatuses();
       var r = orig.apply(this, arguments);
       try { relaxGrids(); } catch(e){}
+      // Re-heal any receipt link the camera hook's delayed save may have wiped.
+      try { reconcileLinks(); } catch(e){}
       return r;
     };
     window.refreshAll.__v3170 = true;
@@ -10108,6 +10201,7 @@ try {
       return setTimeout(boot, 90);
     }
     normalizeStatuses();
+    try { reconcileLinks(); } catch(e){}
     stampStatusFromFormMode();
     wrapRenderOverview();
     wrapRefreshAll();
