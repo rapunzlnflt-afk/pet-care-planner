@@ -21,15 +21,18 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.16.2">
+                          <meta name="app-version" content="3.17.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="stylesheet" href="./tailwind.css">
-  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <!-- v3.17.0 startup speed: the Font Awesome CDN stylesheet (~19 KB + a webfont file) was
+       render-blocking on every open just to draw three overview icons. Those three are now
+       inline SVG, so the whole CDN round-trip is gone. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -60,6 +63,60 @@
        reads as a layout mistake, especially in the narrow Notes cards. */
     input[type="date"], input[type="time"] { max-width: 200px; }
     @media (max-width: 480px){ input[type="date"], input[type="time"] { max-width: 100%; } }
+    /* v3.17.0 — date/time overflow fix.
+       Mobile Safari gives date and time inputs an intrinsic minimum width based on the
+       value plus the native picker glyph, and that minimum ignores width:100%. Inside a
+       two-column grid the column is sized to min-content, so the box pushed straight past
+       the edge of the card. min-width:0 lets it shrink, and the JS below relaxes those
+       inline `1fr 1fr` grids to minmax(0,1fr) so the column can actually give way. */
+    input[type="date"], input[type="time"] { min-width: 0; }
+    @media (max-width: 480px){
+      input[type="date"], input[type="time"] { padding-left: 10px !important; padding-right: 8px !important; }
+      /* The vet form's Pet / Date / Time row ends up three columns wide once the time
+         field is added, leaving each field ~100px on a phone — wide enough to stay inside
+         the card but too narrow to show "08/18/2026" without the native input clipping it.
+         One field per row on a phone keeps every value fully readable. */
+      #vet-form > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+    }
+
+    /* ===== Timeline rail (v3.17.0) =====
+       The timeline used to be a flat stack of cards under month headings, which read as a
+       list rather than a history. These styles turn it into a real vertical timeline: one
+       continuous rail down the left, a dot per entry colour-coded by what it is, and month
+       markers that sit on the rail. */
+    .pf-tl { position: relative; padding-left: 30px; }
+    .pf-tl::before {
+      content: ''; position: absolute; left: 9px; top: 4px; bottom: 4px; width: 2px;
+      background: linear-gradient(180deg, rgba(91,91,214,0.34), rgba(91,91,214,0.10));
+      border-radius: 2px;
+    }
+    .pf-tl-item { position: relative; margin-bottom: 14px; }
+    .pf-tl-item:last-child { margin-bottom: 0; }
+    .pf-tl-item::before {
+      content: ''; position: absolute; left: -27px; top: 20px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--accent-color);
+      box-shadow: 0 0 0 3.5px var(--bg-light);
+    }
+    .pf-tl-item--up::before { background: #f6a623; }
+    .pf-tl-item--note::before { background: #94a3b8; }
+    .pf-tl-item--update::before { width: 9px; height: 9px; left: -25.5px; top: 22px; background: rgba(91,91,214,0.5); }
+    .pf-tl-sec { margin-bottom: 22px; }
+    .pf-tl-sec:last-child { margin-bottom: 0; }
+    .pf-tl-head {
+      display: flex; align-items: center; gap: 9px; margin: 0 0 11px;
+      font-family: 'Montserrat', sans-serif; font-size: 12px; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .pf-tl-head::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+    .pf-tl-pill { padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+    .pf-tl-pill--now { background: rgba(246,166,35,0.14); color: #b26a04; }
+    .pf-tl-pill--next { background: rgba(91,91,214,0.10); color: var(--accent-color); }
+    .pf-tl-pill--month { background: rgba(91,91,214,0.10); color: var(--accent-color); }
+    [data-theme="dark"] .pf-tl-item::before { box-shadow: 0 0 0 3.5px #15202b; }
+    [data-theme="dark"] .pf-tl-pill--now { background: rgba(246,166,35,0.20); color: #f6c177; }
+    [data-theme="dark"] .pf-tl-pill--next,
+    [data-theme="dark"] .pf-tl-pill--month { background: rgba(139,124,248,0.18); color: #c4b5fd; }
     /* ===== Pet insurance block (v3.14.0) ===== */
     .pet-ins-fieldset { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; background: rgba(91,91,214,0.04); }
     .pet-ins-panel { margin-top: 12px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: rgba(91,91,214,0.05); }
@@ -229,6 +286,10 @@
   font-size: 26px;          /* controls icon size */
   line-height: 1;
 }
+/* v3.17.0: the three stat icons are inline SVG now instead of a CDN icon font,
+   so the CDN stylesheet no longer blocks the first paint. font-size still
+   drives their size, exactly as it did for the icon font. */
+.stat-icon svg { width: 1em; height: 1em; fill: currentColor; display: block; }
 .stat-label {
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -508,17 +569,17 @@
     <!-- Quick stats -->
 <div class="stats-row">
   <div class="card stat-card">
-   <i class="fa-solid fa-paw stat-icon"></i>
+   <span class="stat-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M226.5 92.9c14.3 42.9-.3 86.2-32.6 96.8s-70.1-15.6-84.4-58.5s.3-86.2 32.6-96.8s70.1 15.6 84.4 58.5zM100.4 198.6c18.9 32.4 14.3 70.1-10.2 84.1s-59.7-.9-78.5-33.3S-2.7 179.3 21.8 165.3s59.7 .9 78.5 33.3zM69.2 401.2C121.6 259.9 214.7 224 256 224s134.4 35.9 186.8 177.2c3.6 9.7 5.2 20.1 5.2 30.5v1.6c0 25.8-20.9 46.7-46.7 46.7c-11.5 0-22.9-1.4-34-4.2l-88-22c-15.3-3.8-31.3-3.8-46.6 0l-88 22c-11.1 2.8-22.5 4.2-34 4.2C84.9 480 64 459.1 64 433.3v-1.6c0-10.4 1.6-20.8 5.2-30.5zM421.8 282.7c-24.5-14-29.1-51.7-10.2-84.1s54-47.3 78.5-33.3s29.1 51.7 10.2 84.1s-54 47.3-78.5 33.3zM310.1 189.7c-32.3-10.6-46.9-53.9-32.6-96.8s52.1-69.1 84.4-58.5s46.9 53.9 32.6 96.8s-52.1 69.1-84.4 58.5z"/></svg></span>
     <p class="font-body stat-label">Pets</p>
     <p class="font-heading stat-value" id="stat-pets">0</p>
   </div>
   <div class="card stat-card">
-   <i class="fa-solid fa-stethoscope stat-icon"></i>
+   <span class="stat-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M142.4 21.9c5.6 16.8-3.5 34.9-20.2 40.5L96 71.1V192c0 53 43 96 96 96s96-43 96-96V71.1l-26.1-8.7c-16.8-5.6-25.8-23.7-20.2-40.5s23.7-25.8 40.5-20.2l26.1 8.7C334.4 19.1 352 43.5 352 71.1V192c0 77.2-54.6 141.6-127.3 156.7C231 404.6 278.4 448 336 448c61.9 0 112-50.1 112-112V265.3c-28.3-12.3-48-40.5-48-73.3c0-44.2 35.8-80 80-80s80 35.8 80 80c0 32.8-19.7 61-48 73.3V336c0 97.2-78.8 176-176 176c-92.9 0-168.9-71.9-175.5-163.1C87.2 334.2 32 269.6 32 192V71.1c0-27.5 17.6-52 43.8-60.7l26.1-8.7c16.8-5.6 34.9 3.5 40.5 20.2zM480 224a32 32 0 1 0 0-64 32 32 0 1 0 0 64z"/></svg></span>
     <p class="font-body stat-label">Vet Visits</p>
     <p class="font-heading stat-value" id="stat-visits">0</p>
   </div>
   <div class="card stat-card">
-    <i class="fa-solid fa-sack-dollar stat-icon"></i>
+    <span class="stat-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M320 96H192L144.6 24.9C137.5 14.2 145.1 0 157.9 0H354.1c12.8 0 20.4 14.2 13.3 24.9L320 96zM192 128H320c3.8 2.5 8.1 5.3 13 8.4C389.7 172.7 512 250.9 512 416c0 53-43 96-96 96H96c-53 0-96-43-96-96C0 250.9 122.3 172.7 179 136.4l0 0 0 0c4.8-3.1 9.2-5.9 13-8.4zm84 88c0-11-9-20-20-20s-20 9-20 20v14c-7.6 1.7-15.2 4.4-22.2 8.5c-13.9 8.3-25.9 22.8-25.8 43.9c.1 20.3 12 33.1 24.7 40.7c11 6.6 24.7 10.8 35.6 14l1.7 .5c12.6 3.8 21.8 6.8 28 10.7c5.1 3.2 5.8 5.4 5.9 8.2c.1 5-1.8 8-5.9 10.5c-5 3.1-12.9 5-21.4 4.7c-11.1-.4-21.5-3.9-35.1-8.5c-2.3-.8-4.7-1.6-7.2-2.4c-10.5-3.5-21.8 2.2-25.3 12.6s2.2 21.8 12.6 25.3c1.9 .6 4 1.3 6.1 2.1l0 0 0 0c8.3 2.9 17.9 6.2 28.2 8.4V424c0 11 9 20 20 20s20-9 20-20V410.2c8-1.7 16-4.5 23.2-9c14.3-8.9 25.1-24.1 24.8-45c-.3-20.3-11.7-33.4-24.6-41.6c-11.5-7.2-25.9-11.6-37.1-15l0 0-.7-.2c-12.8-3.9-21.9-6.7-28.3-10.5c-5.2-3.1-5.3-4.9-5.3-6.7c0-3.7 1.4-6.5 6.2-9.3c5.4-3.2 13.6-5.1 21.5-5c9.6 .1 20.2 2.2 31.2 5.2c10.7 2.8 21.6-3.5 24.5-14.2s-3.5-21.6-14.2-24.5c-6.5-1.7-13.7-3.4-21.1-4.7V216z"/></svg></span>
     <p class="font-body stat-label">Total Spent</p>
     <p class="font-heading stat-value" id="stat-spent">$0</p>
   </div>
@@ -3442,6 +3503,7 @@
   }
 
   document.getElementById('check-updates-btn').addEventListener('click', () => checkForUpdates(false));
+  window.pawfolioCheckForUpdates = checkForUpdates;
 
   // Silent daily background check on load
   (function silentBackgroundCheck() {
@@ -3450,6 +3512,18 @@
     if (last === todayStr) return; // already checked today
     setTimeout(() => checkForUpdates(true), 3000); // wait 3s so it doesn't slow down initial load
   })();
+
+  // v3.17.0 — the service worker now serves the cached page instantly and refreshes it in
+  // the background. When that background refresh brings down a different app version, it
+  // tells us here so the update prompt appears right away rather than on the next open.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event && event.data;
+      if (!data || data.type !== 'pawfolio-new-version-cached') return;
+      localStorage.removeItem('pawfolioLastUpdateCheck');
+      setTimeout(() => checkForUpdates(true), 400);
+    });
+  }
 
   // ============ FORCE REFRESH (clear cache + reload latest) ============
   // The real cure for phones stuck on an old cached copy. Always shows an
@@ -4548,7 +4622,8 @@ try {
           var changed = false;
           var t = $('vet-time') ? $('vet-time').value : '';
           if(t && !last.time){ last.time = t; changed=true; }
-          if(!last.status){ last.status = isFutureOrToday(last.date) ? 'scheduled' : 'logged'; changed=true; }
+          // v3.17.0: today is only 'scheduled' when nothing has been recorded for it yet.
+          if(!last.status){ last.status = (window.pfVisitIsScheduled ? window.pfVisitIsScheduled(last) : isFutureOrToday(last.date)) ? 'scheduled' : 'logged'; changed=true; }
           if(changed){ saveList('vet-visits', visits); refreshAll(); }
           // Reset time field
           if($('vet-time')) $('vet-time').value='';
@@ -4583,7 +4658,8 @@ try {
         next: get('vet-next'),
         nextTime: get('vet-next-time') || ''
       });
-      updated.status = isFutureOrToday(updated.date) ? 'scheduled' : 'logged';
+      // v3.17.0: same rule as above — a today-dated visit with outcome data is history.
+      updated.status = (window.pfVisitIsScheduled ? window.pfVisitIsScheduled(updated) : isFutureOrToday(updated.date)) ? 'scheduled' : 'logged';
       visits[idx] = updated;
       saveList('vet-visits', visits);
       delete form.dataset.editId;
@@ -4859,6 +4935,11 @@ try {
       if(v.weight) meta.push('<span style="background:rgba(0,0,0,0.04);color:var(--text-secondary);font-size:12px;font-weight:500;padding:3px 10px;border-radius:12px;">'+v.weight+' lbs</span>');
       if(meta.length) body.push('<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'+meta.join('')+'</div>');
     }
+    // v3.17.0 — show any receipts/records attached to this visit, so an attachment is
+    // visible from the card instead of only inside the Document Vault.
+    var receipts = (typeof window.pfVisitReceiptChips === 'function') ? window.pfVisitReceiptChips(pid) : '';
+    var hasReceipts = !!receipts;
+    if(receipts) body.push(receipts);
     var btn='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
     var btnPrimary='background:rgba(91,91,214,0.08);border:1px solid #5B5BD6;color:#5B5BD6;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
     var btnDanger='background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;';
@@ -4868,7 +4949,7 @@ try {
       actions.push('<button type="button" onclick="pfFillInVisitLog('+pid+')" style="'+btnPrimary+'">Fill in visit log</button>');
       actions.push('<button type="button" onclick="pfCancelAppt('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
     } else {
-      actions.push('<button type="button" onclick="pfAttachRecord('+pid+')" style="'+btn+'">📎 Attach receipt/record</button>');
+      actions.push('<button type="button" onclick="pfAttachRecord('+pid+')" style="'+btn+'">📎 '+(hasReceipts?'Attach another':'Attach receipt/record')+'</button>');
       actions.push('<button type="button" onclick="window.deleteVisit('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
     }
     var cardClass = 'card p-4' + (isEditing?' pf-editing-card':'');
@@ -4886,9 +4967,14 @@ try {
     var all = (typeof getList==='function') ? getList('vet-visits') : [];
     var today = todayISO();
     var editId = $('vet-form') ? $('vet-form').dataset.editId : '';
-    var upcoming = all.filter(function(v){ return v.date && v.date >= today; })
+    // v3.17.0 — the split used to be `v.date >= today`, which filed a visit that happened
+    // earlier today as an upcoming appointment: orange "Scheduled" chip, no cost shown.
+    // pfVisitIsScheduled treats today as an appointment only when nothing has been
+    // recorded for it yet (see the v3.17.0 block at the end of this file).
+    var isSched = window.pfVisitIsScheduled || function(v){ return !!(v.date && v.date >= today); };
+    var upcoming = all.filter(function(v){ return v.date && isSched(v); })
                      .sort(function(a,b){ return (a.date+(a.time||'')).localeCompare(b.date+(b.time||'')); });
-    var past = all.filter(function(v){ return !v.date || v.date < today; })
+    var past = all.filter(function(v){ return !v.date || !isSched(v); })
                   .sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
     if(!all.length){
       list.innerHTML = '<p class="font-body text-sm text-secondary italic">No vet visits logged yet.</p>';
@@ -5513,7 +5599,11 @@ try {
     var date = $('vet-date') ? $('vet-date').value : '';
     // No date chosen yet -> respect last explicit choice (default schedule)
     if(!date) return form.dataset.modeChoice === 'log' ? 'log' : 'schedule';
-    return isFutureOrToday(date) ? 'schedule' : 'log';
+    // v3.17.0 — today used to force schedule mode, which fought the common case of
+    // writing up a visit that already happened this morning. Today now respects an
+    // explicit Log/Schedule choice and otherwise assumes the visit has happened.
+    if(date === todayISO()) return form.dataset.modeChoice === 'schedule' ? 'schedule' : 'log';
+    return date > todayISO() ? 'schedule' : 'log';
   }
 
   function highlightButtons(){
@@ -8799,32 +8889,51 @@ try {
                            .sort(function(a,b){ return String(a.rec.next).localeCompare(String(b.rec.next)); });
     var pastEntries = entries.filter(function(e){ return upcoming.indexOf(e) === -1; })
                              .sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+
+    // v3.17.0 — render as a proper vertical timeline: a continuous rail with one dot per
+    // entry, colour-coded by kind, and month markers pinned to the rail.
+    function head(pill, text){
+      return '<h3 class="pf-tl-head"><span class="pf-tl-pill pf-tl-pill--'+pill+'">'+esc(text)+'</span></h3>';
+    }
+    function item(kind, inner){
+      return '<div class="pf-tl-item pf-tl-item--'+kind+'">'+inner+'</div>';
+    }
+    function section(headHtml, itemsHtml){
+      return '<div class="pf-tl-sec">'+headHtml+'<div class="pf-tl">'+itemsHtml+'</div></div>';
+    }
+
     var html = '';
     if (upcoming.length){
-      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Coming Up</h3>';
-      html += '<div class="space-y-3" style="margin-bottom:18px;">' + upcoming.map(function(e){ return visitCard(e.rec); }).join('') + '</div>';
+      html += section(head('now', 'Coming Up'), upcoming.map(function(e){
+        return item('up', visitCard(e.rec));
+      }).join(''));
     }
     if (followUps.length){
-      html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:8px 0 8px;">Follow-ups Scheduled</h3>';
-      html += '<div class="space-y-3" style="margin-bottom:18px;">' + followUps.map(function(e){
+      html += section(head('next', 'Follow-ups Scheduled'), followUps.map(function(e){
         var pet = petLabel(e.rec);
-        return '<div class="card p-4"><p class="font-body text-sm text-primary"><strong>'+esc(fdate(e.rec.next))+'</strong>'+(pet?' · '+esc(pet):'')+' — follow-up from the '+esc(fdate(e.rec.date))+' visit'+(e.rec.vet?' at '+esc(e.rec.vet):'')+'.</p></div>';
-      }).join('') + '</div>';
+        return item('up', '<div class="card p-4"><p class="font-body text-sm text-primary"><strong>'+esc(fdate(e.rec.next))+'</strong>'+(pet?' · '+esc(pet):'')+' — follow-up from the '+esc(fdate(e.rec.date))+' visit'+(e.rec.vet?' at '+esc(e.rec.vet):'')+'.</p></div>');
+      }).join(''));
     }
-    var currentMonth = null;
+
+    // Group the history by month, each month its own rail section.
+    var months = [];
+    var byMonth = {};
     pastEntries.forEach(function(e){
       var ml = monthLabel(e.date);
-      if (ml !== currentMonth){
-        if (currentMonth !== null) html += '</div>';
-        currentMonth = ml;
-        html += '<h3 class="font-heading text-sm font-bold text-primary" style="margin:16px 0 8px;">'+esc(ml)+'</h3><div class="space-y-3">';
-      }
-      if (e.kind === 'vet') html += visitCard(e.rec);
-      else if (e.kind === 'update') html += updateCard(e.rec, e.upd);
-      else html += noteCard(e.rec, { ctx:'t', hideThread:true });
+      if (!byMonth[ml]){ byMonth[ml] = []; months.push(ml); }
+      byMonth[ml].push(e);
     });
-    if (currentMonth !== null) html += '</div>';
+    months.forEach(function(ml){
+      var itemsHtml = byMonth[ml].map(function(e){
+        if (e.kind === 'vet') return item('vet', visitCard(e.rec));
+        if (e.kind === 'update') return item('update', updateCard(e.rec, e.upd));
+        return item('note', noteCard(e.rec, { ctx:'t', hideThread:true }));
+      }).join('');
+      html += section(head('month', ml), itemsHtml);
+    });
     list.innerHTML = html;
+    // The rail supplies the spacing between entries, so drop the stack's own gaps.
+    list.classList.remove('space-y-3');
   }
   window.renderTimeline = renderTimeline;
 
@@ -9653,5 +9762,361 @@ try {
       return outcome;
     });
   };
+})();
+</script>
+<script>
+/* ============================================================================
+   Pawfolio v3.17.0 — Vet visit status, form layout, and receipt links
+
+   Three fixes, all in the vet-visit area:
+
+   1. A visit dated TODAY was treated as an upcoming appointment. The list split and the
+      status derivation both used `date >= today`, so writing up a visit that happened
+      this morning filed it under Upcoming Appointments with an orange "Scheduled" chip,
+      listed it in the Overview reminders, and hid its cost (cost only renders on
+      completed visits). pfVisitIsScheduled below decides by what the record actually
+      is, and the renderer, the status derivation and the form's mode toggle all use it.
+
+   2. The date box ran off the edge of the vet form card. The inline `1fr 1fr` grids size
+      their columns to min-content, and mobile Safari gives a date input an intrinsic
+      minimum width that ignores width:100%. Those grids are relaxed to minmax(0, 1fr)
+      so the column can shrink, paired with min-width:0 in the stylesheet.
+
+   3. Attaching a receipt was a one-way trip into the Document Vault. Documents saved
+      from a vet visit are now tagged back to that visit, the visit card shows a receipt
+      chip that opens the document, and saving returns you to the visit card.
+
+   Appended last so it wins over the earlier vet patches. Idempotent.
+   ========================================================================== */
+(function(){
+  'use strict';
+  if (window.__pawfolio_v3170) return; window.__pawfolio_v3170 = true;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (window.escHtml ? window.escHtml(s) : String(s == null ? '' : s)); }
+  function todayISO(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function list(name){
+    try { return (typeof window.getList === 'function' ? window.getList(name) : []) || []; }
+    catch(e){ return []; }
+  }
+  function fmtDateLocal(d){
+    if (!d) return '';
+    try { return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }); }
+    catch(e){ return d; }
+  }
+
+  /* ==========================================================================
+     FIX 1 — has this visit happened, or is it still an appointment?
+     ======================================================================== */
+
+  // Outcome fields only get filled in once a visit has actually taken place.
+  // Note cost is stored as a number and is 0 when the field was left blank, so it only
+  // counts as an outcome when it is greater than zero.
+  function hasOutcome(v){
+    if (!v) return false;
+    if (String(v.diagnosis || '').trim() !== '') return true;
+    if ((parseFloat(v.cost) || 0) > 0) return true;
+    if ((parseFloat(v.weight) || 0) > 0) return true;
+    return false;
+  }
+
+  // The single source of truth for "is this still a future appointment".
+  //   after today   -> always an appointment
+  //   before today  -> always history
+  //   today         -> history if the record says 'logged' or already carries outcome
+  //                    data, otherwise an appointment still to come
+  function isScheduled(v){
+    if (!v || !v.date) return false;
+    var t = todayISO();
+    if (v.date > t) return true;
+    if (v.date < t) return false;
+    if (v.status === 'logged') return false;
+    if (v.status === 'scheduled' && !hasOutcome(v)) return true;
+    return !hasOutcome(v);
+  }
+  window.pfVisitIsScheduled = isScheduled;
+
+  // Keep the stored status in step with what the UI shows, so nothing drifts.
+  function normalizeStatuses(){
+    var visits = list('vet-visits');
+    var changed = false;
+    visits.forEach(function(v){
+      var want = isScheduled(v) ? 'scheduled' : 'logged';
+      if (v.status !== want){ v.status = want; changed = true; }
+    });
+    if (changed && typeof window.saveList === 'function'){
+      try { window.saveList('vet-visits', visits); } catch(e){}
+    }
+  }
+
+  // The form's Log / Schedule buttons are the user's explicit statement of intent, so a
+  // submit made in log mode is stamped 'logged' even when the visit is dated today and
+  // no cost or diagnosis happened to be entered.
+  function stampStatusFromFormMode(){
+    var form = $('vet-form'); if (!form || form.dataset.v3170Stamp) return;
+    form.dataset.v3170Stamp = '1';
+
+    // Capture phase, before any handler calls reset() and clears the mode flags.
+    form.addEventListener('submit', function(){
+      form.dataset.v3170Mode = form.dataset.forceLogMode ? 'log' : (form.dataset.modeChoice || '');
+      form.dataset.v3170EditId = form.dataset.editId || '';
+    }, true);
+
+    // Bubble phase: the record exists by now, so write the status onto it.
+    form.addEventListener('submit', function(){
+      var mode = form.dataset.v3170Mode || '';
+      var editId = form.dataset.v3170EditId || '';
+      var tries = 0;
+      var iv = setInterval(function(){
+        tries++;
+        var visits = list('vet-visits');
+        var v = editId
+          ? visits.filter(function(x){ return String(x.__id) === String(editId); })[0]
+          : visits.reduce(function(a, b){ return (b.__id > a.__id) ? b : a; }, visits[0]);
+        if (!v){ if (tries >= 8) clearInterval(iv); return; }
+        var t = todayISO(), want;
+        if (v.date > t)                want = 'scheduled';
+        else if (v.date < t)           want = 'logged';
+        else if (mode === 'log')       want = 'logged';
+        else if (mode === 'schedule')  want = 'scheduled';
+        else                           want = hasOutcome(v) ? 'logged' : 'scheduled';
+        if (v.status !== want){
+          v.status = want;
+          if (typeof window.saveList === 'function') window.saveList('vet-visits', visits);
+          if (typeof window.renderVetVisits === 'function') window.renderVetVisits();
+          if (typeof window.renderOverview === 'function') window.renderOverview();
+        }
+        clearInterval(iv);
+      }, 60);
+    }, false);
+  }
+
+  // Overview reminders: a visit that has already happened is not an upcoming reminder.
+  // The reminder row built from a visit's own date is dropped once that visit is
+  // history; a row driven by a future follow-up date stays, because that is still ahead.
+  function pruneOverviewReminders(){
+    var el = $('overview-reminders'); if (!el) return;
+    var visits = list('vet-visits');
+    var t = todayISO();
+    var removed = 0;
+    Array.prototype.slice.call(el.children).forEach(function(row){
+      var oc = row.getAttribute && row.getAttribute('onclick');
+      if (!oc) return;
+      var m = /pfGoToVetVisit\((\d+(?:\.\d+)?)\)/.exec(oc);
+      if (!m) return;
+      var v = visits.filter(function(x){ return String(x.__id) === m[1]; })[0];
+      if (!v) return;
+      if (v.next && v.next >= t) return;   // genuine follow-up reminder, leave it
+      if (!isScheduled(v)){ row.remove(); removed++; }
+    });
+    if (removed && !el.children.length){
+      el.innerHTML = '<p class="font-body text-sm text-secondary italic">No upcoming reminders. Add vaccinations and medications to track due dates.</p>';
+    }
+  }
+
+  /* ==========================================================================
+     FIX 2 — let the two-column form grids shrink so date inputs stay inside
+     ======================================================================== */
+
+  function relaxGrids(){
+    document.querySelectorAll('div[style*="grid-template-columns"]').forEach(function(g){
+      if (g.dataset.v3170Grid) return;
+      var cur = g.style.gridTemplateColumns || '';
+      if (!/fr/.test(cur) || /minmax/.test(cur)) return;
+      g.style.gridTemplateColumns = cur.replace(/(^|\s)((?:\d*\.)?\d*fr)(?=\s|$)/g, function(_, sp, fr){
+        return sp + 'minmax(0,' + fr + ')';
+      });
+      g.dataset.v3170Grid = '1';
+    });
+  }
+
+  /* ==========================================================================
+     FIX 3 — receipts link back to the visit, and saving one returns you there
+     ======================================================================== */
+
+  function docsForVisit(id){
+    return list('documents').filter(function(d){ return String(d.__vetVisitId || '') === String(id); });
+  }
+
+  // Called from cardHTML. Returns the receipt chip row for a visit, or '' if none.
+  window.pfVisitReceiptChips = function(visitId){
+    var docs = docsForVisit(visitId);
+    if (!docs.length) return '';
+    var toUrl = window.safeUrl || function(){ return ''; };
+    var chipStyle = 'display:inline-flex;align-items:center;gap:5px;max-width:100%;background:rgba(72,187,120,0.10);' +
+                    'color:#2f855a;font-size:12px;font-weight:600;padding:4px 10px;border-radius:12px;' +
+                    'border:1px solid rgba(72,187,120,0.35);cursor:pointer;font-family:inherit;' +
+                    'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    var chips = docs.map(function(d){
+      var href = '';
+      try { href = toUrl(d.link) || ''; } catch(e){ href = ''; }
+      var open = '<button type="button" onclick="window.pfGoToDocument(' + d.__id + ')" style="' + chipStyle +
+                 '" title="Open in Document Vault">\uD83D\uDCCE ' + esc(d.name || 'Receipt') + '</button>';
+      var view = href
+        ? '<a href="' + href + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#5B5BD6;text-decoration:none;">View \u2192</a>'
+        : '';
+      return open + view;
+    }).join('');
+    return '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">' + chips + '</div>';
+  };
+
+  // Jump to a document in the vault and flash it, mirroring pfGoToVetVisit.
+  window.pfGoToDocument = function(docId){
+    if (typeof window.goToTab === 'function') window.goToTab('document-vault');
+    setTimeout(function(){
+      var btn = document.querySelector('#documents-list button[onclick*="deleteDoc(' + docId + ')"]');
+      var card = btn ? btn.closest('.card') : null;
+      if (!card) return;
+      card.scrollIntoView({ behavior:'smooth', block:'center' });
+      var shadow = card.style.boxShadow, border = card.style.borderColor;
+      card.style.transition = 'box-shadow 0.3s, border-color 0.3s';
+      card.style.boxShadow = '0 0 0 3px rgba(91,91,214,0.45)';
+      card.style.borderColor = '#5B5BD6';
+      setTimeout(function(){ card.style.boxShadow = shadow; card.style.borderColor = border; }, 1600);
+    }, 240);
+  };
+
+  // Remember which visit an attach flow came from, tag the saved document with it, and
+  // return to that visit card once it is saved.
+  function wireAttachRoundTrip(){
+    var orig = window.pfAttachRecord;
+    if (typeof orig === 'function' && !orig.__v3170){
+      window.pfAttachRecord = function(id){
+        var r = orig.apply(this, arguments);
+        var form = $('doc-form');
+        if (form) form.dataset.v3170ReturnVisit = String(id || '');
+        showReturnHint(id);
+        return r;
+      };
+      window.pfAttachRecord.__v3170 = true;
+    }
+
+    var docForm = $('doc-form');
+    if (!docForm || docForm.dataset.v3170Wired) return;
+    docForm.dataset.v3170Wired = '1';
+
+    // Capture phase: the original handler calls reset(), so read the target first.
+    docForm.addEventListener('submit', function(){
+      docForm.dataset.v3170Pending = docForm.dataset.v3170ReturnVisit || '';
+    }, true);
+
+    // Bubble phase: tag the new document and head back to the visit.
+    docForm.addEventListener('submit', function(){
+      var visitId = docForm.dataset.v3170Pending || '';
+      delete docForm.dataset.v3170ReturnVisit;
+      delete docForm.dataset.v3170Pending;
+      if (!visitId) return;
+
+      var tries = 0;
+      var iv = setInterval(function(){
+        tries++;
+        var docs = list('documents');
+        if (!docs.length){ if (tries >= 10) clearInterval(iv); return; }
+        var newest = docs.reduce(function(a, b){ return (b.__id > a.__id) ? b : a; }, docs[0]);
+        clearInterval(iv);
+        tagDoc(newest.__id, visitId);
+        // The photo-capture hook from v3.7.0 saves the same list a moment later, so
+        // re-apply the tag afterwards in case that write raced past this one.
+        setTimeout(function(){ tagDoc(newest.__id, visitId); }, 500);
+        setTimeout(function(){ tagDoc(newest.__id, visitId); }, 1600);
+
+        clearReturnHint();
+        var msg = 'Receipt attached to the visit.';
+        if (typeof window.say === 'function') window.say(msg);
+        else if (typeof window.toast === 'function') window.toast(msg);
+        if (typeof window.refreshAll === 'function') window.refreshAll();
+        if (typeof window.pfGoToVetVisit === 'function') window.pfGoToVetVisit(Number(visitId));
+      }, 60);
+    }, false);
+  }
+
+  function tagDoc(docId, visitId){
+    var docs = list('documents');
+    var d = docs.filter(function(x){ return String(x.__id) === String(docId); })[0];
+    if (!d || String(d.__vetVisitId || '') === String(visitId)) return;
+    d.__vetVisitId = String(visitId);
+    if (typeof window.saveList === 'function') window.saveList('documents', docs);
+    if (typeof window.renderVetVisits === 'function') window.renderVetVisits();
+  }
+
+  // While the vault form is pre-filled from a visit, make it clear where saving lands.
+  function showReturnHint(visitId){
+    setTimeout(function(){
+      var form = $('doc-form'); if (!form) return;
+      clearReturnHint();
+      var v = list('vet-visits').filter(function(x){ return String(x.__id) === String(visitId); })[0];
+      var who = v
+        ? [v.petName, v.type || 'Vet Visit', fmtDateLocal(v.date)].filter(Boolean).join(' \u2014 ')
+        : 'the vet visit';
+      var hint = document.createElement('div');
+      hint.id = 'v3170-return-hint';
+      hint.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:9px 12px;' +
+                           'border-radius:8px;background:rgba(91,91,214,0.08);border:1px solid rgba(91,91,214,0.28);';
+      hint.innerHTML =
+        '<span class="font-body text-sm text-primary" style="flex:1;min-width:120px;">Attaching to <strong>' + esc(who) +
+        '</strong>. Saving brings you back to that visit.</span>' +
+        '<button type="button" id="v3170-return-cancel" style="background:transparent;border:1px solid var(--border-color);' +
+        'color:var(--text-secondary);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;' +
+        'font-family:inherit;">Cancel</button>';
+      form.parentNode.insertBefore(hint, form);
+      var cancel = $('v3170-return-cancel');
+      if (cancel) cancel.addEventListener('click', function(){
+        delete form.dataset.v3170ReturnVisit;
+        clearReturnHint();
+        if (typeof window.pfGoToVetVisit === 'function') window.pfGoToVetVisit(Number(visitId));
+      });
+    }, 140);
+  }
+  function clearReturnHint(){
+    var h = $('v3170-return-hint');
+    if (h) h.remove();
+  }
+
+  /* ==========================================================================
+     Wiring
+     ======================================================================== */
+
+  function wrapRenderOverview(){
+    var orig = window.renderOverview;
+    if (typeof orig !== 'function' || orig.__v3170) return;
+    window.renderOverview = function(){
+      var r = orig.apply(this, arguments);
+      // The v3.5.32 reminder rebuild runs on a 30ms timer, so prune just after it.
+      setTimeout(pruneOverviewReminders, 80);
+      return r;
+    };
+    window.renderOverview.__v3170 = true;
+  }
+
+  function wrapRefreshAll(){
+    var orig = window.refreshAll;
+    if (typeof orig !== 'function' || orig.__v3170) return;
+    window.refreshAll = function(){
+      normalizeStatuses();
+      var r = orig.apply(this, arguments);
+      try { relaxGrids(); } catch(e){}
+      return r;
+    };
+    window.refreshAll.__v3170 = true;
+  }
+
+  function boot(){
+    if (!$('vet-form') || !$('doc-form') || typeof window.getList !== 'function'){
+      return setTimeout(boot, 90);
+    }
+    normalizeStatuses();
+    stampStatusFromFormMode();
+    wrapRenderOverview();
+    wrapRefreshAll();
+    wireAttachRoundTrip();
+    relaxGrids();
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    else { pruneOverviewReminders(); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
