@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.7">
+                          <meta name="app-version" content="3.17.8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -202,13 +202,16 @@
     body.tl-printing .tl-print-row.tl-off { display: none !important; }
     body.tl-printing .tl-print-check { display: none !important; }
     body.tl-printing .tl-print-row label { opacity: 1; text-decoration: none; }
-    @media print {
-      body.tl-printing * { visibility: hidden; }
-      body.tl-printing #tl-print-overlay,
-      body.tl-printing #tl-print-overlay * { visibility: visible; }
-      body.tl-printing #tl-print-overlay {
-        position: absolute; inset: auto; top: 0; left: 0; width: 100%; overflow: visible;
-      }
+    body.tl-printing > *:not(#tl-print-overlay) { display: none !important; }
+    body.tl-printing { overflow: visible !important; height: auto !important; }
+    body.tl-printing #tl-print-overlay {
+      position: static !important; inset: auto !important;
+      width: auto !important; height: auto !important;
+      overflow: visible !important; z-index: auto !important;
+    }
+    body.tl-printing #tl-print-content {
+      overflow: visible !important; height: auto !important;
+      max-height: none !important; padding: 0 !important; max-width: none !important;
     }
 
     /* ===== Pet insurance block (v3.14.0) ===== */
@@ -499,9 +502,10 @@
 /* When printing, show ONLY the overlay's printable content (not the bar, not
    the app behind it). */
 @media print {
-  body * { visibility: hidden; }
-  #sitter-print-overlay, #sitter-print-overlay * { visibility: visible; }
-  #sitter-print-overlay {
+  body.sitter-printing * { visibility: hidden; }
+  body.sitter-printing #sitter-print-overlay,
+  body.sitter-printing #sitter-print-overlay * { visibility: visible; }
+  body.sitter-printing #sitter-print-overlay {
     display: block !important;
     position: absolute;
     inset: auto;
@@ -510,8 +514,8 @@
     width: 100%;
     background: #fff;
   }
-  #sitter-print-bar { display: none !important; }
-  #sitter-print-content {
+  body.sitter-printing #sitter-print-bar { display: none !important; }
+  body.sitter-printing #sitter-print-content {
     overflow: visible;
     max-width: none;
     padding: 0;
@@ -519,8 +523,8 @@
   #sitter-print-content .sitter-print-header { margin: 0 0 20px; }
   /* Owner/Vet sections can use two columns on the full page; pet cards stay
      single-column for readability (rule above uses !important). */
-  #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
-  #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
+  body.sitter-printing #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
+  body.sitter-printing #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
   #sitter-print-content .sitter-print-header,
   #sitter-print-content .sitter-print-brand {
     -webkit-print-color-adjust: exact;
@@ -3155,7 +3159,15 @@
     const closeBtn = document.getElementById('sitter-print-close-btn');
     const doBtn = document.getElementById('sitter-print-do-btn');
     if (closeBtn) closeBtn.addEventListener('click', () => closeSitterPrintOverlay(false));
-    if (doBtn) doBtn.addEventListener('click', () => window.print());
+    if (doBtn) doBtn.addEventListener('click', () => {
+      // Scopes the sitter print stylesheet to this view so it cannot bleed
+      // into the timeline print, and vice versa.
+      document.body.classList.add('sitter-printing');
+      const undo = () => document.body.classList.remove('sitter-printing');
+      try { window.addEventListener('afterprint', undo, { once: true }); } catch (e) {}
+      try { window.print(); } catch (e) {}
+      setTimeout(undo, 1500);
+    });
   }
 
   if (document.getElementById('sitter-print-close-btn')) {
