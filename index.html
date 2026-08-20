@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.4">
+                          <meta name="app-version" content="3.17.5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -117,6 +117,80 @@
     [data-theme="dark"] .pf-tl-pill--now { background: rgba(246,166,35,0.20); color: #f6c177; }
     [data-theme="dark"] .pf-tl-pill--next,
     [data-theme="dark"] .pf-tl-pill--month { background: rgba(139,124,248,0.18); color: #c4b5fd; }
+    /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
+    .pf-tl-tag {
+      display: inline-block; font-family: 'Montserrat', sans-serif; font-size: 10px;
+      font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+      color: #55637a; background: #eaeef4; border-radius: 999px;
+      padding: 2px 9px; margin-bottom: 5px;
+    }
+    .pf-tl-item--note > .card,
+    .pf-tl-item--update > .card {
+      background: #f7f9fc;
+      border-left: 3px solid #94a3b8;
+    }
+    [data-theme="dark"] .pf-tl-tag { color: #cbd5e1; background: rgba(148,163,184,0.20); }
+    [data-theme="dark"] .pf-tl-item--note > .card,
+    [data-theme="dark"] .pf-tl-item--update > .card {
+      background: rgba(148,163,184,0.10);
+      border-left-color: #64748b;
+    }
+
+    /* ===== v3.17.5 - in-app timeline print view (replaces window.open) ===== */
+    #tl-print-overlay {
+      display: none; position: fixed; inset: 0; z-index: 4000;
+      background: #fff; color: #1e293b; overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #tl-print-bar {
+      position: sticky; top: 0; display: flex; gap: 10px; flex-wrap: wrap;
+      align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: #fff; border-bottom: 1px solid #e2e8f0;
+    }
+    #tl-print-bar button {
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      padding: 8px 14px; border-radius: 8px; line-height: 1; white-space: nowrap;
+    }
+    #tl-print-back { background: #fff; color: #5B5BD6; border: 1.5px solid #5B5BD6; }
+    #tl-print-do { background: #5B5BD6; color: #fff; border: 1.5px solid #5B5BD6; }
+    #tl-print-content { padding: 22px 18px 40px; max-width: 760px; margin: 0 auto; }
+    .tl-print-h1 { font-family: 'Montserrat', sans-serif; color: #5B5BD6; font-size: 20px; margin: 0 0 3px; }
+    .tl-print-meta { color: #64748b; font-size: 12px; margin: 0 0 18px; }
+    .tl-print-list { margin: 0; padding-left: 22px; }
+    .tl-print-list li { margin-bottom: 9px; font-size: 14px; line-height: 1.5; }
+    /* Row picking. A generous tap target matters more than tidiness here.
+       The <li> stays display:list-item so the printed list keeps its numbers -
+       putting flex on the li itself would silently drop every marker. */
+    .tl-print-row { display: list-item; }
+    .tl-print-rowin { display: flex; align-items: flex-start; gap: 9px; }
+    .tl-print-check { width: 20px; height: 20px; margin: 1px 0 0; flex: 0 0 auto; accent-color: #5B5BD6; }
+    .tl-print-row label { flex: 1; cursor: pointer; }
+    .tl-print-row.tl-off label { opacity: 0.42; text-decoration: line-through; }
+    #tl-print-count { font-size: 12px; color: #64748b; font-weight: 600; }
+    #tl-print-picks { display: inline-flex; gap: 6px; }
+    #tl-print-all, #tl-print-none {
+      background: #fff; color: #64748b; border: 1.5px solid #e2e8f0;
+      font-size: 12px; padding: 6px 10px;
+    }
+    .tl-print-foot { margin-top: 26px; color: #94a3b8; font-size: 11px; }
+    /* Printing shows only the overlay, never the app behind it. */
+    /* Applied while the print dialog is up. Deliberately NOT inside
+       @media print: these need to be real, inspectable layout changes rather
+       than print-only rules that iOS Safari may or may not honour. */
+    body.tl-printing #tl-print-bar { display: none !important; }
+    /* Unticked rows leave the page entirely, so the <ol> renumbers cleanly. */
+    body.tl-printing .tl-print-row.tl-off { display: none !important; }
+    body.tl-printing .tl-print-check { display: none !important; }
+    body.tl-printing .tl-print-row label { opacity: 1; text-decoration: none; }
+    @media print {
+      body.tl-printing * { visibility: hidden; }
+      body.tl-printing #tl-print-overlay,
+      body.tl-printing #tl-print-overlay * { visibility: visible; }
+      body.tl-printing #tl-print-overlay {
+        position: absolute; inset: auto; top: 0; left: 0; width: 100%; overflow: visible;
+      }
+    }
+
     /* ===== Pet insurance block (v3.14.0) ===== */
     .pet-ins-fieldset { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; background: rgba(91,91,214,0.04); }
     .pet-ins-panel { margin-top: 12px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: rgba(91,91,214,0.05); }
@@ -878,9 +952,21 @@
         </select>
        </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">From</label>
+        <input type="date" id="timeline-from">
+       </div>
+       <div>
+        <label class="block font-body text-sm text-secondary mb-1">To</label>
+        <input type="date" id="timeline-to">
+       </div>
+      </div>
+      <div id="timeline-range-note" style="display:none;font-size:12px;margin-top:8px;"></div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
        <button type="button" id="timeline-copy-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Copy for vet</button>
        <button type="button" id="timeline-print-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Print</button>
+       <button type="button" id="timeline-range-clear" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid var(--border-color);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Clear dates</button>
       </div>
      </div>
      <div id="timeline-list" class="space-y-3"></div>
@@ -8865,6 +8951,17 @@ try {
   function timelineEntries(){
     var petFilter = ($('timeline-pet') && $('timeline-pet').value) || '';
     var kind = ($('timeline-filter') && $('timeline-filter').value) || 'all';
+    var from = ($('timeline-from') && $('timeline-from').value) || '';
+    var to   = ($('timeline-to')   && $('timeline-to').value)   || '';
+    // Dates are ISO yyyy-mm-dd, so a plain string compare is a date compare.
+    // Both ends are inclusive. Either end may be left blank for an open range.
+    var inRange = function(d){
+      d = String(d || '');
+      if (!d) return !from && !to;   // undated entries only show in an open range
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    };
     var matchesPet = function(rec){
       if (!petFilter) return true;
       if (rec.petId != null && rec.petId !== '') return String(rec.petId) === String(petFilter);
@@ -8875,14 +8972,16 @@ try {
     var out = [];
     if (kind === 'all' || kind === 'vet'){
       visits().filter(matchesPet).forEach(function(v){
-        out.push({ kind:'vet', date: v.date || '', time: v.time || '', rec: v });
+        if (inRange(v.date)) out.push({ kind:'vet', date: v.date || '', time: v.time || '', rec: v });
       });
     }
     if (kind === 'all' || kind === 'note' || kind === 'flagged'){
       notes().filter(matchesPet).filter(function(n){ return kind !== 'flagged' || n.flag; }).forEach(function(n){
-        out.push({ kind:'note', date: n.date || '', time: n.time || '', rec: n });
+        if (inRange(n.date)) out.push({ kind:'note', date: n.date || '', time: n.time || '', rec: n });
         noteUpdates(n).forEach(function(u){
-          out.push({ kind:'update', date: u.date || n.date || '', time:'', rec: n, upd: u });
+          // An update is dated in its own right, so judge it on its own date.
+          var ud = u.date || n.date || '';
+          if (inRange(ud)) out.push({ kind:'update', date: ud, time:'', rec: n, upd: u });
         });
       });
     }
@@ -8964,7 +9063,9 @@ try {
       return '<h3 class="pf-tl-head"><span class="pf-tl-pill pf-tl-pill--'+pill+'">'+esc(text)+'</span></h3>';
     }
     function item(kind, inner){
-      return '<div class="pf-tl-item pf-tl-item--'+kind+'">'+inner+'</div>';
+      var tag = (kind === 'note') ? 'Note' : (kind === 'update') ? 'Note update' : '';
+      return '<div class="pf-tl-item pf-tl-item--'+kind+'">' +
+        (tag ? '<span class="pf-tl-tag">'+tag+'</span>' : '') + inner + '</div>';
     }
     function section(headHtml, itemsHtml){
       return '<div class="pf-tl-sec">'+headHtml+'<div class="pf-tl">'+itemsHtml+'</div></div>';
@@ -9007,7 +9108,16 @@ try {
 
   // ---------- copy / print ----------
   function summaryLines(){
-    var entries = timelineEntries().slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+    var entries = timelineEntries().slice().sort(function(a,b){
+      var d = String(a.date||'').localeCompare(String(b.date||''));
+      if (d !== 0) return d;
+      // Same day, oldest first. Times are zero-padded HH:MM, so a string
+      // compare is correct. Untimed entries go last within their day.
+      var at = String(a.time||''), bt = String(b.time||'');
+      if (!at && bt) return 1;
+      if (at && !bt) return -1;
+      return at.localeCompare(bt);
+    });
     return entries.map(function(e){
       var r = e.rec, pet = petLabel(r);
       if (e.kind === 'vet'){
@@ -9015,20 +9125,22 @@ try {
         if (r.vet) bits.push(r.vet);
         if (r.reason) bits.push('Reason: ' + r.reason);
         if (r.diagnosis) bits.push(r.diagnosis);
-        return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + bits.join(' — ');
+        return fdate(r.date) + (r.time ? ' ' + ftime(r.time) : '') + (pet ? ' · ' + pet : '') + ' — ' + bits.join(' — ');
       }
       if (e.kind === 'update'){
         var origin = r.text || '';
         if (origin.length > 50) origin = origin.slice(0, 50) + '\u2026';
         return fdate(e.upd.date) + (pet ? ' · ' + pet : '') + ' — Update on “' + origin + '”: ' + e.upd.text;
       }
-      return fdate(r.date) + (pet ? ' · ' + pet : '') + ' — ' + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
+      return fdate(r.date) + (r.time ? ' ' + ftime(r.time) : '') + (pet ? ' · ' + pet : '') + ' — ' + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
     });
   }
 
   function summaryText(){
     var sel = $('timeline-pet');
     var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
+    var rl = rangeLabel();
+    if (rl) who += ' · ' + rl;
     var lines = summaryLines();
     return 'Pawfolio timeline — ' + who + ' (' + fdate(iso()) + ')\n\n' + (lines.length ? lines.join('\n') : 'No entries.');
   }
@@ -9052,22 +9164,159 @@ try {
     } else fallback();
   }
 
+  // Human-readable description of the active range, '' when it is wide open.
+  function rangeLabel(){
+    var from = ($('timeline-from') && $('timeline-from').value) || '';
+    var to   = ($('timeline-to')   && $('timeline-to').value)   || '';
+    if (from && to) return fdate(from) + ' to ' + fdate(to);
+    if (from) return 'from ' + fdate(from);
+    if (to) return 'up to ' + fdate(to);
+    return '';
+  }
+
+  // Reflect the range back next to the inputs, and reject a backwards one.
+  function syncRangeUi(){
+    var from = ($('timeline-from') && $('timeline-from').value) || '';
+    var to   = ($('timeline-to')   && $('timeline-to').value)   || '';
+    var note = $('timeline-range-note');
+    var clear = $('timeline-range-clear');
+    if (clear) clear.style.display = (from || to) ? '' : 'none';
+    if (!note) return;
+    if (from && to && from > to){
+      note.textContent = 'The From date is after the To date, so nothing matches. Swap them to see entries.';
+      note.style.color = '#b45309';
+      note.style.display = '';
+      return;
+    }
+    var lbl = rangeLabel();
+    if (!lbl){ note.style.display = 'none'; return; }
+    var n = timelineEntries().length;
+    note.textContent = 'Showing ' + n + ' ' + (n === 1 ? 'entry' : 'entries') + ' ' + lbl + '. Copy and Print use this range too.';
+    note.style.color = '#64748b';
+    note.style.display = '';
+  }
+
   function printSummary(){
     var sel = $('timeline-pet');
     var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
-    var rows = summaryLines().map(function(l){ return '<li>'+esc(l)+'</li>'; }).join('');
-    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pawfolio Timeline</title>' +
-      '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1e293b;padding:28px;line-height:1.55;}' +
-      'h1{color:'+ACCENT+';font-size:20px;margin:0 0 2px;}p.meta{color:#64748b;font-size:12px;margin:0 0 18px;}' +
-      'li{margin-bottom:8px;font-size:13px;}footer{margin-top:26px;color:#94a3b8;font-size:11px;}</style></head><body>' +
-      '<h1>Pawfolio Timeline</h1><p class="meta">'+esc(who)+' · printed '+esc(fdate(iso()))+'</p>' +
-      (rows ? '<ol>'+rows+'</ol>' : '<p>No entries.</p>') +
-      '<footer>Created with Pawfolio</footer></body></html>';
-    var w = window.open('', '_blank');
-    if (!w){ say('Please allow pop-ups to print the timeline.'); return; }
-    w.document.write(html); w.document.close();
-    setTimeout(function(){ try { w.focus(); w.print(); } catch(e){} }, 250);
+    var rl = rangeLabel();
+    if (rl) who += ' · ' + rl;
+    var rows = summaryLines().map(function(l, i){
+      var id = 'tl-pick-' + i;
+      return '<li class="tl-print-row">' +
+        '<span class="tl-print-rowin">' +
+          '<input type="checkbox" class="tl-print-check" id="'+id+'" checked>' +
+          '<label for="'+id+'">'+esc(l)+'</label>' +
+        '</span></li>';
+    }).join('');
+    openPrintOverlay(who, rows);
   }
+
+  // ---------- in-app print overlay ----------
+  var overlayOpen = false;
+
+  function ensurePrintOverlay(){
+    if ($('tl-print-overlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'tl-print-overlay';
+    ov.innerHTML =
+      '<div id="tl-print-bar">' +
+        '<button type="button" id="tl-print-back">\u2190 Back to Timeline</button>' +
+        '<span id="tl-print-count"></span>' +
+        '<span id="tl-print-picks">' +
+          '<button type="button" id="tl-print-all">All</button>' +
+          '<button type="button" id="tl-print-none">None</button>' +
+        '</span>' +
+        '<button type="button" id="tl-print-do">Print</button>' +
+      '</div>' +
+      '<div id="tl-print-content"></div>';
+    document.body.appendChild(ov);
+    $('tl-print-back').addEventListener('click', function(){ closePrintOverlay(true); });
+    // One listener on the container, so it survives the list being rebuilt.
+    $('tl-print-content').addEventListener('change', function(e){
+      if (e.target && e.target.classList.contains('tl-print-check')) syncPicks();
+    });
+    $('tl-print-all').addEventListener('click', function(){ setAllPicks(true); });
+    $('tl-print-none').addEventListener('click', function(){ setAllPicks(false); });
+    $('tl-print-do').addEventListener('click', function(){
+      if (!pickedRows().length){ say('Tick at least one entry to print.'); return; }
+      // Scope the print rules to this overlay so the sitter print view is
+      // unaffected. The class visibly drops the unticked rows and the toolbar,
+      // so it has to come back off reliably - afterprint is the real signal,
+      // with a timer as a backstop for browsers that never fire it.
+      document.body.classList.add('tl-printing');
+      var undo = function(){ document.body.classList.remove('tl-printing'); };
+      try { window.addEventListener('afterprint', undo, { once: true }); } catch(e){}
+      try { window.print(); } catch(e){}
+      setTimeout(undo, 1500);
+    });
+  }
+
+  function checkboxes(){
+    return [].slice.call(document.querySelectorAll('#tl-print-content .tl-print-check'));
+  }
+  function pickedRows(){
+    return checkboxes().filter(function(c){ return c.checked; });
+  }
+  function syncPicks(){
+    var boxes = checkboxes(), picked = 0;
+    boxes.forEach(function(c){
+      var li = c.closest('li');
+      if (li) li.classList.toggle('tl-off', !c.checked);
+      if (c.checked) picked++;
+    });
+    var lbl = $('tl-print-count');
+    if (lbl) lbl.textContent = picked === boxes.length
+      ? (boxes.length + (boxes.length === 1 ? ' entry' : ' entries'))
+      : (picked + ' of ' + boxes.length + ' selected');
+    // Nothing ticked means nothing to print, so say so with the button itself
+    // rather than a toast that fires after a tap that looked like it failed.
+    var go = $('tl-print-do');
+    if (go){
+      go.disabled = !picked;
+      go.style.opacity = picked ? '' : '0.45';
+      go.style.cursor = picked ? 'pointer' : 'not-allowed';
+    }
+  }
+  function setAllPicks(on){
+    checkboxes().forEach(function(c){ c.checked = !!on; });
+    syncPicks();
+  }
+
+  function openPrintOverlay(who, rows){
+    ensurePrintOverlay();
+    $('tl-print-content').innerHTML =
+      '<h1 class="tl-print-h1">Pawfolio Timeline</h1>' +
+      '<p class="tl-print-meta">' + esc(who) + ' \u00b7 oldest first \u00b7 printed ' + esc(fdate(iso())) + '</p>' +
+      (rows ? '<ol class="tl-print-list">' + rows + '</ol>' : '<p>No entries.</p>') +
+      '<p class="tl-print-foot">Created with Pawfolio</p>';
+    syncPicks();
+    var ov = $('tl-print-overlay');
+    ov.style.display = 'block';
+    ov.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    overlayOpen = true;
+    // Give the hardware/gesture back button something to consume, so going back
+    // leaves the print view instead of leaving the app.
+    try { history.pushState({ tlPrint: 1 }, ''); } catch(e){}
+  }
+
+  function closePrintOverlay(fromUi){
+    var ov = $('tl-print-overlay');
+    if (ov) ov.style.display = 'none';
+    document.body.style.overflow = '';
+    document.body.classList.remove('tl-printing');
+    var wasOpen = overlayOpen;
+    overlayOpen = false;
+    if (wasOpen && fromUi){
+      try { if (history.state && history.state.tlPrint) history.back(); } catch(e){}
+    }
+  }
+
+  window.addEventListener('popstate', function(){ if (overlayOpen) closePrintOverlay(false); });
+  document.addEventListener('keydown', function(e){
+    if (overlayOpen && (e.key === 'Escape' || e.key === 'Esc')) closePrintOverlay(true);
+  });
 
   // ---------- wiring ----------
   function wrapRefreshAll(){
@@ -9081,6 +9330,7 @@ try {
         try { renderNotes(); } catch(e){}
         try { renderTimeline(); } catch(e){}
         try { renderOverviewNotes(); } catch(e){}
+        try { syncRangeUi(); } catch(e){}
         return r;
       };
       window.refreshAll.__v3120notes = true;
@@ -9097,10 +9347,22 @@ try {
     var cancel = $('note-cancel-btn');
     if (cancel && !cancel.dataset.v3120){ cancel.dataset.v3120 = '1'; cancel.addEventListener('click', resetForm); }
     if ($('note-date') && !$('note-date').value) $('note-date').value = iso();
-    ['timeline-pet','timeline-filter'].forEach(function(id){
+    ['timeline-pet','timeline-filter','timeline-from','timeline-to'].forEach(function(id){
       var el = $(id);
-      if (el && !el.dataset.v3120){ el.dataset.v3120 = '1'; el.addEventListener('change', renderTimeline); }
+      if (el && !el.dataset.v3120){
+        el.dataset.v3120 = '1';
+        el.addEventListener('change', function(){ renderTimeline(); syncRangeUi(); });
+      }
     });
+    var rangeClear = $('timeline-range-clear');
+    if (rangeClear && !rangeClear.dataset.v3175){
+      rangeClear.dataset.v3175 = '1';
+      rangeClear.addEventListener('click', function(){
+        if ($('timeline-from')) $('timeline-from').value = '';
+        if ($('timeline-to')) $('timeline-to').value = '';
+        renderTimeline(); syncRangeUi();
+      });
+    }
     var copyBtn = $('timeline-copy-btn');
     if (copyBtn && !copyBtn.dataset.v3120){ copyBtn.dataset.v3120 = '1'; copyBtn.addEventListener('click', copySummary); }
     var printBtn = $('timeline-print-btn');
@@ -9109,6 +9371,7 @@ try {
     renderNotes();
     renderTimeline();
     renderOverviewNotes();
+    syncRangeUi();
   }
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); }
   else { boot(); }
