@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.5">
+                          <meta name="app-version" content="3.17.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -117,6 +117,26 @@
     [data-theme="dark"] .pf-tl-pill--now { background: rgba(246,166,35,0.20); color: #f6c177; }
     [data-theme="dark"] .pf-tl-pill--next,
     [data-theme="dark"] .pf-tl-pill--month { background: rgba(139,124,248,0.18); color: #c4b5fd; }
+    /* ===== v3.17.6 - the date range row ===== */
+    /* grid-template-columns: 1fr 1fr means minmax(auto, 1fr), and that auto
+       floor is min-content. A native date input's min-content width is wider
+       than half a phone card, so the row overflowed its container. minmax(0,1fr)
+       lets the tracks shrink, and the inputs are told to fill their track
+       rather than sit at their own intrinsic width. */
+    .tl-range {
+      display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+      gap: 12px; margin-top: 12px;
+    }
+    .tl-range > div { min-width: 0; }
+    .tl-range input[type="date"] {
+      width: 100%; min-width: 0; max-width: none; box-sizing: border-box;
+    }
+    /* Below ~380px even half a card is too narrow for some date pickers, so
+       give each field its own full-width row rather than let it clip. */
+    @media (max-width: 380px){
+      .tl-range { grid-template-columns: minmax(0,1fr); }
+    }
+
     /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
     .pf-tl-tag {
       display: inline-block; font-family: 'Montserrat', sans-serif; font-size: 10px;
@@ -952,7 +972,7 @@
         </select>
        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+      <div class="tl-range">
        <div>
         <label class="block font-body text-sm text-secondary mb-1">From</label>
         <input type="date" id="timeline-from">
@@ -8948,6 +8968,28 @@ try {
     if (sel.value !== prev) sel.value = '';
   }
 
+  // Creation stamp -> epoch ms, or null. Notes store microseconds, updates ms.
+  function stampMs(v, scale){
+    var n = parseFloat(v);
+    if (!isFinite(n) || n <= 0) return null;
+    n = Math.floor(n / (scale || 1));
+    // Sanity-check it really is a date this millennium and not a counter.
+    if (n < 946684800000 || n > 4102444800000) return null;
+    return n;
+  }
+  // 'HH:MM' to sort an entry by. Explicit time wins; otherwise fall back to
+  // when it was written, but only if that lands on the day it is dated for.
+  function impliedClock(dateStr, stamp){
+    if (stamp == null || !dateStr) return '';
+    var d = new Date(stamp);
+    if (isNaN(d.getTime())) return '';
+    var local = d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+    if (local !== String(dateStr)) return '';   // back-dated: no clock to infer
+    return String(d.getHours()).padStart(2,'0') + ':' +
+           String(d.getMinutes()).padStart(2,'0');
+  }
   function timelineEntries(){
     var petFilter = ($('timeline-pet') && $('timeline-pet').value) || '';
     var kind = ($('timeline-filter') && $('timeline-filter').value) || 'all';
@@ -8972,16 +9014,28 @@ try {
     var out = [];
     if (kind === 'all' || kind === 'vet'){
       visits().filter(matchesPet).forEach(function(v){
-        if (inRange(v.date)) out.push({ kind:'vet', date: v.date || '', time: v.time || '', rec: v });
+        if (inRange(v.date)){
+          var vts = stampMs(v.__id, 1000);
+          out.push({ kind:'vet', date: v.date || '', time: v.time || '', rec: v,
+                     ts: vts, sortTime: v.time || impliedClock(v.date, vts) });
+        }
       });
     }
     if (kind === 'all' || kind === 'note' || kind === 'flagged'){
       notes().filter(matchesPet).filter(function(n){ return kind !== 'flagged' || n.flag; }).forEach(function(n){
-        if (inRange(n.date)) out.push({ kind:'note', date: n.date || '', time: n.time || '', rec: n });
+        var nts = stampMs(n.__id, 1000);
+        if (inRange(n.date)){
+          out.push({ kind:'note', date: n.date || '', time: n.time || '', rec: n,
+                     ts: nts, sortTime: n.time || impliedClock(n.date, nts) });
+        }
         noteUpdates(n).forEach(function(u){
           // An update is dated in its own right, so judge it on its own date.
           var ud = u.date || n.date || '';
-          if (inRange(ud)) out.push({ kind:'update', date: ud, time:'', rec: n, upd: u });
+          if (inRange(ud)){
+            var uts = stampMs(u.id, 1);
+            out.push({ kind:'update', date: ud, time:'', rec: n, upd: u,
+                       ts: uts, sortTime: impliedClock(ud, uts) });
+          }
         });
       });
     }
@@ -9052,9 +9106,13 @@ try {
                              .sort(function(a,b){
                                var d = String(b.date||'').localeCompare(String(a.date||''));
                                if (d !== 0) return d;
-                               // Same day: latest first. Times are zero-padded
-                               // HH:MM so a plain string compare is correct.
-                               return String(b.time||'').localeCompare(String(a.time||''));
+                               // Same day: latest first, mirroring the print
+                               // order exactly so the two views cannot disagree.
+                               var at = String(a.sortTime||''), bt = String(b.sortTime||'');
+                               if (at && bt && at !== bt) return bt.localeCompare(at);
+                               if (!at && bt) return 1;
+                               if (at && !bt) return -1;
+                               return (b.ts||0) - (a.ts||0);
                              });
 
     // v3.17.0 — render as a proper vertical timeline: a continuous rail with one dot per
@@ -9112,27 +9170,44 @@ try {
       var d = String(a.date||'').localeCompare(String(b.date||''));
       if (d !== 0) return d;
       // Same day, oldest first. Times are zero-padded HH:MM, so a string
-      // compare is correct. Untimed entries go last within their day.
-      var at = String(a.time||''), bt = String(b.time||'');
+      // compare is correct. Entries with no clock at all go last within
+      // their day, then fall back to the order they were written in.
+      var at = String(a.sortTime||''), bt = String(b.sortTime||'');
+      if (at && bt && at !== bt) return at.localeCompare(bt);
       if (!at && bt) return 1;
       if (at && !bt) return -1;
-      return at.localeCompare(bt);
+      return (a.ts||0) - (b.ts||0);
     });
+    var lastHead = null, lastNote = null;
     return entries.map(function(e){
       var r = e.rec, pet = petLabel(r);
+      // Date + pet is printed once per day per pet; everything under it is
+      // introduced by its own clock time instead of restating the date.
+      var head = fdate(e.kind === 'update' ? e.date : r.date) +
+                 (pet ? ' \u00b7 ' + pet : '');
+      var lead = (head !== lastHead) ? head + ' \u2014 ' : '';
+      lastHead = head;
+      if (e.kind !== 'update' && r.time) lead += ftime(r.time) + ' \u00b7 ';
+      // Note context deliberately survives an interleaving vet visit, so a run
+      // of updates to one note quotes that note once and not once per line.
+      var sameNote = (e.kind === 'update' && lastNote != null &&
+                      String(lastNote) === String(r.__id));
+      if (e.kind === 'note' || e.kind === 'update') lastNote = r.__id;
       if (e.kind === 'vet'){
         var bits = ['Vet visit' + (r.type ? ' (' + r.type + ')' : '')];
         if (r.vet) bits.push(r.vet);
         if (r.reason) bits.push('Reason: ' + r.reason);
         if (r.diagnosis) bits.push(r.diagnosis);
-        return fdate(r.date) + (r.time ? ' ' + ftime(r.time) : '') + (pet ? ' · ' + pet : '') + ' — ' + bits.join(' — ');
+        return lead + bits.join(' \u2014 ');
       }
       if (e.kind === 'update'){
+        // Already reading that note? Then '\u21b3 Update:' is unambiguous.
+        if (sameNote) return lead + '\u21b3 Update: ' + e.upd.text;
         var origin = r.text || '';
-        if (origin.length > 50) origin = origin.slice(0, 50) + '\u2026';
-        return fdate(e.upd.date) + (pet ? ' · ' + pet : '') + ' — Update on “' + origin + '”: ' + e.upd.text;
+        if (origin.length > 24) origin = origin.slice(0, 24) + '\u2026';
+        return lead + '\u21b3 Update on \u201c' + origin + '\u201d: ' + e.upd.text;
       }
-      return fdate(r.date) + (r.time ? ' ' + ftime(r.time) : '') + (pet ? ' · ' + pet : '') + ' — ' + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
+      return lead + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
     });
   }
 
