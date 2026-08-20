@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.10">
+                          <meta name="app-version" content="3.17.11">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -138,8 +138,11 @@
     .tl-range input[type="date"] {
       -webkit-appearance: none; appearance: none;
       width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
-      font-size: 14px;
-      padding-left: 8px !important; padding-right: 8px !important;
+      font-size: 16px; line-height: 1.25;
+      padding: 9px 8px !important;
+      /* 16px x 1.25 + 18px padding + 3px border = the 41px of the dropdowns,
+         and a floor so an empty field cannot collapse to its padding. */
+      min-height: 41px;
       background: #fff;
       /* Safari can still centre the value in a box it thinks is too small. */
       text-align: left;
@@ -158,11 +161,26 @@
        promoted from a text character to a sized, coloured marker. */
     .tl-print-row label.tl-pl--note,
     .tl-print-row label.tl-pl--update { font-style: italic; }
-    .tl-up {
-      display: inline-block; font-style: normal; font-weight: 900;
-      font-size: 1.45em; line-height: 0.8; vertical-align: -2px;
-      color: #5B5BD6; margin-right: 6px;
+    /* The arrow used to be the character U+21B3. No weight or size makes that
+       glyph read as an arrow - the stem is a hairline in Karla at any weight.
+       It is now drawn, so the thickness is ours to set. */
+    .pf-up-ic {
+      width: 1.15em; height: 1.15em; vertical-align: -0.22em;
+      fill: none; stroke: currentColor; stroke-width: 2.6;
+      stroke-linecap: round; stroke-linejoin: round;
     }
+    .tl-up { display: inline-block; color: #5B5BD6; margin-right: 5px; }
+    .tl-up .pf-up-ic { width: 1.5em; height: 1.5em; stroke-width: 2.8; vertical-align: -0.32em; }
+    /* The in-card update badge, promoted from a faint chip to something that
+       reads at a glance. */
+    .pf-up-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(91,91,214,0.16); color: #4b4bc4;
+      font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 3px 10px 3px 8px; border-radius: 999px;
+    }
+    .pf-up-chip .pf-up-ic { width: 1.3em; height: 1.3em; stroke-width: 2.8; vertical-align: -0.2em; }
     .tl-pl--update .tl-up-lbl {
       font-style: normal; font-weight: 800; letter-spacing: 0.02em; color: #4b4bc4;
     }
@@ -170,7 +188,9 @@
        read as the same kind of thing. Scoped to the timeline - on the Notes tab
        every card is a note, so italics there would only cost legibility. */
     .pf-tl-item--note .pf-note-text,
-    .pf-tl-item--update .pf-note-text { font-style: italic; }
+    .pf-tl-item--update .pf-note-text {
+      font-style: italic; font-weight: 500;
+    }
 
     /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
     .pf-tl-tag {
@@ -9111,16 +9131,15 @@ try {
   // back to the note it belongs to.
   function updateCard(n, u){
     var pet = petLabel(n);
-    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
     var origin = n.text || '';
     if (origin.length > 70) origin = origin.slice(0, 70) + '\u2026';
     return '<div class="card p-4" style="border-left:3px solid rgba(91,91,214,0.35);">' +
       '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
         '<span class="font-heading font-bold text-primary">'+esc(pet || 'General')+'</span>' +
-        '<span style="'+chip+'">\u21b3 Update</span>' +
+        '<span class="pf-up-chip"><svg class="pf-up-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5V9.5H11.2"/><path d="M8.6 6.9L11.7 9.5 8.6 12.1"/></svg>Update</span>' +
       '</div>' +
       '<p class="font-body text-sm text-secondary">'+esc(fdate(u.date))+'</p>' +
-      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(u.text)+'</p>' +
+      '<p class="font-body text-sm text-primary mt-1 pf-note-text" style="white-space:pre-wrap;">'+esc(u.text)+'</p>' +
       '<p class="font-body text-xs text-secondary mt-2">Follow-up to \u201c'+esc(origin)+'\u201d ('+esc(fdate(n.date))+')</p>' +
       '</div>';
   }
@@ -9168,7 +9187,7 @@ try {
       return '<h3 class="pf-tl-head"><span class="pf-tl-pill pf-tl-pill--'+pill+'">'+esc(text)+'</span></h3>';
     }
     function item(kind, inner){
-      var tag = (kind === 'note') ? 'Note' : (kind === 'update') ? 'Note update' : '';
+      var tag = (kind === 'note') ? 'Note' : '';
       return '<div class="pf-tl-item pf-tl-item--'+kind+'">' +
         (tag ? '<span class="pf-tl-tag">'+tag+'</span>' : '') + inner + '</div>';
     }
@@ -9337,7 +9356,7 @@ try {
       // The arrow and the 'Update' word are emitted as their own elements so
       // they can be sized and coloured; the rest stays escaped text.
       var inner = esc(x.lead);
-      if (x.arrow) inner += '<span class="tl-up">\u21b3</span>';
+      if (x.arrow) inner += '<span class="tl-up"><svg class="pf-up-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5V9.5H11.2"/><path d="M8.6 6.9L11.7 9.5 8.6 12.1"/></svg></span>';
       var m = x.arrow ? x.body.match(/^(Update(?: on \u201c[\s\S]*?\u201d)?:)([\s\S]*)$/) : null;
       inner += m ? '<span class="tl-up-lbl">'+esc(m[1])+'</span>'+esc(m[2]) : esc(x.body);
       return '<li class="tl-print-row">' +
