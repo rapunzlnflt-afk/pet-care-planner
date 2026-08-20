@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.3">
+                          <meta name="app-version" content="3.17.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4691,7 +4691,11 @@ try {
     // Pre-fill
     if($('vet-pet')) $('vet-pet').value = v.petId || '';
     if($('vet-date')) $('vet-date').value = v.date || '';
-    if($('vet-time')) $('vet-time').value = v.time || '';
+    // setTimeSelect lives in a later script's closure, so reach it through the
+    // window handle it publishes — calling it bare threw a ReferenceError here
+    // and took the whole edit flow down with it.
+    if (typeof window.pfSetTimeSelect === 'function') window.pfSetTimeSelect('vet-time', v.time);
+    else if($('vet-time')) $('vet-time').value = v.time || '';
     if($('vet-name')) $('vet-name').value = v.vet || '';
     if($('vet-type')) $('vet-type').value = v.type || 'Wellness Exam';
     if($('vet-reason')) $('vet-reason').value = v.reason || '';
@@ -4806,16 +4810,52 @@ try {
     return '$'+num.toFixed(2);
   }
 
+  // Covers the full 24 hours. This used to start at 6am and stop at 9:45pm,
+  // which made an emergency vet trip at 4:15am impossible to record — and worse,
+  // silently blanked the time on any such visit the moment you opened it to edit,
+  // because a <select> discards a value it has no option for.
+  var TIME_GROUPS = [
+    ['Overnight',  0,  5],
+    ['Morning',    6, 11],
+    ['Afternoon', 12, 17],
+    ['Evening',   18, 23]
+  ];
   function buildTimeOptions(){
     var opts = ['<option value="">--</option>'];
-    for(var h=6; h<=21; h++){
-      for(var m=0; m<60; m+=15){
-        var v = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-        opts.push('<option value="'+v+'">'+fmtTime(v)+'</option>');
+    TIME_GROUPS.forEach(function(g){
+      opts.push('<optgroup label="'+g[0]+'">');
+      for(var h=g[1]; h<=g[2]; h++){
+        for(var m=0; m<60; m+=15){
+          var v = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+          opts.push('<option value="'+v+'">'+fmtTime(v)+'</option>');
+        }
       }
-    }
+      opts.push('</optgroup>');
+    });
     return opts.join('');
   }
+  // A stored time that isn't on the quarter-hour (legacy or imported data) still
+  // has no option. Rather than lose it, give it one. Assigning .value to a select
+  // that lacks the option fails silently, so every prefill goes through here.
+  function setTimeSelect(id, val){
+    var el = $(id); if(!el) return;
+    val = val || '';
+    if (val && el.tagName === 'SELECT'){
+      var has = Array.prototype.some.call(el.options, function(o){ return o.value === val; });
+      if (!has){
+        var o = document.createElement('option');
+        o.value = val; o.textContent = fmtTime(val);
+        // The quarter-hour options live inside <optgroup>s, so el.options[1] is a
+        // grandchild and insertBefore against it throws NotFoundError. Anchor on
+        // the first optgroup instead, which IS a direct child.
+        var anchor = el.querySelector('optgroup');
+        if (anchor && anchor.parentNode === el) el.insertBefore(o, anchor);
+        else el.appendChild(o);
+      }
+    }
+    el.value = val;
+  }
+  window.pfSetTimeSelect = setTimeSelect;
   function swapTimeInputForSelect(inputId){
     var el = $(inputId); if(!el) return;
     if(el.tagName === 'SELECT') return;
@@ -4823,8 +4863,9 @@ try {
     sel.id = inputId;
     sel.className = el.className;
     sel.innerHTML = buildTimeOptions();
-    if(el.value){ sel.value = el.value; }
+    var keep = el.value;
     el.parentNode.replaceChild(sel, el);
+    if(keep){ setTimeSelect(inputId, keep); }
   }
   function applyTimeSelects(){
     swapTimeInputForSelect('vet-time');
@@ -5034,8 +5075,13 @@ try {
         try {
           var v = (getList('vet-visits')||[]).find(function(x){return String(x.__id)===String(id);});
           if(v){
-            if($('vet-time')) $('vet-time').value = v.time || '';
-            if($('vet-next-time')) $('vet-next-time').value = v.nextTime || '';
+            if (typeof window.pfSetTimeSelect === 'function'){
+              window.pfSetTimeSelect('vet-time', v.time);
+              window.pfSetTimeSelect('vet-next-time', v.nextTime);
+            } else {
+              if($('vet-time')) $('vet-time').value = v.time || '';
+              if($('vet-next-time')) $('vet-next-time').value = v.nextTime || '';
+            }
           }
         } catch(e){}
         applyTitleAndMode();
