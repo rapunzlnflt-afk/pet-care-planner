@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.9">
+                          <meta name="app-version" content="3.17.10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -128,11 +128,25 @@
       gap: 12px; margin-top: 12px;
     }
     .tl-range > div { min-width: 0; }
+    /* Measured from a 375px iPhone: each box rendered ~167px wide inside a
+       ~154px column and spilled past the card. width:100% and min-width:0 were
+       both already set and both were ignored, because the *native* date control
+       sizes itself to its content plus the picker glyph and treats that as a
+       hard floor. Dropping the native appearance removes that floor, after
+       which width:100% is finally respected. The field still opens the same
+       iOS picker on tap; it just no longer dictates its own width. */
     .tl-range input[type="date"] {
-      width: 100%; min-width: 0; max-width: none; box-sizing: border-box;
+      -webkit-appearance: none; appearance: none;
+      width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
       font-size: 14px;
-      padding-left: 8px !important; padding-right: 6px !important;
+      padding-left: 8px !important; padding-right: 8px !important;
+      background: #fff;
+      /* Safari can still centre the value in a box it thinks is too small. */
+      text-align: left;
     }
+    /* Empty fields showed as blank mystery boxes with the native glyph gone,
+       so say what they want. */
+    .tl-range input[type="date"]::-webkit-date-and-time-value { text-align: left; }
     /* Only give up on two columns on a genuinely tiny screen. */
     @media (max-width: 320px){
       .tl-range { grid-template-columns: minmax(0,1fr); }
