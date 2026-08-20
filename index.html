@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.8">
+                          <meta name="app-version" content="3.17.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -130,12 +130,33 @@
     .tl-range > div { min-width: 0; }
     .tl-range input[type="date"] {
       width: 100%; min-width: 0; max-width: none; box-sizing: border-box;
+      font-size: 14px;
+      padding-left: 8px !important; padding-right: 6px !important;
     }
-    /* Below ~380px even half a card is too narrow for some date pickers, so
-       give each field its own full-width row rather than let it clip. */
-    @media (max-width: 380px){
+    /* Only give up on two columns on a genuinely tiny screen. */
+    @media (max-width: 320px){
       .tl-range { grid-template-columns: minmax(0,1fr); }
     }
+
+    /* ===== v3.17.9 - notes read differently, updates are clearly marked =====
+       On the printed page a note or an update is set in italics so it is
+       distinguishable from a vet visit at a glance, and the update arrow is
+       promoted from a text character to a sized, coloured marker. */
+    .tl-print-row label.tl-pl--note,
+    .tl-print-row label.tl-pl--update { font-style: italic; }
+    .tl-up {
+      display: inline-block; font-style: normal; font-weight: 900;
+      font-size: 1.45em; line-height: 0.8; vertical-align: -2px;
+      color: #5B5BD6; margin-right: 6px;
+    }
+    .tl-pl--update .tl-up-lbl {
+      font-style: normal; font-weight: 800; letter-spacing: 0.02em; color: #4b4bc4;
+    }
+    /* The timeline screen: note text italic, so notes and vet visits do not
+       read as the same kind of thing. Scoped to the timeline - on the Notes tab
+       every card is a note, so italics there would only cost legibility. */
+    .pf-tl-item--note .pf-note-text,
+    .pf-tl-item--update .pf-note-text { font-style: italic; }
 
     /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
     .pf-tl-tag {
@@ -8876,7 +8897,7 @@ try {
           return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">' +
             '<div style="flex:1;min-width:0;">' +
               '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+'</p>' +
-              '<p class="font-body text-sm text-primary" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
+              '<p class="font-body text-sm text-primary pf-note-text" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
             '</div>' +
             (opts.readOnly ? '' : '<button type="button" title="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;">×</button>') +
             '</div>';
@@ -8897,7 +8918,7 @@ try {
     }
     var body = head +
       '<p class="font-body text-sm text-secondary">'+esc(fdate(n.date))+(n.time ? ' \u00b7 '+esc(ftime(n.time)) : '')+'</p>' +
-      '<p class="font-body text-sm text-primary mt-1" style="white-space:pre-wrap;">'+esc(n.text)+'</p>' +
+      '<p class="font-body text-sm text-primary mt-1 pf-note-text" style="white-space:pre-wrap;">'+esc(n.text)+'</p>' +
       thread + updForm;
     var actions = '';
     if (!opts.readOnly){
@@ -9191,6 +9212,13 @@ try {
       return (a.ts||0) - (b.ts||0);
     });
     var lastHead = null, lastNote = null;
+    // Each entry comes back as parts rather than one string: the print view
+    // needs to style the arrow and the note text, while Copy still needs plain
+    // text. .text is the plain form, assembled here so the two cannot drift.
+    var out = function(kind, lead, body, arrow){
+      return { kind: kind, lead: lead, body: body, arrow: !!arrow,
+               text: lead + (arrow ? '\u21b3 ' : '') + body };
+    };
     return entries.map(function(e){
       var r = e.rec, pet = petLabel(r);
       // Date + pet is printed once per day per pet; everything under it is
@@ -9210,16 +9238,18 @@ try {
         if (r.vet) bits.push(r.vet);
         if (r.reason) bits.push('Reason: ' + r.reason);
         if (r.diagnosis) bits.push(r.diagnosis);
-        return lead + bits.join(' \u2014 ');
+        return out('vet', lead, bits.join(' \u2014 '), false);
       }
       if (e.kind === 'update'){
         // Already reading that note? Then '\u21b3 Update:' is unambiguous.
-        if (sameNote) return lead + '\u21b3 Update: ' + e.upd.text;
+        if (sameNote) return out('update', lead, 'Update: ' + e.upd.text, true);
         var origin = r.text || '';
         if (origin.length > 24) origin = origin.slice(0, 24) + '\u2026';
-        return lead + '\u21b3 Update on \u201c' + origin + '\u201d: ' + e.upd.text;
+        return out('update', lead, 'Update on \u201c' + origin + '\u201d: ' + e.upd.text, true);
       }
-      return lead + (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : '');
+      return out('note', lead,
+                 (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : ''),
+                 false);
     });
   }
 
@@ -9228,7 +9258,7 @@ try {
     var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
     var rl = rangeLabel();
     if (rl) who += ' · ' + rl;
-    var lines = summaryLines();
+    var lines = summaryLines().map(function(x){ return x.text; });
     return 'Pawfolio timeline — ' + who + ' (' + fdate(iso()) + ')\n\n' + (lines.length ? lines.join('\n') : 'No entries.');
   }
 
@@ -9288,12 +9318,18 @@ try {
     var who = (sel && sel.value && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : 'All pets';
     var rl = rangeLabel();
     if (rl) who += ' · ' + rl;
-    var rows = summaryLines().map(function(l, i){
+    var rows = summaryLines().map(function(x, i){
       var id = 'tl-pick-' + i;
+      // The arrow and the 'Update' word are emitted as their own elements so
+      // they can be sized and coloured; the rest stays escaped text.
+      var inner = esc(x.lead);
+      if (x.arrow) inner += '<span class="tl-up">\u21b3</span>';
+      var m = x.arrow ? x.body.match(/^(Update(?: on \u201c[\s\S]*?\u201d)?:)([\s\S]*)$/) : null;
+      inner += m ? '<span class="tl-up-lbl">'+esc(m[1])+'</span>'+esc(m[2]) : esc(x.body);
       return '<li class="tl-print-row">' +
         '<span class="tl-print-rowin">' +
           '<input type="checkbox" class="tl-print-check" id="'+id+'" checked>' +
-          '<label for="'+id+'">'+esc(l)+'</label>' +
+          '<label for="'+id+'" class="tl-pl--'+x.kind+'">'+inner+'</label>' +
         '</span></li>';
     }).join('');
     openPrintOverlay(who, rows);
