@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.13">
+                          <meta name="app-version" content="3.17.14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1014,7 +1014,7 @@
     <!-- TIMELINE TAB (v3.12.0) -->
     <section id="tab-timeline" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-1">Timeline</h2>
-     <p class="font-body text-sm text-secondary mb-4">Vet visits and your notes in one dated history, newest first.</p>
+     <p class="font-body text-sm text-secondary mb-4">Vet visits and your notes in one dated history, oldest first — read it from the beginning. Anything coming up is pinned at the top.</p>
      <div class="card p-4 mb-5">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
        <div>
@@ -9250,17 +9250,24 @@ try {
     // A past visit can also carry a scheduled follow-up date — surface those too.
     var followUps = entries.filter(function(e){ return e.kind === 'vet' && e.rec.next && e.rec.next > today && upcoming.indexOf(e) === -1; })
                            .sort(function(a,b){ return String(a.rec.next).localeCompare(String(b.rec.next)); });
+    // v3.17.14 — the history now reads oldest first, so you start at the
+    // beginning of the story and read forward. This also makes the screen match
+    // Copy for vet and Print, which have always been oldest-first (the old
+    // comment here claimed the two mirrored each other; they did not).
+    // Keep this sort and summaryLines() below in step.
     var pastEntries = entries.filter(function(e){ return upcoming.indexOf(e) === -1; })
                              .sort(function(a,b){
-                               var d = String(b.date||'').localeCompare(String(a.date||''));
+                               var d = String(a.date||'').localeCompare(String(b.date||''));
                                if (d !== 0) return d;
-                               // Same day: latest first, mirroring the print
-                               // order exactly so the two views cannot disagree.
+                               // Same day, oldest first. Times are zero-padded
+                               // HH:MM, so a string compare is a time compare.
+                               // Entries with no clock go last within their day,
+                               // then fall back to the order they were written.
                                var at = String(a.sortTime||''), bt = String(b.sortTime||'');
-                               if (at && bt && at !== bt) return bt.localeCompare(at);
+                               if (at && bt && at !== bt) return at.localeCompare(bt);
                                if (!at && bt) return 1;
                                if (at && !bt) return -1;
-                               return (b.ts||0) - (a.ts||0);
+                               return (a.ts||0) - (b.ts||0);
                              });
 
     // v3.17.0 — render as a proper vertical timeline: a continuous rail with one dot per
@@ -9298,6 +9305,11 @@ try {
       if (!byMonth[ml]){ byMonth[ml] = []; months.push(ml); }
       byMonth[ml].push(e);
     });
+    // v3.17.14 — an entry with no date sorts to the very front of an ascending
+    // list, which would open the history with "Undated" before anything real.
+    // Park that group at the end instead.
+    months = months.filter(function(m){ return m !== 'Undated'; })
+                   .concat(months.indexOf('Undated') > -1 ? ['Undated'] : []);
     months.forEach(function(ml){
       var itemsHtml = byMonth[ml].map(function(e){
         if (e.kind === 'vet') return item('vet', visitCard(e.rec));
@@ -9315,7 +9327,13 @@ try {
   // ---------- copy / print ----------
   function summaryLines(){
     var entries = timelineEntries().slice().sort(function(a,b){
-      var d = String(a.date||'').localeCompare(String(b.date||''));
+      // v3.17.14 — an undated entry has no place in a chronology, so it goes at
+      // the end rather than sorting to the front on an empty string. The screen
+      // parks its "Undated" group last for the same reason; keep the two in step.
+      var ad = String(a.date||''), bd = String(b.date||'');
+      if (!ad && bd) return 1;
+      if (ad && !bd) return -1;
+      var d = ad.localeCompare(bd);
       if (d !== 0) return d;
       // Same day, oldest first. Times are zero-padded HH:MM, so a string
       // compare is correct. Entries with no clock at all go last within
