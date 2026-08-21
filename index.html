@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.12">
+                          <meta name="app-version" content="3.17.13">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3421,7 +3421,9 @@
   });
 
   function renderDocuments() {
-    const docs = getList('documents');
+    // v3.17.13 — newest first (see docsNewestFirst in the v3.7.0 block, which
+    // replaces this renderer; kept in sync so the fallback path matches).
+    const docs = getList('documents').slice().sort((a, b) => (Number(b && b.__id) || 0) - (Number(a && a.__id) || 0));
     const el = document.getElementById('documents-list');
     if(!docs.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No documents added yet.</p>'; return; }
     el.innerHTML = docs.map(d => `
@@ -7038,9 +7040,25 @@ try {
   function revokeUrls(){ _objectUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(e){} }); _objectUrls = []; }
 
   var _maxSeenDocId = 0;
+  // v3.17.13 — newest document first.
+  // Records are appended, so the stored order is oldest-first and the newest
+  // document ended up at the BOTTOM of the vault (worst spot: it is the one you
+  // just added and the one you are most likely to want). __id is a microsecond
+  // timestamp assigned at save time, so sorting by it descending is a true
+  // most-recently-added order. Sorts a COPY — the stored list is untouched, so
+  // nothing else that indexes into it is affected.
+  function docsNewestFirst(docs){
+    return (docs || []).slice().sort(function(a,b){
+      var av = Number(a && a.__id), bv = Number(b && b.__id);
+      if (!isFinite(av)) av = 0;
+      if (!isFinite(bv)) bv = 0;
+      return bv - av;
+    });
+  }
+
   function renderDocsEnhanced(){
     var el = $('documents-list'); if (!el) return;
-    var docs = window.getList('documents') || [];
+    var docs = docsNewestFirst(window.getList('documents') || []);
     revokeUrls();
     if (!docs.length){ el.innerHTML = '<p class="font-body text-sm text-secondary italic">No documents added yet.</p>'; return; }
     // Auto-expand a brand-new document so the user sees its actions right after adding.
