@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.11">
+                          <meta name="app-version" content="3.17.12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5919,19 +5919,15 @@ try {
   }
 
   // Attach a receipt/record for the entry being created/edited in the form.
-  // If editing an existing visit, route through the existing pfAttachRecord(id).
-  // Otherwise, pre-fill the Document Vault using the form's current pet + date.
-  function attachFromForm(){
-    var form = $('vet-form'); if(!form) return;
-    if(form.dataset.editId && typeof window.pfAttachRecord === 'function'){
-      window.pfAttachRecord(form.dataset.editId);
-      return;
-    }
+  // Either way the visit must exist first, so the vault has something to link
+  // back to and somewhere to return to when the document is saved.
+
+  // Fallback prefill, used only if the save below does not produce a visit id.
+  // Takes a snapshot because the submit handler calls form.reset().
+  function prefillVaultFromSnapshot(snap){
     if(typeof window.goToTab === 'function') window.goToTab('document-vault');
     setTimeout(function(){
-      var petVal = $('vet-pet') ? $('vet-pet').value : '';
-      var dateVal = $('vet-date') ? $('vet-date').value : '';
-      var typeVal = $('vet-type') ? $('vet-type').value : 'Vet Visit';
+      var petVal = snap.petVal, dateVal = snap.dateVal, typeVal = snap.typeVal;
       var petName = '';
       try {
         if(typeof getList === 'function'){
@@ -5952,6 +5948,74 @@ try {
       var docNotes = $('doc-notes'); if(docNotes) docNotes.value = 'From vet visit' + (dateVal ? ' on ' + dateVal : '');
       var docForm = $('doc-form'); if(docForm) docForm.scrollIntoView({behavior:'smooth', block:'start'});
     }, 80);
+  }
+
+  function maxVisitId(){
+    var max = 0;
+    try {
+      if(typeof getList !== 'function') return 0;
+      getList('vet-visits').forEach(function(v){
+        var n = parseFloat(v.__id);
+        if(!isNaN(n) && n > max) max = n;
+      });
+    } catch(e){}
+    return max;
+  }
+
+  function attachFromForm(){
+    var form = $('vet-form'); if(!form) return;
+    if(form.dataset.editId && typeof window.pfAttachRecord === 'function'){
+      window.pfAttachRecord(form.dataset.editId);
+      return;
+    }
+
+    /* v3.17.12 — an unsaved visit has no id, so there was nothing for the vault to
+       link back to and nothing to return to: the round-trip in FIX 3 keys off
+       doc-form.dataset.v3170ReturnVisit, which only the pfAttachRecord path sets.
+       The result was a stranded, unlogged visit sitting behind the vault.
+
+       Save the visit first (which is what the button's own hint already promised),
+       then hand the new id to pfAttachRecord so the existing prefill, "saving
+       brings you back" hint, and return-on-save all apply unchanged. */
+
+    var snap = {
+      petVal:  $('vet-pet')  ? $('vet-pet').value  : '',
+      dateVal: $('vet-date') ? $('vet-date').value : '',
+      typeVal: $('vet-type') ? $('vet-type').value : 'Vet Visit'
+    };
+
+    // Let the browser flag missing Pet/Date instead of silently saving a blank visit.
+    if(typeof form.reportValidity === 'function' && !form.reportValidity()) return;
+
+    var before = maxVisitId();
+    var submitBtn = form.querySelector('button[type="submit"]');
+
+    // Dispatch a real submit so every existing handler runs — the visit record,
+    // the expense auto-add, the weight auto-log, and the schedule/log status stamp.
+    try {
+      if(typeof form.requestSubmit === 'function') form.requestSubmit(submitBtn || undefined);
+      else form.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true }));
+    } catch(e){
+      try { form.dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })); } catch(e2){}
+    }
+
+    // The save itself is synchronous, but the v3.5 patches re-render on timers, so
+    // poll briefly for the new record rather than assuming it has landed.
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      var newest = maxVisitId();
+      if(newest > before){
+        clearInterval(iv);
+        if(typeof window.pfAttachRecord === 'function') window.pfAttachRecord(newest);
+        else prefillVaultFromSnapshot(snap);
+        return;
+      }
+      if(tries >= 12){
+        clearInterval(iv);
+        prefillVaultFromSnapshot(snap);
+      }
+    }, 50);
   }
   window.pfAttachFromForm = attachFromForm;
 
@@ -5992,7 +6056,7 @@ try {
       'padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">' +
       '📎 Attach receipt/record</button>' +
       '<p class="font-body text-xs text-secondary" style="margin:6px 2px 0;font-style:italic;">' +
-      'Saves the details above, then opens the Document Vault to attach a file or link.</p>';
+      'Saves this visit first, then opens the Document Vault. Saving the document brings you back here.</p>';
 
     // Insert the attach button just above the submit button
     submitBtn.insertAdjacentElement('beforebegin', wrap);
