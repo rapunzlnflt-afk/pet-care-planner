@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.15">
+                          <meta name="app-version" content="3.17.16">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -190,6 +190,117 @@
     .pf-tl-item--note .pf-note-text,
     .pf-tl-item--update .pf-note-text {
       font-style: italic; font-weight: 500;
+    }
+
+    /* ===== v3.17.16 - note card: update rows, editors and action row ===== */
+
+    /* The update thread sits inside an already-indented rail inside a padded
+       card, so by the time an editor renders there is very little width left.
+       These panels claim it back and hard-cap every field, because iOS Safari
+       gives date and time inputs an intrinsic minimum width that ignores
+       width:100% and will happily push straight out through the card edge. */
+    .pf-upd-panel {
+      margin: 8px 0 10px; padding: 12px;
+      background: rgba(91,91,214,0.05);
+      border: 1px solid rgba(91,91,214,0.14);
+      border-radius: 10px;
+      max-width: 100%; overflow: hidden;
+    }
+    .pf-upd-panel label {
+      display: block; margin-bottom: 4px;
+      font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .pf-upd-panel input,
+    .pf-upd-panel textarea {
+      display: block; width: 100%; max-width: 100%; min-width: 0;
+      margin-bottom: 10px;
+    }
+    .pf-upd-panel input[type="date"],
+    .pf-upd-panel input[type="time"] {
+      /* Give the native picker the room it wants without letting it exceed the
+         panel. On a phone one field per row is the only safe layout. */
+      width: 100%; max-width: 100%;
+      padding-left: 12px !important; padding-right: 8px !important;
+      font-size: 16px;   /* keeps iOS from zooming the page on focus */
+    }
+    .pf-upd-panel textarea { margin-bottom: 0; }
+    /* Date and time side by side where there is room, stacked where there is not. */
+    .pf-upd-when { display: grid; gap: 10px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    @media (max-width: 430px){
+      .pf-upd-when { grid-template-columns: minmax(0,1fr); gap: 0; }
+      .pf-upd-panel { padding: 10px; }
+    }
+
+    /* Row of actions inside an editor panel. */
+    .pf-upd-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pf-upd-acts button {
+      flex: 0 0 auto; min-height: 38px; padding: 8px 16px;
+      border-radius: 8px; font-family: 'Karla', sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: background-color .15s, border-color .15s, color .15s;
+    }
+    .pf-upd-save { background: var(--accent-color, #5B5BD6); color: #fff; border: 1.5px solid transparent; }
+    .pf-upd-save:hover { filter: brightness(0.94); }
+    .pf-upd-cancel { background: #fff; color: #64748b; border: 1.5px solid #e2e8f0; }
+    .pf-upd-cancel:hover { background: #f1f5f9; color: #475569; }
+
+    /* One update inside the thread, with its own edit / delete controls.
+       The controls used to be 13-15px glyphs with 2px of padding - far under a
+       comfortable touch target on a phone. */
+    .pf-upd-item { margin-bottom: 10px; }
+    .pf-upd-item:last-child { margin-bottom: 0; }
+    .pf-upd-row { display: flex; gap: 6px; align-items: flex-start; }
+    .pf-upd-row-body { flex: 1; min-width: 0; }
+    .pf-upd-ctl {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; padding: 0;
+      background: transparent; border: 1px solid transparent; border-radius: 8px;
+      color: #64748b; font-size: 17px; line-height: 1; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color .15s, color .15s, border-color .15s;
+    }
+    .pf-upd-ctl:hover { background: #eef1f6; color: #334155; }
+    .pf-upd-ctl--del { font-size: 20px; }
+    .pf-upd-ctl--del:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+    .pf-upd-ctl--on { background: rgba(91,91,214,0.12); color: #4b4bc4; border-color: rgba(91,91,214,0.28); }
+
+    /* The note card's own footer actions. Even sizing, even spacing, and a
+       delete that reads as destructive without shouting. */
+    .pf-note-acts {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+    .pf-note-acts button {
+      flex: 1 1 auto; min-width: 104px; min-height: 40px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 14px; border-radius: 9px;
+      font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s;
+    }
+    .pf-note-acts button:active { transform: translateY(1px); }
+    .pf-na--primary { background: rgba(91,91,214,0.07); color: #4b4bc4; border: 1.5px solid rgba(91,91,214,0.45); }
+    .pf-na--primary:hover { background: rgba(91,91,214,0.14); border-color: #5B5BD6; }
+    .pf-na--flag { background: #fff; color: #b45309; border: 1.5px solid #fcd9a4; }
+    .pf-na--flag:hover { background: #fffbeb; border-color: #f59e0b; }
+    .pf-na--flagon { background: #ecfdf5; color: #047857; border: 1.5px solid #a7f3d0; }
+    .pf-na--flagon:hover { background: #d1fae5; border-color: #10b981; }
+    .pf-na--quiet { background: #fff; color: #475569; border: 1.5px solid #e2e8f0; }
+    .pf-na--quiet:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .pf-na--danger { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; }
+    .pf-na--danger:hover { background: #fef2f2; border-color: #f87171; }
+    /* Delete sits on its own line so it is never the button you hit by accident. */
+    .pf-note-acts .pf-na--danger { flex: 0 0 auto; margin-left: auto; }
+    @media (max-width: 430px){
+      /* Four actions read best as an even 2x2 on a phone. Delete keeps the
+         bottom-right corner and its own colour, and it is confirm-guarded. */
+      .pf-note-acts { display: grid; grid-template-columns: 1fr 1fr; }
+      .pf-note-acts button { min-width: 0; }
+      .pf-note-acts .pf-na--danger { margin-left: 0; }
     }
 
     /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
@@ -8904,12 +9015,16 @@ try {
     return 'note-updedit-' + ctx + '-' + noteId + '-' + String(updId).replace(/[^A-Za-z0-9]/g,'_');
   }
   window.pfEditUpdate = function(ctx, noteId, updId){
-    var box = document.getElementById(updRowId(ctx, noteId, updId));
+    var base = updRowId(ctx, noteId, updId);
+    var box = document.getElementById(base);
     if (!box) return;
     var open = box.style.display !== 'none';
     box.style.display = open ? 'none' : '';
+    // v3.17.16 - show on the pencil itself which row is being edited.
+    var btn = document.getElementById(base + '-btn');
+    if (btn) btn.classList.toggle('pf-upd-ctl--on', !open);
     if (!open){
-      var t = document.getElementById(updRowId(ctx, noteId, updId) + '-text');
+      var t = document.getElementById(base + '-text');
       if (t) t.focus();
     }
   };
@@ -9084,45 +9199,60 @@ try {
         updates.map(function(u){
           // v3.17.15 — each update row gets an inline editor, so a missing time or
           // a wrong date can be corrected without deleting and retyping the text.
+          // v3.17.16 — moved onto .pf-upd-* classes: the date and time fields were
+          // breaking out of the card, and the edit/delete glyphs were too small to
+          // hit reliably on a phone.
           var rid = updRowId(ctx, n.__id, u.id);
+          var call = function(fn){ return 'window.'+fn+'(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')'; };
           var editor = opts.readOnly ? '' :
-            '<div id="'+rid+'" style="display:none;margin:6px 0 10px;padding:10px;background:rgba(91,91,214,0.05);border-radius:8px;">' +
-              '<label class="block font-body text-xs text-secondary mb-1">Date</label>' +
-              '<input type="date" id="'+rid+'-date" value="'+esc(u.date||'')+'" style="margin-bottom:8px;">' +
-              '<label class="block font-body text-xs text-secondary mb-1">Time</label>' +
-              '<input type="time" id="'+rid+'-time" value="'+esc(u.time||'')+'" style="margin-bottom:8px;">' +
-              '<label class="block font-body text-xs text-secondary mb-1">Update</label>' +
+            '<div id="'+rid+'" class="pf-upd-panel" style="display:none;">' +
+              '<div class="pf-upd-when">' +
+                '<div><label for="'+rid+'-date">Date</label>' +
+                  '<input type="date" id="'+rid+'-date" value="'+esc(u.date||'')+'"></div>' +
+                '<div><label for="'+rid+'-time">Time</label>' +
+                  '<input type="time" id="'+rid+'-time" value="'+esc(u.time||'')+'"></div>' +
+              '</div>' +
+              '<label for="'+rid+'-text">Update</label>' +
               '<textarea id="'+rid+'-text" rows="3">'+esc(u.text||'')+'</textarea>' +
-              '<div style="display:flex;gap:8px;margin-top:8px;">' +
-                '<button type="button" onclick="window.pfSaveEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="padding:6px 12px;background:'+ACCENT+';color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>' +
-                '<button type="button" onclick="window.pfEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="padding:6px 12px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+              '<div class="pf-upd-acts">' +
+                '<button type="button" class="pf-upd-save" onclick="'+call('pfSaveEditUpdate')+'">Save</button>' +
+                '<button type="button" class="pf-upd-cancel" onclick="'+call('pfEditUpdate')+'">Cancel</button>' +
               '</div>' +
             '</div>';
-          return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">' +
-            '<div style="flex:1;min-width:0;">' +
-              '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+(u.time ? ' \u00b7 '+esc(ftime(u.time)) : '')+'</p>' +
-              '<p class="font-body text-sm text-primary pf-note-text" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
-              editor +
-            '</div>' +
-            (opts.readOnly ? '' :
-              '<button type="button" title="Edit this update" onclick="window.pfEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:13px;line-height:1;cursor:pointer;padding:2px 4px;">✎</button>' +
-              '<button type="button" title="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;">×</button>') +
+          // The editor is a sibling of the row, not a child of its text column,
+          // so it spans the full width of the thread instead of being squeezed
+          // into the space left over beside the two controls.
+          return '<div class="pf-upd-item">' +
+            '<div class="pf-upd-row">' +
+              '<div class="pf-upd-row-body">' +
+                '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+(u.time ? ' \u00b7 '+esc(ftime(u.time)) : '')+'</p>' +
+                '<p class="font-body text-sm text-primary pf-note-text" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
+              '</div>' +
+              (opts.readOnly ? '' :
+                '<button type="button" class="pf-upd-ctl" id="'+rid+'-btn" title="Edit this update" aria-label="Edit this update" onclick="'+call('pfEditUpdate')+'">✎</button>' +
+                '<button type="button" class="pf-upd-ctl pf-upd-ctl--del" title="Delete this update" aria-label="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')">×</button>') +
+            '</div>' + editor +
             '</div>';
         }).join('') + '</div>';
     }
     var updForm = '';
     if (!opts.readOnly){
       var fid = updFormId(ctx, n.__id);
-      updForm = '<div id="'+fid+'" style="display:none;margin-top:12px;padding:12px;background:rgba(91,91,214,0.05);border-radius:8px;">' +
-        '<label class="block font-body text-xs text-secondary mb-1">Date of this update</label>' +
-        '<input type="date" id="'+fid+'-date" value="'+esc(iso())+'" style="margin-bottom:8px;">' +
-        '<label class="block font-body text-xs text-secondary mb-1">Time (so it slots into the day in the right order)</label>' +
-        '<input type="time" id="'+fid+'-time" value="'+esc(clockNow())+'" style="margin-bottom:8px;">' +
-        '<label class="block font-body text-xs text-secondary mb-1">What changed?</label>' +
-        '<textarea id="'+fid+'-text" rows="2" placeholder="e.g., Still limping, but putting a little weight on it"></textarea>' +
-        '<div style="display:flex;gap:8px;margin-top:8px;">' +
-          '<button type="button" onclick="window.pfSaveUpdate(\''+ctx+'\','+n.__id+')" style="padding:6px 12px;background:'+ACCENT+';color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save update</button>' +
-          '<button type="button" onclick="window.pfCancelUpdate(\''+ctx+'\','+n.__id+')" style="padding:6px 12px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+      // v3.17.16 — same .pf-upd-panel treatment as the per-row editor above, so
+      // the two look like one thing and neither can overflow the card.
+      updForm = '<div id="'+fid+'" class="pf-upd-panel" style="display:none;margin-top:14px;">' +
+        '<div class="pf-upd-when">' +
+          '<div><label for="'+fid+'-date">Date of this update</label>' +
+            '<input type="date" id="'+fid+'-date" value="'+esc(iso())+'"></div>' +
+          '<div><label for="'+fid+'-time">Time</label>' +
+            '<input type="time" id="'+fid+'-time" value="'+esc(clockNow())+'"></div>' +
+        '</div>' +
+        '<p class="font-body text-xs text-secondary" style="margin:-2px 0 10px;">The time is what slots this update into the right place in the day.</p>' +
+        '<label for="'+fid+'-text">What changed?</label>' +
+        '<textarea id="'+fid+'-text" rows="3" placeholder="e.g., Still limping, but putting a little weight on it"></textarea>' +
+        '<div class="pf-upd-acts">' +
+          '<button type="button" class="pf-upd-save" onclick="window.pfSaveUpdate(\''+ctx+'\','+n.__id+')">Save update</button>' +
+          '<button type="button" class="pf-upd-cancel" onclick="window.pfCancelUpdate(\''+ctx+'\','+n.__id+')">Cancel</button>' +
         '</div></div>';
     }
     var body = head +
@@ -9131,11 +9261,14 @@ try {
       thread + updForm;
     var actions = '';
     if (!opts.readOnly){
-      actions = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
-        '<button type="button" onclick="window.pfShowUpdateForm(\''+ctx+'\','+n.__id+')" style="'+btn+'">+ Add update</button>' +
-        '<button type="button" onclick="window.pfToggleNoteFlag('+n.__id+')" style="'+(n.flag?btnMuted:btn)+'">'+(n.flag ? '✓ Discussed with vet' : '📌 Flag for vet')+'</button>' +
-        '<button type="button" onclick="window.pfEditNote('+n.__id+')" style="'+btn+'">✎ Edit</button>' +
-        '<button type="button" onclick="window.pfDeleteNote('+n.__id+')" style="'+btnDanger+'">✕ Delete</button>' +
+      // v3.17.16 — the footer was four differently-weighted outline buttons at
+      // 12px with uneven widths. Now one sizing rule, colour used to say what
+      // each action is, and Delete pushed clear of the rest.
+      actions = '<div class="pf-note-acts">' +
+        '<button type="button" class="pf-na--primary" onclick="window.pfShowUpdateForm(\''+ctx+'\','+n.__id+')">+ Add update</button>' +
+        '<button type="button" class="'+(n.flag ? 'pf-na--flagon' : 'pf-na--flag')+'" onclick="window.pfToggleNoteFlag('+n.__id+')">'+(n.flag ? '✓ Discussed' : '📌 Flag for vet')+'</button>' +
+        '<button type="button" class="pf-na--quiet" onclick="window.pfEditNote('+n.__id+')">✎ Edit</button>' +
+        '<button type="button" class="pf-na--danger" onclick="window.pfDeleteNote('+n.__id+')">✕ Delete</button>' +
         '</div>';
     }
     return '<div class="card p-4" style="position:relative;'+(editing?'box-shadow:0 0 0 2px '+ACCENT+';border-color:'+ACCENT+';':'')+'">' +
