@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.14">
+                          <meta name="app-version" content="3.17.15">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1754,7 +1754,20 @@
 
   const fmt = n => '$' + (parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const fmtDate = d => { if(!d) return ''; const [y,m,day] = d.split('-'); return `${m}/${day}/${y}`; };
-  const today = () => new Date().toISOString().slice(0,10);
+  // v3.17.15 — "today" must be the LOCAL calendar day. toISOString() is UTC, so
+  // west of Greenwich every evening rolled the date forward early: in Central
+  // time anything logged after 7pm was stamped with tomorrow's date. That put
+  // evening entries in the wrong day on the Timeline and, because impliedClock()
+  // compares a locally-derived date against the stored one, it also silently
+  // stripped their clock so they sorted to the end of the day.
+  function pfLocalISO(d){
+    d = d || new Date();
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  }
+  window.pfLocalISO = pfLocalISO;
+  const today = () => pfLocalISO();
 
   // ============ SECURITY HELPERS (v3.9.18) ============
   // Escape user text before interpolating into innerHTML (prevents self/stored XSS).
@@ -7555,7 +7568,7 @@ try {
   function downloadFullBackup(){
     return buildFullBackup().then(function(payload){
       var json = JSON.stringify(payload);
-      var stamp = new Date().toISOString().slice(0,10);
+      var stamp = (window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10));
       var filename = 'pawfolio-full-backup-' + stamp + '.json';
       var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
       function recordSaved(){
@@ -7654,7 +7667,7 @@ try {
   var LAST_AUTO_KEY = 'lastAutoBackup';    // YYYY-MM-DD of last successful auto backup (daily cap)
   var FILE_NAME = 'Pawfolio-Backup.json';
 
-  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function todayStr(){ return window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10); }
   function autoEnabled(){
     try { return localStorage.getItem(PREF_KEY) !== '0'; } catch(e){ return true; } // default ON
   }
@@ -8775,7 +8788,8 @@ try {
   var ACCENT = '#5B5BD6';
   function $(id){ return document.getElementById(id); }
   function esc(s){ return (window.escHtml ? window.escHtml(s) : String(s==null?'':s)); }
-  function iso(){ return new Date().toISOString().slice(0,10); }
+  // v3.17.15 — local calendar day, not UTC. See pfLocalISO().
+  function iso(){ return window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10); }
   // Matches the app's MM/DD/YYYY display format (the core fmtDate is script-scoped).
   // This module has no fmtTime of its own — the other copies are scoped to
   // their own closures.
@@ -8810,7 +8824,16 @@ try {
   // so a note reads as a small story ("limping" → "still limping" → "walking fine").
   function noteUpdates(n){
     var u = (n && n.updates) || [];
-    return u.slice().sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+    // v3.17.15 — order by date, then by the update's own time when it has one,
+    // then by when it was written. Older updates carry no time; they keep their
+    // written order within the day rather than jumping ahead of timed ones.
+    return u.slice().sort(function(a,b){
+      var d = String(a.date||'').localeCompare(String(b.date||''));
+      if (d !== 0) return d;
+      var at = String(a.time||''), bt = String(b.time||'');
+      if (at && bt && at !== bt) return at.localeCompare(bt);
+      return (parseFloat(a.id)||0) - (parseFloat(b.id)||0);
+    });
   }
   function latestUpdate(n){
     var u = noteUpdates(n);
@@ -8832,12 +8855,19 @@ try {
   // per-card element id carries a context prefix to keep it unique.
   function updFormId(ctx, id){ return 'note-upd-' + ctx + '-' + id; }
 
+  // v3.17.15 — local 'HH:MM' right now, for prefilling an update's time.
+  function clockNow(){
+    var d = new Date();
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
   window.pfShowUpdateForm = function(ctx, id){
     var box = document.getElementById(updFormId(ctx, id));
     if (!box) return;
     box.style.display = '';
     var d = document.getElementById(updFormId(ctx, id) + '-date');
     if (d && !d.value) d.value = iso();
+    var c = document.getElementById(updFormId(ctx, id) + '-time');
+    if (c && !c.value) c.value = clockNow();
     var t = document.getElementById(updFormId(ctx, id) + '-text');
     if (t) t.focus();
   };
@@ -8850,17 +8880,59 @@ try {
   };
   window.pfSaveUpdate = function(ctx, id){
     var d = document.getElementById(updFormId(ctx, id) + '-date');
+    var c = document.getElementById(updFormId(ctx, id) + '-time');
     var t = document.getElementById(updFormId(ctx, id) + '-text');
     var date = (d && d.value) || iso();
+    // v3.17.15 — updates now carry a time of their own. Without one there was
+    // nothing to order an update against a timed vet visit on the same day, so
+    // a 3am update could sit after that morning's 4:15am visit.
+    var time = (c && c.value) || '';
     var text = ((t && t.value) || '').trim();
     if (!text){ if (t) t.focus(); return; }
     var n = notes().filter(function(x){ return String(x.__id) === String(id); })[0];
     if (!n) return;
     var list = ((n.updates) || []).slice();
-    list.push({ id: Date.now() + Math.random(), date: date, text: text });
+    list.push({ id: Date.now() + Math.random(), date: date, time: time, text: text });
     writeUpdates(id, list);
     if (typeof window.refreshAll === 'function') window.refreshAll();
     say('Update added.');
+  };
+  // v3.17.15 — an update could only ever be deleted, never corrected. Existing
+  // updates carry no time (the field is new), and a mis-typed date meant losing
+  // the entry and retyping it. Both are now editable in place.
+  function updRowId(ctx, noteId, updId){
+    return 'note-updedit-' + ctx + '-' + noteId + '-' + String(updId).replace(/[^A-Za-z0-9]/g,'_');
+  }
+  window.pfEditUpdate = function(ctx, noteId, updId){
+    var box = document.getElementById(updRowId(ctx, noteId, updId));
+    if (!box) return;
+    var open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : '';
+    if (!open){
+      var t = document.getElementById(updRowId(ctx, noteId, updId) + '-text');
+      if (t) t.focus();
+    }
+  };
+  window.pfSaveEditUpdate = function(ctx, noteId, updId){
+    var base = updRowId(ctx, noteId, updId);
+    var d = document.getElementById(base + '-date');
+    var c = document.getElementById(base + '-time');
+    var t = document.getElementById(base + '-text');
+    var text = ((t && t.value) || '').trim();
+    if (!text){ if (t) t.focus(); return; }
+    var n = notes().filter(function(x){ return String(x.__id) === String(noteId); })[0];
+    if (!n) return;
+    var list = ((n.updates) || []).map(function(u){
+      if (String(u.id) !== String(updId)) return u;
+      return Object.assign({}, u, {
+        date: (d && d.value) || u.date || '',
+        time: (c && c.value) || '',
+        text: text
+      });
+    });
+    writeUpdates(noteId, list);
+    if (typeof window.refreshAll === 'function') window.refreshAll();
+    say('Update saved.');
   };
   window.pfDeleteUpdate = function(noteId, updId){
     var doDelete = function(){
@@ -9010,12 +9082,31 @@ try {
       thread = '<div style="margin-top:12px;padding-left:12px;border-left:2px solid var(--border-color);">' +
         '<p class="font-body text-xs text-secondary" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Updates</p>' +
         updates.map(function(u){
+          // v3.17.15 — each update row gets an inline editor, so a missing time or
+          // a wrong date can be corrected without deleting and retyping the text.
+          var rid = updRowId(ctx, n.__id, u.id);
+          var editor = opts.readOnly ? '' :
+            '<div id="'+rid+'" style="display:none;margin:6px 0 10px;padding:10px;background:rgba(91,91,214,0.05);border-radius:8px;">' +
+              '<label class="block font-body text-xs text-secondary mb-1">Date</label>' +
+              '<input type="date" id="'+rid+'-date" value="'+esc(u.date||'')+'" style="margin-bottom:8px;">' +
+              '<label class="block font-body text-xs text-secondary mb-1">Time</label>' +
+              '<input type="time" id="'+rid+'-time" value="'+esc(u.time||'')+'" style="margin-bottom:8px;">' +
+              '<label class="block font-body text-xs text-secondary mb-1">Update</label>' +
+              '<textarea id="'+rid+'-text" rows="3">'+esc(u.text||'')+'</textarea>' +
+              '<div style="display:flex;gap:8px;margin-top:8px;">' +
+                '<button type="button" onclick="window.pfSaveEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="padding:6px 12px;background:'+ACCENT+';color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Save</button>' +
+                '<button type="button" onclick="window.pfEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="padding:6px 12px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+              '</div>' +
+            '</div>';
           return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">' +
             '<div style="flex:1;min-width:0;">' +
-              '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+'</p>' +
+              '<p class="font-body text-xs text-secondary">'+esc(fdate(u.date))+(u.time ? ' \u00b7 '+esc(ftime(u.time)) : '')+'</p>' +
               '<p class="font-body text-sm text-primary pf-note-text" style="white-space:pre-wrap;line-height:1.45;">'+esc(u.text)+'</p>' +
+              editor +
             '</div>' +
-            (opts.readOnly ? '' : '<button type="button" title="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;">×</button>') +
+            (opts.readOnly ? '' :
+              '<button type="button" title="Edit this update" onclick="window.pfEditUpdate(\''+ctx+'\','+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:13px;line-height:1;cursor:pointer;padding:2px 4px;">✎</button>' +
+              '<button type="button" title="Delete this update" onclick="window.pfDeleteUpdate('+n.__id+',\''+String(u.id)+'\')" style="flex-shrink:0;background:none;border:none;color:#94a3b8;font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;">×</button>') +
             '</div>';
         }).join('') + '</div>';
     }
@@ -9025,6 +9116,8 @@ try {
       updForm = '<div id="'+fid+'" style="display:none;margin-top:12px;padding:12px;background:rgba(91,91,214,0.05);border-radius:8px;">' +
         '<label class="block font-body text-xs text-secondary mb-1">Date of this update</label>' +
         '<input type="date" id="'+fid+'-date" value="'+esc(iso())+'" style="margin-bottom:8px;">' +
+        '<label class="block font-body text-xs text-secondary mb-1">Time (so it slots into the day in the right order)</label>' +
+        '<input type="time" id="'+fid+'-time" value="'+esc(clockNow())+'" style="margin-bottom:8px;">' +
         '<label class="block font-body text-xs text-secondary mb-1">What changed?</label>' +
         '<textarea id="'+fid+'-text" rows="2" placeholder="e.g., Still limping, but putting a little weight on it"></textarea>' +
         '<div style="display:flex;gap:8px;margin-top:8px;">' +
@@ -9182,8 +9275,8 @@ try {
           var ud = u.date || n.date || '';
           if (inRange(ud)){
             var uts = stampMs(u.id, 1);
-            out.push({ kind:'update', date: ud, time:'', rec: n, upd: u,
-                       ts: uts, sortTime: impliedClock(ud, uts) });
+            out.push({ kind:'update', date: ud, time: u.time || '', rec: n, upd: u,
+                       ts: uts, sortTime: u.time || impliedClock(ud, uts) });
           }
         });
       });
@@ -9220,7 +9313,7 @@ try {
         '<span class="font-heading font-bold text-primary">'+esc(pet || 'General')+'</span>' +
         '<span class="pf-up-chip"><svg class="pf-up-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5V9.5H11.2"/><path d="M8.6 6.9L11.7 9.5 8.6 12.1"/></svg>Update</span>' +
       '</div>' +
-      '<p class="font-body text-sm text-secondary">'+esc(fdate(u.date))+'</p>' +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(u.date))+(u.time ? ' \u00b7 '+esc(ftime(u.time)) : '')+'</p>' +
       '<p class="font-body text-sm text-primary mt-1 pf-note-text" style="white-space:pre-wrap;">'+esc(u.text)+'</p>' +
       '<p class="font-body text-xs text-secondary mt-2">Follow-up to \u201c'+esc(origin)+'\u201d ('+esc(fdate(n.date))+')</p>' +
       '</div>';
@@ -9263,10 +9356,15 @@ try {
                                // HH:MM, so a string compare is a time compare.
                                // Entries with no clock go last within their day,
                                // then fall back to the order they were written.
+                               // v3.17.15 — only compare clocks when BOTH sides
+                               // have one. Parking every clockless entry at the
+                               // end of its day scrambled the story: note
+                               // updates carry no time field, so a 3am update
+                               // landed after that morning's 4:15am vet visit.
+                               // With no clock to go on, the order the records
+                               // were written is the truthful order.
                                var at = String(a.sortTime||''), bt = String(b.sortTime||'');
                                if (at && bt && at !== bt) return at.localeCompare(bt);
-                               if (!at && bt) return 1;
-                               if (at && !bt) return -1;
                                return (a.ts||0) - (b.ts||0);
                              });
 
@@ -9336,12 +9434,12 @@ try {
       var d = ad.localeCompare(bd);
       if (d !== 0) return d;
       // Same day, oldest first. Times are zero-padded HH:MM, so a string
-      // compare is correct. Entries with no clock at all go last within
-      // their day, then fall back to the order they were written in.
+      // compare is correct.
+      // v3.17.15 — clocks are only compared when both sides have one; otherwise
+      // fall back to the order the records were written. Keep in step with the
+      // screen's pastEntries sort above.
       var at = String(a.sortTime||''), bt = String(b.sortTime||'');
       if (at && bt && at !== bt) return at.localeCompare(bt);
-      if (!at && bt) return 1;
-      if (at && !bt) return -1;
       return (a.ts||0) - (b.ts||0);
     });
     var lastHead = null, lastNote = null;
@@ -9360,7 +9458,10 @@ try {
                  (pet ? ' \u00b7 ' + pet : '');
       var lead = (head !== lastHead) ? head + ' \u2014 ' : '';
       lastHead = head;
-      if (e.kind !== 'update' && r.time) lead += ftime(r.time) + ' \u00b7 ';
+      // v3.17.15 — updates carry their own clock now, so print it like any other
+      // entry's. The vet reads a single ordered day, not two interleaved streams.
+      if (e.kind === 'update'){ if (e.upd && e.upd.time) lead += ftime(e.upd.time) + ' \u00b7 '; }
+      else if (r.time) lead += ftime(r.time) + ' \u00b7 ';
       // Note context deliberately survives an interleaving vet visit, so a run
       // of updates to one note quotes that note once and not once per line.
       var sameNote = (e.kind === 'update' && lastNote != null &&
