@@ -7680,7 +7680,13 @@ try {
     return buildFullBackup().then(function(payload){
       var json = JSON.stringify(payload);
       var stamp = (window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10));
-      var filename = 'pawfolio-full-backup-' + stamp + '.json';
+      // Include the local time of day. A date-only name collides with an earlier
+      // save from the same day, and iOS then interrupts Save to Files with a
+      // "replace the existing file?" confirmation — an extra tap for something
+      // the user never asked to overwrite.
+      var _now = new Date();
+      var _hhmm = String(_now.getHours()).padStart(2, '0') + String(_now.getMinutes()).padStart(2, '0');
+      var filename = 'pawfolio-full-backup-' + stamp + '-' + _hhmm + '.json';
       var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
       function recordSaved(){
         try { localStorage.setItem('petPlannerLastExport', stamp); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
@@ -11286,5 +11292,67 @@ try {
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+})();
+</script>
+
+<script>
+/* ============================================================================
+   Pawfolio v3.17.17 — return to the screen you were on after saving
+   (MedRecords parity, part two)
+
+   The share-sheet plumbing already matched MedRecords, but the entry point did
+   not. "Save My Data" and "Load My Data" live in the sidebar, which on a phone
+   is a full-height off-canvas drawer. The hamburger block only closes that
+   drawer for `.sidebar-item` nav buttons, so after finishing Save to Files iOS
+   handed the user back a still-open menu and they had to dismiss it by hand to
+   get back to Pets, Vet Visits, or wherever they were.
+
+   Fix: close the mobile drawer as the save/load starts, and again once the save
+   helper settles (a cancelled sheet included), so control returns to the tab
+   that was already open. Desktop is untouched — the sidebar is permanent there
+   and the `open` class is meaningless.
+
+   Appended last so it wraps the v3.16.0 save helper after it exists. Idempotent.
+   ========================================================================== */
+(function(){
+  'use strict';
+  if (window.__pawfolio_save_return) return; window.__pawfolio_save_return = true;
+
+  var MOBILE_MAX = 768;   /* matches the aside off-canvas media query */
+
+  function closeMobileMenu(){
+    try {
+      if (window.innerWidth > MOBILE_MAX) return;
+      var aside = document.querySelector('aside');
+      var overlay = document.getElementById('sidebar-overlay');
+      if (aside) aside.classList.remove('open');
+      if (overlay){ overlay.classList.remove('open'); overlay.style.display = 'none'; }
+    } catch(e){}
+  }
+  window.pawfolioCloseMobileMenu = closeMobileMenu;
+
+  /* Wrap the shared manual-save helper: every path that writes a backup file
+     (sidebar button, backup reminder, Force Refresh, pre-import safety copy)
+     goes through it, so one wrapper covers them all. Cancels settle here too —
+     a dismissed sheet should still leave the user on their own screen. */
+  var innerSave = window.pawfolioSaveBackupFile;
+  if (typeof innerSave === 'function'){
+    window.pawfolioSaveBackupFile = function(filename, json){
+      return innerSave(filename, json).then(
+        function(outcome){ closeMobileMenu(); return outcome; },
+        function(err){ closeMobileMenu(); throw err; }
+      );
+    };
+  }
+
+  /* Also close on the tap itself. On iOS the share sheet covers the page while
+     it is open, so dropping the drawer up front means the app is already on the
+     right screen the moment iOS animates back — no visible menu, no flash. */
+  var saveBtn = document.getElementById('export-data-btn');
+  if (saveBtn) saveBtn.addEventListener('click', closeMobileMenu);
+
+  /* "Load My Data" opens the file picker from the same drawer. */
+  var loadInput = document.getElementById('import-data-input');
+  if (loadInput) loadInput.addEventListener('change', closeMobileMenu);
 })();
 </script>
