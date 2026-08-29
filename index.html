@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.16">
+                          <meta name="app-version" content="3.17.17">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -742,10 +742,10 @@
       <span id="dark-mode-label">Dark Mode</span>
      </button>
      <div class="export-import-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-      <button id="export-data-btn" style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Export</button>
-      <label style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Import<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+      <button id="export-data-btn" style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Save My Data</button>
+      <label style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Load My Data<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
      </div>
-     <p style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Export</strong> saves your data. <strong>Import</strong> loads it &mdash; use to transfer between devices.</p>
+     <p style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Save My Data</strong> saves a copy of your records. <strong>Load My Data</strong> puts them back &mdash; use to transfer between devices.</p>
      <div style="margin-top:8px;">
       <button id="advanced-toggle-btn" type="button" aria-expanded="false" aria-controls="advanced-tools" style="width:100%;padding:6px 8px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:6px;">
        <span>Advanced</span>
@@ -797,7 +797,7 @@
        <div style="font-size:22px;line-height:1;flex-shrink:0;">💾</div>
        <div style="flex:1;">
         <p class="font-heading text-sm font-bold text-primary mb-1">Welcome to Pawfolio</p>
-        <p class="font-body text-sm text-secondary" style="line-height:1.5;">Your pet's records are saved right here on this phone or browser — nothing is uploaded to the internet, so only you can see them.<br><br>To keep them safe, Pawfolio <strong>backs up your records automatically</strong> as you make changes — so if your phone breaks, you uninstall the app, or you clear your browser, you won't lose anything. Your backup stays on your device (or a file you choose); it's never uploaded.<br><br>You can also tap <strong>Export</strong> anytime to save a backup file yourself, or to move your records to a new phone.</p>
+        <p class="font-body text-sm text-secondary" style="line-height:1.5;">Your pet's records are saved right here on this phone or browser — nothing is uploaded to the internet, so only you can see them.<br><br>To keep them safe, Pawfolio <strong>backs up your records automatically</strong> as you make changes — so if your phone breaks, you uninstall the app, or you clear your browser, you won't lose anything. Your backup stays on your device (or a file you choose); it's never uploaded.<br><br>You can also tap <strong>Save My Data</strong> anytime to save a backup file yourself, or to move your records to a new phone.</p>
         <button id="first-visit-dismiss" style="margin-top:10px;padding:7px 14px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Got it</button>
        </div>
       </div>
@@ -811,7 +811,7 @@
         <p id="backup-reminder-title" class="font-heading text-sm font-bold text-primary" style="margin-bottom:2px;"></p>
         <p id="backup-reminder-body" class="font-body text-xs text-secondary" style="line-height:1.4;"></p>
        </div>
-       <button id="backup-reminder-export" style="padding:8px 16px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">Export now</button>
+       <button id="backup-reminder-export" style="padding:8px 16px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">Save my data now</button>
        <button id="backup-reminder-dismiss" title="Remind me later" style="padding:6px 10px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1;flex-shrink:0;">×</button>
       </div>
      </div>
@@ -3868,7 +3868,7 @@
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px;">' +
         '<button id="fr-cancel" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">Cancel</button>' +
-        '<button id="fr-export" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">\u2193 Export backup</button>' +
+        '<button id="fr-export" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">\u2193 Save my data</button>' +
         '<button id="fr-continue" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:#5B5BD6;color:#fff;border:none;">Refresh now</button>' +
       '</div>';
     overlay.appendChild(modal);
@@ -3961,15 +3961,15 @@
     if(daysSince >= 30) {
       color = '#dc2626'; bg = 'rgba(220,38,38,0.08)';
       title = lastExport ? `It's been ${daysSince} days since your last backup` : `You haven't backed up your data yet`;
-      body = `Export now so you don't lose your records if you uninstall the app or clear browser data.`;
+      body = `Save my data now so you don't lose your records if you uninstall the app or clear browser data.`;
     } else if(daysSince >= 7) {
       color = '#d97706'; bg = 'rgba(217,119,6,0.08)';
       title = lastExport ? `Time for a backup — ${daysSince} days since last export` : `Save a backup of your data`;
-      body = `Tap Export to download a backup file you can re-import later or move to another device.`;
+      body = `Tap Save My Data to download a backup file you can load back later or move to another device.`;
     } else {
       color = '#5B5BD6'; bg = 'rgba(91,91,214,0.06)';
       title = `Save a backup of your data`;
-      body = `It's been ${daysSince} days. Tap Export to keep your records safe.`;
+      body = `It's been ${daysSince} days. Tap Save My Data to keep your records safe.`;
     }
     el.style.borderLeft = `4px solid ${color}`;
     el.style.background = bg;
@@ -7586,7 +7586,7 @@ try {
             warn.style.display = 'block';
             warn.style.color = pct >= 90 ? '#e53e3e' : '#d97706';
             warn.textContent = pct >= 90
-              ? 'Storage is almost full. Export a backup, then make older documents cloud-only or delete ones you no longer need.'
+              ? 'Storage is almost full. Tap Save My Data, then make older documents cloud-only or delete ones you no longer need.'
               : 'Storage is filling up. Consider making older documents cloud-only (keeps the link, frees space).';
           } else { warn.style.display = 'none'; }
         }
