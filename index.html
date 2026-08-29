@@ -350,7 +350,26 @@
     .tl-print-row { display: list-item; }
     .tl-print-rowin { display: flex; align-items: flex-start; gap: 9px; }
     .tl-print-check { width: 20px; height: 20px; margin: 1px 0 0; flex: 0 0 auto; accent-color: #5B5BD6; }
-    .tl-print-row label { flex: 1; cursor: pointer; }
+    /* v3.17.18 — two columns: when on the left, what happened on the right.
+       Every entry's text then begins at the same x, which is what makes a long
+       chronology skimmable on paper. */
+    .tl-print-row label { flex: 1; cursor: pointer;
+      display: grid; grid-template-columns: 94px minmax(0,1fr);
+      column-gap: 11px; align-items: start; }
+    .tl-print-when { display: block; font-style: normal; color: #64748b;
+      font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+    .tl-print-when > span { display: block; }
+    .tl-w-date { font-weight: 700; color: #334155; }
+    .tl-w-pet { color: #4b4bc4; }
+    .tl-print-what { display: block; min-width: 0; }
+    /* A row split across a page break loses the date that explains it. */
+    @media print {
+      .tl-print-row, .tl-print-rowin { break-inside: avoid; page-break-inside: avoid; }
+    }
+    @media (max-width: 430px) {
+      .tl-print-row label { grid-template-columns: 78px minmax(0,1fr); column-gap: 8px; }
+      .tl-print-when { font-size: 11px; }
+    }
     .tl-print-row.tl-off label { opacity: 0.42; text-decoration: line-through; }
     #tl-print-count { font-size: 12px; color: #64748b; font-weight: 600; }
     #tl-print-picks { display: inline-flex; gap: 6px; }
@@ -9581,26 +9600,36 @@ try {
       if (at && bt && at !== bt) return at.localeCompare(bt);
       return (a.ts||0) - (b.ts||0);
     });
-    var lastHead = null, lastNote = null;
+    var lastHead = null, lastNote = null, lastDate = null;
     // Each entry comes back as parts rather than one string: the print view
     // needs to style the arrow and the note text, while Copy still needs plain
     // text. .text is the plain form, assembled here so the two cannot drift.
-    var out = function(kind, lead, body, arrow){
-      return { kind: kind, lead: lead, body: body, arrow: !!arrow,
+    var out = function(kind, lead, body, arrow, when){
+      return { kind: kind, lead: lead, body: body, arrow: !!arrow, when: when || {},
                text: lead + (arrow ? '\u21b3 ' : '') + body };
     };
     return entries.map(function(e){
       var r = e.rec, pet = petLabel(r);
       // Date + pet is printed once per day per pet; everything under it is
       // introduced by its own clock time instead of restating the date.
-      var head = fdate(e.kind === 'update' ? e.date : r.date) +
-                 (pet ? ' \u00b7 ' + pet : '');
-      var lead = (head !== lastHead) ? head + ' \u2014 ' : '';
-      lastHead = head;
+      var dstr = fdate(e.kind === 'update' ? e.date : r.date);
+      var head = dstr + (pet ? ' \u00b7 ' + pet : '');
+      var newHead = (head !== lastHead), newDate = (dstr !== lastDate);
+      var lead = newHead ? head + ' \u2014 ' : '';
+      lastHead = head; lastDate = dstr;
       // v3.17.15 — updates carry their own clock now, so print it like any other
       // entry's. The vet reads a single ordered day, not two interleaved streams.
-      if (e.kind === 'update'){ if (e.upd && e.upd.time) lead += ftime(e.upd.time) + ' \u00b7 '; }
-      else if (r.time) lead += ftime(r.time) + ' \u00b7 ';
+      var tstr = '';
+      if (e.kind === 'update'){ if (e.upd && e.upd.time) tstr = ftime(e.upd.time); }
+      else if (r.time) tstr = ftime(r.time);
+      if (tstr) lead += tstr + ' \u00b7 ';
+      // v3.17.16 — the same when/who/time the plain text keeps inline, but kept
+      // apart so the print view can set it in its own left-hand column. `lead`
+      // above is still assembled exactly as before, because .text feeds Copy
+      // and that output must not change.
+      var when = { date: newDate ? dstr : '',
+                   pet: (newHead && pet) ? pet : '',
+                   time: tstr };
       // Note context deliberately survives an interleaving vet visit, so a run
       // of updates to one note quotes that note once and not once per line.
       var sameNote = (e.kind === 'update' && lastNote != null &&
@@ -9611,18 +9640,18 @@ try {
         if (r.vet) bits.push(r.vet);
         if (r.reason) bits.push('Reason: ' + r.reason);
         if (r.diagnosis) bits.push(r.diagnosis);
-        return out('vet', lead, bits.join(' \u2014 '), false);
+        return out('vet', lead, bits.join(' \u2014 '), false, when);
       }
       if (e.kind === 'update'){
         // Already reading that note? Then '\u21b3 Update:' is unambiguous.
-        if (sameNote) return out('update', lead, 'Update: ' + e.upd.text, true);
+        if (sameNote) return out('update', lead, 'Update: ' + e.upd.text, true, when);
         var origin = r.text || '';
         if (origin.length > 24) origin = origin.slice(0, 24) + '\u2026';
-        return out('update', lead, 'Update on \u201c' + origin + '\u201d: ' + e.upd.text, true);
+        return out('update', lead, 'Update on \u201c' + origin + '\u201d: ' + e.upd.text, true, when);
       }
       return out('note', lead,
                  (r.category || 'Note') + ': ' + r.text + (r.flag ? ' [for the vet]' : ''),
-                 false);
+                 false, when);
     });
   }
 
@@ -9695,14 +9724,24 @@ try {
       var id = 'tl-pick-' + i;
       // The arrow and the 'Update' word are emitted as their own elements so
       // they can be sized and coloured; the rest stays escaped text.
-      var inner = esc(x.lead);
+      // v3.17.18 — the when/who/time no longer prefixes the sentence; it is set
+      // in its own column so every entry's text starts at the same place as the
+      // eye travels down the page.
+      var inner = '';
       if (x.arrow) inner += '<span class="tl-up"><svg class="pf-up-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5V9.5H11.2"/><path d="M8.6 6.9L11.7 9.5 8.6 12.1"/></svg></span>';
       var m = x.arrow ? x.body.match(/^(Update(?: on \u201c[\s\S]*?\u201d)?:)([\s\S]*)$/) : null;
       inner += m ? '<span class="tl-up-lbl">'+esc(m[1])+'</span>'+esc(m[2]) : esc(x.body);
+      var w = x.when || {};
+      var when = (w.date ? '<span class="tl-w-date">'+esc(w.date)+'</span>' : '') +
+                 (w.pet  ? '<span class="tl-w-pet">'+esc(w.pet)+'</span>'  : '') +
+                 (w.time ? '<span class="tl-w-time">'+esc(w.time)+'</span>' : '');
       return '<li class="tl-print-row">' +
         '<span class="tl-print-rowin">' +
           '<input type="checkbox" class="tl-print-check" id="'+id+'" checked>' +
-          '<label for="'+id+'" class="tl-pl--'+x.kind+'">'+inner+'</label>' +
+          '<label for="'+id+'" class="tl-pl--'+x.kind+'">' +
+            '<span class="tl-print-when">'+when+'</span>' +
+            '<span class="tl-print-what">'+inner+'</span>' +
+          '</label>' +
         '</span></li>';
     }).join('');
     openPrintOverlay(who, rows);
