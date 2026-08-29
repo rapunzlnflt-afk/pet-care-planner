@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.20">
+                          <meta name="app-version" content="3.17.21">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -397,6 +397,91 @@
     body.tl-printing #tl-print-content {
       overflow: visible !important; height: auto !important;
       max-height: none !important; padding: 0 !important; max-width: none !important;
+    }
+
+    /* ===== v3.17.21 - print rules that do not depend on window.print() =====
+       The block above is applied by the Print button's own handler, which only
+       works when window.print() actually opens a dialog. In an installed PWA on
+       iOS there is no dialog: printing happens through Share -> Print, which
+       never runs our JS. The page was then printed exactly as it sat on screen -
+       the open overlay laid over the app on page 1 (hence the overlapping first
+       page, the visible "Back to Timeline / All / None / Print" bar AND the pet
+       and date filters together), then the app's own timeline cards on the pages
+       after it, complete with every Add update / Discussed / Edit / Delete /
+       Open in Vet Visits button.
+
+       So the same rules are repeated here as real @media print rules, keyed on a
+       class that goes on as soon as the print view OPENS rather than only while a
+       dialog is up. Whichever way the page is sent to a printer, one clean
+       document comes out. */
+    @media print {
+      @page { margin: 12mm; }
+
+      /* --- 1. Nothing splits mid-word. ---------------------------------------
+         Printing re-lays the page out at paper width with substituted fonts,
+         which is where "Timeline" came out as "Timel ine" and "Daisy" as
+         "Da isy". Breaking is refused outright, and the two single-token fields
+         (the date and the pet's name) are additionally told never to wrap. */
+      #tl-print-overlay, #tl-print-overlay * {
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        word-wrap: normal !important;
+        -webkit-hyphens: none !important;
+        hyphens: none !important;
+      }
+      .tl-print-h1, .tl-w-date, .tl-w-pet, .tl-w-time { white-space: nowrap !important; }
+      /* System fonts only when printing. A webfont that has to be re-fetched or
+         substituted by the print renderer is what shifts the metrics in the
+         first place. */
+      #tl-print-overlay, #tl-print-overlay * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+      }
+
+      /* --- 2. Print view open: print ONLY the printable list. --------------- */
+      body.tl-print-open > *:not(#tl-print-overlay) { display: none !important; }
+      body.tl-print-open #tl-print-bar { display: none !important; }
+      body.tl-print-open .tl-print-check { display: none !important; }
+      body.tl-print-open .tl-print-row.tl-off { display: none !important; }
+      body.tl-print-open .tl-print-row label { opacity: 1 !important; text-decoration: none !important; }
+      body.tl-print-open { overflow: visible !important; height: auto !important; }
+      body.tl-print-open #tl-print-overlay {
+        display: block !important;
+        position: static !important; inset: auto !important;
+        width: auto !important; height: auto !important;
+        overflow: visible !important; z-index: auto !important;
+      }
+      body.tl-print-open #tl-print-content {
+        overflow: visible !important; height: auto !important;
+        max-height: none !important; padding: 0 !important; max-width: none !important;
+      }
+
+      /* --- 3. Tighter type, so a long history is a couple of pages. --------- */
+      #tl-print-content { color: #000 !important; }
+      .tl-print-h1 { font-size: 14pt !important; margin: 0 0 2pt !important; }
+      .tl-print-meta { font-size: 8.5pt !important; margin: 0 0 8pt !important; }
+      .tl-print-list { padding-left: 16pt !important; }
+      .tl-print-list li {
+        font-size: 9.5pt !important; line-height: 1.32 !important;
+        margin-bottom: 4.5pt !important;
+      }
+      .tl-print-row label { grid-template-columns: 82pt minmax(0,1fr) !important; column-gap: 8pt !important; }
+      .tl-print-when { font-size: 8.5pt !important; line-height: 1.28 !important; }
+      .tl-print-foot { margin-top: 12pt !important; font-size: 8pt !important; }
+
+      /* --- 4. Fallback: the app printed WITHOUT the print view open. --------
+         Someone can always reach Share -> Print straight from the Timeline tab.
+         That should still not put the navigation, the filter controls or a row
+         of action buttons on paper. */
+      .mobile-topbar, #sidebar-overlay, #sidebar, aside { display: none !important; }
+      #main-app button, #main-app select, #main-app input, #main-app textarea { display: none !important; }
+      /* The filter card holds nothing but controls, so hiding the controls alone
+         leaves an empty box with four dangling labels. The whole card goes. */
+      #tab-timeline > .card { display: none !important; }
+      /* The action rows leave an empty bordered strip under each entry once the
+         buttons inside them are hidden. */
+      .pf-note-acts, .pf-upd-acts, .pf-upd-form { display: none !important; }
+      #main-app { display: block !important; }
+      body { background: #fff !important; }
     }
 
     /* ===== Pet insurance block (v3.14.0) ===== */
@@ -9941,6 +10026,12 @@ try {
     ov.scrollTop = 0;
     document.body.style.overflow = 'hidden';
     overlayOpen = true;
+    // Marks the print view as OPEN, which is what the @media print rules key
+    // off. It has to go on here rather than in the Print button's handler:
+    // an installed PWA on iOS prints via Share -> Print, which never runs our
+    // code, so anything applied only at window.print() time is never applied
+    // at all and the raw app ends up on paper.
+    document.body.classList.add('tl-print-open');
     // Give the hardware/gesture back button something to consume, so going back
     // leaves the print view instead of leaving the app.
     try { history.pushState({ tlPrint: 1 }, ''); } catch(e){}
@@ -9951,6 +10042,7 @@ try {
     if (ov) ov.style.display = 'none';
     document.body.style.overflow = '';
     document.body.classList.remove('tl-printing');
+    document.body.classList.remove('tl-print-open');
     var wasOpen = overlayOpen;
     overlayOpen = false;
     if (wasOpen && fromUi){
