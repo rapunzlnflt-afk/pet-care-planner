@@ -105,7 +105,7 @@
     .pf-tl-sec:last-child { margin-bottom: 0; }
     .pf-tl-head {
       display: flex; align-items: center; gap: 9px; margin: 0 0 11px;
-      font-family: 'Montserrat', sans-serif; font-size: 12px; font-weight: 800;
+      font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800;
       letter-spacing: 0.06em; text-transform: uppercase;
     }
     .pf-tl-head::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
@@ -176,7 +176,7 @@
     .pf-up-chip {
       display: inline-flex; align-items: center; gap: 5px;
       background: rgba(91,91,214,0.16); color: #4b4bc4;
-      font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 800;
+      font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 800;
       letter-spacing: 0.06em; text-transform: uppercase;
       padding: 3px 10px 3px 8px; border-radius: 999px;
     }
@@ -208,7 +208,7 @@
     }
     .pf-upd-panel label {
       display: block; margin-bottom: 4px;
-      font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600;
+      font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 600;
       color: var(--text-secondary);
     }
     .pf-upd-panel input,
@@ -237,7 +237,7 @@
     .pf-upd-acts button {
       flex: 0 0 auto; min-height: 38px; padding: 8px 16px;
       border-radius: 8px; font-family: 'Karla', sans-serif;
-      font-size: 13px; font-weight: 700; cursor: pointer;
+      font-size: 14px; font-weight: 700; cursor: pointer;
       transition: background-color .15s, border-color .15s, color .15s;
     }
     .pf-upd-save { background: var(--accent-color, #5B5BD6); color: #fff; border: 1.5px solid transparent; }
@@ -277,7 +277,7 @@
       flex: 1 1 auto; min-width: 104px; min-height: 40px;
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       padding: 9px 14px; border-radius: 9px;
-      font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700;
+      font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700;
       cursor: pointer; white-space: nowrap;
       -webkit-tap-highlight-color: transparent;
       transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s;
@@ -305,7 +305,7 @@
 
     /* ===== v3.17.5 - tell notes apart from vet visits on the timeline ===== */
     .pf-tl-tag {
-      display: inline-block; font-family: 'Montserrat', sans-serif; font-size: 10px;
+      display: inline-block; font-family: 'Montserrat', sans-serif; font-size: 12px;
       font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
       color: #55637a; background: #eaeef4; border-radius: 999px;
       padding: 2px 9px; margin-bottom: 5px;
@@ -334,16 +334,16 @@
       padding: 12px 16px; background: #fff; border-bottom: 1px solid #e2e8f0;
     }
     #tl-print-bar button {
-      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
       padding: 8px 14px; border-radius: 8px; line-height: 1; white-space: nowrap;
     }
     #tl-print-back { background: #fff; color: #5B5BD6; border: 1.5px solid #5B5BD6; }
     #tl-print-do { background: #5B5BD6; color: #fff; border: 1.5px solid #5B5BD6; }
     #tl-print-content { padding: 22px 18px 40px; max-width: 760px; margin: 0 auto; }
     .tl-print-h1 { font-family: 'Montserrat', sans-serif; color: #5B5BD6; font-size: 20px; margin: 0 0 3px; }
-    .tl-print-meta { color: #64748b; font-size: 12px; margin: 0 0 18px; }
+    .tl-print-meta { color: #64748b; font-size: 13px; margin: 0 0 18px; }
     .tl-print-list { margin: 0; padding-left: 22px; }
-    .tl-print-list li { margin-bottom: 9px; font-size: 14px; line-height: 1.5; }
+    .tl-print-list li { margin-bottom: 9px; font-size: 15px; line-height: 1.5; }
     /* Row picking. A generous tap target matters more than tidiness here.
        The <li> stays display:list-item so the printed list keeps its numbers -
        putting flex on the li itself would silently drop every marker. */
@@ -354,10 +354,10 @@
        Every entry's text then begins at the same x, which is what makes a long
        chronology skimmable on paper. */
     .tl-print-row label { flex: 1; cursor: pointer;
-      display: grid; grid-template-columns: 94px minmax(0,1fr);
+      display: grid; grid-template-columns: 104px minmax(0,1fr);
       column-gap: 11px; align-items: start; }
     .tl-print-when { display: block; font-style: normal; color: #64748b;
-      font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+      font-size: 13px; line-height: 1.4; font-variant-numeric: tabular-nums; }
     .tl-print-when > span { display: block; }
     .tl-w-date { font-weight: 700; color: #334155; }
     .tl-w-pet { color: #4b4bc4; }
@@ -367,17 +367,17 @@
       .tl-print-row, .tl-print-rowin { break-inside: avoid; page-break-inside: avoid; }
     }
     @media (max-width: 430px) {
-      .tl-print-row label { grid-template-columns: 78px minmax(0,1fr); column-gap: 8px; }
-      .tl-print-when { font-size: 11px; }
+      .tl-print-row label { grid-template-columns: 90px minmax(0,1fr); column-gap: 8px; }
+      .tl-print-when { font-size: 13px; }
     }
     .tl-print-row.tl-off label { opacity: 0.42; text-decoration: line-through; }
-    #tl-print-count { font-size: 12px; color: #64748b; font-weight: 600; }
+    #tl-print-count { font-size: 13px; color: #64748b; font-weight: 600; }
     #tl-print-picks { display: inline-flex; gap: 6px; }
     #tl-print-all, #tl-print-none {
       background: #fff; color: #64748b; border: 1.5px solid #e2e8f0;
-      font-size: 12px; padding: 6px 10px;
+      font-size: 13px; padding: 6px 10px;
     }
-    .tl-print-foot { margin-top: 26px; color: #94a3b8; font-size: 11px; }
+    .tl-print-foot { margin-top: 26px; color: #94a3b8; font-size: 13px; }
     /* Printing shows only the overlay, never the app behind it. */
     /* Applied while the print dialog is up. Deliberately NOT inside
        @media print: these need to be real, inspectable layout changes rather
@@ -402,56 +402,56 @@
     /* ===== Pet insurance block (v3.14.0) ===== */
     .pet-ins-fieldset { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; background: rgba(91,91,214,0.04); }
     .pet-ins-panel { margin-top: 12px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; background: rgba(91,91,214,0.05); }
-    .pet-ins-btn { display: inline-block; font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 700; text-decoration: none; padding: 6px 12px; border-radius: 8px; background: var(--accent-color); color: #fff; white-space: nowrap; }
+    .pet-ins-btn { display: inline-block; font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700; text-decoration: none; padding: 6px 12px; border-radius: 8px; background: var(--accent-color); color: #fff; white-space: nowrap; }
     .pet-ins-btn:hover { filter: brightness(1.08); }
     .pet-ins-btn.secondary { background: transparent; color: var(--accent-color); border: 1.5px solid var(--accent-color); }
-    .pet-ins-label { font-family: 'Karla', sans-serif; font-size: 10px; letter-spacing: .04em; color: var(--text-secondary); text-transform: uppercase; margin: 0; }
-    .pet-ins-renew { font-family: 'Karla', sans-serif; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+    .pet-ins-label { font-family: 'Karla', sans-serif; font-size: 12px; letter-spacing: .04em; color: var(--text-secondary); text-transform: uppercase; margin: 0; }
+    .pet-ins-renew { font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
     /* ===== Add-a-Pet edit mode (v3.14.1) ===== */
     #add-pet-edit-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding: 9px 12px; border: 1px solid #f6a623; border-radius: 8px; background: rgba(246,166,35,0.12); }
-    #add-pet-edit-banner p { font-family: 'Karla', sans-serif; font-size: 13px; color: var(--text-primary); margin: 0; }
-    #add-pet-cancel-edit { font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: 1.5px solid #f6a623; background: transparent; color: #b06f00; cursor: pointer; white-space: nowrap; }
+    #add-pet-edit-banner p { font-family: 'Karla', sans-serif; font-size: 14px; color: var(--text-primary); margin: 0; }
+    #add-pet-cancel-edit { font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: 1.5px solid #f6a623; background: transparent; color: #b06f00; cursor: pointer; white-space: nowrap; }
     #add-pet-cancel-edit:hover { background: rgba(246,166,35,0.2); }
     #add-pet-card.is-editing { border-top-color: #f6a623 !important; }
     input:focus, select:focus, textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(91,91,214,0.12); }
     /* Custom dropdown arrow with breathing room from the right edge. */
     select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 40px; background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
     [data-theme="dark"] select { background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23b9b2e8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
-    .sidebar-item { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 500; color: #64748b; padding: 11px 16px; transition: all 0.15s; }
+    .sidebar-item { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-size: 15px; font-weight: 500; color: #64748b; padding: 11px 16px; transition: all 0.15s; }
     .sidebar-item:hover { background: rgba(91,91,214,0.08); color: var(--accent-color); }
     .sidebar-item.active { background: rgba(91,91,214,0.12); color: var(--accent-color); font-weight: 700; border-right: 3px solid var(--accent-color); }
     .tab-content { display: none; }
     .tab-content.active-tab { display: block; }
     .progress-bar { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); border-radius: 99px; transition: width 0.4s; }
-    .delete-x { background: none; border: none; color: #5B5BD6; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
+    .delete-x { background: none; border: none; color: #5B5BD6; font-size: 15px; font-weight: 600; cursor: pointer; padding: 0 4px; line-height: 1; font-family: Arial, sans-serif; }
     .archive-pet-btn { background: none; border: none; color: var(--text-secondary); font-size: 15px; cursor: pointer; padding: 0 4px; line-height: 1; }
     .archive-pet-btn:hover { color: #5B5BD6; }
     .edit-pet-btn { background: none; border: none; color: #5B5BD6; font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
     .edit-pet-btn:hover { color: var(--accent-color-2); }
     .pet-archived { opacity: 0.6; filter: grayscale(0.85); }
     .pet-archived .archive-pet-btn { filter: none; opacity: 1; }
-    .pet-archived-badge { display: inline-block; background: rgba(91,91,214,0.12); color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 2px; }
+    .pet-archived-badge { display: inline-block; background: rgba(91,91,214,0.12); color: #5B5BD6; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 2px; }
     .weight-sparkline-wrap { margin: 4px 0 12px; }
     .weight-sparkline-wrap svg { width: 100%; max-width: 240px; height: 48px; display: block; }
-    .weight-spark-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); max-width: 240px; margin-top: 2px; }
+    .weight-spark-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); max-width: 240px; margin-top: 2px; }
     .vacc-quickset { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-    .vacc-quickset button { background: none; border: 1px solid #5B5BD6; color: #5B5BD6; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
+    .vacc-quickset button { background: none; border: 1px solid #5B5BD6; color: #5B5BD6; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
     .vacc-quickset button:hover { background: rgba(91,91,214,0.1); }
     .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-color); justify-content: flex-end; }
-    .card-actions button { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+    .card-actions button { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
     .card-actions button:hover { background: rgba(91,91,214,0.08); }
     .card-actions button.danger { border-color: #e53e3e; color: #e53e3e; font-weight: 700; }
     .card-actions button.danger:hover { background: rgba(229,62,62,0.08); }
-    .type-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .type-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
     .type-badge.medication { background: rgba(91,91,214,0.1); color: #5B5BD6; }
     .type-badge.supplement { background: rgba(72,187,120,0.15); color: #2f855a; }
     .type-badge.overdue { background: #e53e3e; color: white; }
     .type-badge.editing { background: #5B5BD6; color: white; }
     .edit-banner { display: none; background: linear-gradient(135deg, rgba(91,91,214,0.12), rgba(91,91,214,0.04)); border: 1px solid #5B5BD6; border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .edit-banner button { background: transparent; border: 1px solid #5B5BD6; color: #5B5BD6; font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
+    .edit-banner button { background: transparent; border: 1px solid #5B5BD6; color: #5B5BD6; font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
     .type-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .type-filter button { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 999px; cursor: pointer; }
+    .type-filter button { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 600; padding: 5px 14px; border-radius: 999px; cursor: pointer; }
     .type-filter button.active { background: rgba(91,91,214,0.12); border-color: #5B5BD6; color: #5B5BD6; }
 
     /* Mobile */
@@ -471,7 +471,7 @@
       aside { position: fixed !important; left: -280px; top: 0; bottom: 0; width: 260px !important; z-index: 1001; transition: left 0.25s ease; overflow-y: scroll !important; -webkit-overflow-scrolling: touch; max-height: 100dvh; height: 100%; }
       aside.open { left: 0 !important; }
       aside .p-4 { padding: 10px 12px !important; }
-      aside .sidebar-item { padding: 10px 16px !important; font-size: 15px !important; }
+      aside .sidebar-item { padding: 11px 16px !important; font-size: 16px !important; }
       main { padding: 68px 12px 32px !important; width: 100% !important; }
       [style*="grid-template-columns:1fr 1fr"]:not(.export-import-row), [style*="grid-template-columns: 1fr 1fr"]:not(.export-import-row), [style*="grid-template-columns:repeat(2"], [style*="grid-template-columns:repeat(3"], [style*="display:grid"]:not(.stats-row):not(.export-import-row) { grid-template-columns: 1fr !important; }
       .export-import-row { grid-template-columns: 1fr 1fr !important; }
@@ -480,14 +480,14 @@
       .card .text-sm,
       .card [class*="text-xs"],
       .card [class*="text-sm"] { font-size: 17px !important; line-height: 1.5 !important; }
-      .card p[style*="font-size:11px"], .card span[style*="font-size:11px"], .card div[style*="font-size:11px"],
-      .card p[style*="font-size: 11px"], .card span[style*="font-size: 11px"], .card div[style*="font-size: 11px"],
-      .card p[style*="font-size:12px"], .card span[style*="font-size:12px"], .card div[style*="font-size:12px"],
-      .card p[style*="font-size: 12px"], .card span[style*="font-size: 12px"], .card div[style*="font-size: 12px"],
       .card p[style*="font-size:13px"], .card span[style*="font-size:13px"], .card div[style*="font-size:13px"],
-      .card p[style*="font-size: 13px"], .card span[style*="font-size: 13px"], .card div[style*="font-size: 13px"] { font-size: 17px !important; line-height: 1.5 !important; }
-      .card .stat-label { font-size: 11px !important; letter-spacing: 0 !important; }
-      .stat-label { font-size: 11px !important; letter-spacing: 0 !important; }
+      .card p[style*="font-size: 13px"], .card span[style*="font-size: 13px"], .card div[style*="font-size: 13px"],
+      .card p[style*="font-size:13px"], .card span[style*="font-size:13px"], .card div[style*="font-size:13px"],
+      .card p[style*="font-size: 13px"], .card span[style*="font-size: 13px"], .card div[style*="font-size: 13px"],
+      .card p[style*="font-size:14px"], .card span[style*="font-size:14px"], .card div[style*="font-size:14px"],
+      .card p[style*="font-size: 14px"], .card span[style*="font-size: 14px"], .card div[style*="font-size: 14px"] { font-size: 17px !important; line-height: 1.5 !important; }
+      .card .stat-label { font-size: 13px !important; letter-spacing: 0 !important; }
+      .stat-label { font-size: 13px !important; letter-spacing: 0 !important; }
     }
 
     /* Dark mode */
@@ -520,7 +520,7 @@
     [data-theme="dark"] .link-card:hover { border-color:#8b7cf8;box-shadow:0 2px 12px rgba(139,124,248,0.2); }
     .links-jumpbar { position:sticky;top:0;z-index:20;display:flex;gap:8px;overflow-x:auto;padding:10px 2px;margin-bottom:16px;background:var(--bg-light);-webkit-overflow-scrolling:touch;scrollbar-width:none; }
     .links-jumpbar::-webkit-scrollbar { display:none; }
-    .links-jump-chip { flex:0 0 auto;padding:8px 16px;border-radius:999px;border:1px solid var(--border-color);background:white;color:var(--text-primary);font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all 0.15s; }
+    .links-jump-chip { flex:0 0 auto;padding:8px 16px;border-radius:999px;border:1px solid var(--border-color);background:white;color:var(--text-primary);font-family:inherit;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;transition:all 0.15s; }
     .links-jump-chip:hover { border-color:var(--accent-color);color:var(--accent-color);box-shadow:0 2px 8px rgba(91,91,214,0.15); }
     .links-jump-chip:active { transform:scale(0.96); }
     [data-theme="dark"] .links-jump-chip { background:#1e2732;border-color:rgba(139,124,248,0.2); }
@@ -573,7 +573,7 @@
    drives their size, exactly as it did for the icon font. */
 .stat-icon svg { width: 1em; height: 1em; fill: currentColor; display: block; }
 .stat-label {
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -594,7 +594,7 @@
   .stats-row { gap: 6px; }
   .stat-card { padding: 10px 4px; }
  .stat-icon { width: 36px; height: 36px; font-size: 20px; }
-  .stat-label { font-size: 9px; }
+  .stat-label { font-size: 12px; }
 }
 
 /* ===== In-app printable sitter overlay ===== */
@@ -626,7 +626,7 @@
   border: 1px solid rgba(255,255,255,0.5);
   border-radius: 8px;
   padding: 8px 14px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -662,7 +662,7 @@
   #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
 }
 #sitter-print-content .field { margin-bottom: 8px; }
-#sitter-print-content .label { font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+#sitter-print-content .label { font-size: 13px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
 #sitter-print-content .value { font-size: 15px; font-weight: 600; }
 #sitter-print-content p { font-size: 15px; }
 #sitter-print-content .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
@@ -737,7 +737,7 @@
     <div class="p-4 border-b border-gray-200">
      <h1 class="font-heading text-lg font-bold text-primary" style="color:var(--accent-color);display:flex;flex-direction:column;align-items:flex-start;gap:0;">
       <span style="display:flex;align-items:center;gap:8px;"><img src="./icon-192.png" alt="" style="width:28px;height:28px;border-radius:6px;"> Pawfolio</span>
-      <span style="font-family:'Karla',sans-serif;font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:0.3px;margin-top:2px;">Your pet's whole life, in one app</span>
+      <span style="font-family:'Karla',sans-serif;font-size:14px;font-weight:500;color:var(--text-secondary);letter-spacing:0.3px;margin-top:2px;">Your pet's whole life, in one app</span>
      </h1>
      <p class="font-body text-xs text-secondary mt-1">Your complete pet health companion</p>
     </div>
@@ -756,47 +756,47 @@
      <button class="sidebar-item" data-tab="important-links">Important Links</button>
     </nav>
     <div class="p-4 border-t border-gray-200" style="margin-top:auto;">
-     <button id="dark-mode-btn" style="width:100%;padding:5px 8px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+     <button id="dark-mode-btn" style="width:100%;padding:5px 8px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
       <svg id="dark-mode-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <span id="dark-mode-label">Dark Mode</span>
      </button>
      <div class="export-import-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-      <button id="export-data-btn" style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Save My Data</button>
-      <label style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Load My Data<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
+      <button id="export-data-btn" style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">&#8681; Save My Data</button>
+      <label style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Load My Data<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
      </div>
-     <p style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Save My Data</strong> saves a copy of your records. <strong>Load My Data</strong> puts them back &mdash; use to transfer between devices.</p>
+     <p style="font-size:13px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Save My Data</strong> saves a copy of your records. <strong>Load My Data</strong> puts them back &mdash; use to transfer between devices.</p>
      <div style="margin-top:8px;">
-      <button id="advanced-toggle-btn" type="button" aria-expanded="false" aria-controls="advanced-tools" style="width:100%;padding:6px 8px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <button id="advanced-toggle-btn" type="button" aria-expanded="false" aria-controls="advanced-tools" style="width:100%;padding:6px 8px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:6px;">
        <span>Advanced</span>
-       <span id="advanced-caret" style="font-size:10px;line-height:1;transition:transform 0.15s;">&#9656;</span>
+       <span id="advanced-caret" style="font-size:12px;line-height:1;transition:transform 0.15s;">&#9656;</span>
       </button>
       <div id="advanced-tools" style="display:none;margin-top:6px;">
-       <button id="check-updates-btn" style="width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+       <button id="check-updates-btn" style="width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         <span>Check for updates</span>
        </button>
-       <button id="force-refresh-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+       <button id="force-refresh-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         <span>Force refresh</span>
        </button>
-       <p style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
+       <p style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.5;">Stuck on an old version? <strong>Force refresh</strong> clears cached files and reloads the latest. Your saved data is kept.</p>
 
        <!-- Automatic backup controls (v3.9.5) -->
        <div id="auto-backup-settings" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
-        <label for="auto-backup-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:#5B5BD6;">
+        <label for="auto-backup-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#5B5BD6;">
          <span>Automatic backup</span>
          <input type="checkbox" id="auto-backup-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:#5B5BD6;">
         </label>
-        <p style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.5;">Saves a backup of your data so you don't lose it. Stays on your device / your chosen file &mdash; nothing is uploaded.</p>
-        <button id="auto-backup-now-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <p style="font-size:12px;color:#64748b;margin-top:4px;line-height:1.5;">Saves a backup of your data so you don't lose it. Stays on your device / your chosen file &mdash; nothing is uploaded.</p>
+        <button id="auto-backup-now-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
          <span>Back up now</span>
         </button>
-        <button id="auto-backup-location-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:none;align-items:center;justify-content:center;gap:6px;">
+        <button id="auto-backup-location-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:none;align-items:center;justify-content:center;gap:6px;">
          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
          <span id="auto-backup-location-label">Choose backup file location</span>
         </button>
-        <p id="auto-backup-status" style="font-size:10px;color:#64748b;margin-top:5px;line-height:1.5;"></p>
+        <p id="auto-backup-status" style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.5;"></p>
        </div>
       </div>
      </div>
@@ -817,7 +817,7 @@
        <div style="flex:1;">
         <p class="font-heading text-sm font-bold text-primary mb-1">Welcome to Pawfolio</p>
         <p class="font-body text-sm text-secondary" style="line-height:1.5;">Your pet's records are saved right here on this phone or browser — nothing is uploaded to the internet, so only you can see them.<br><br>To keep them safe, Pawfolio <strong>backs up your records automatically</strong> as you make changes — so if your phone breaks, you uninstall the app, or you clear your browser, you won't lose anything. Your backup stays on your device (or a file you choose); it's never uploaded.<br><br>You can also tap <strong>Save My Data</strong> anytime to save a backup file yourself, or to move your records to a new phone.</p>
-        <button id="first-visit-dismiss" style="margin-top:10px;padding:7px 14px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Got it</button>
+        <button id="first-visit-dismiss" style="margin-top:10px;padding:7px 14px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Got it</button>
        </div>
       </div>
      </div>
@@ -830,7 +830,7 @@
         <p id="backup-reminder-title" class="font-heading text-sm font-bold text-primary" style="margin-bottom:2px;"></p>
         <p id="backup-reminder-body" class="font-body text-xs text-secondary" style="line-height:1.4;"></p>
        </div>
-       <button id="backup-reminder-export" style="padding:8px 16px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">Save my data now</button>
+       <button id="backup-reminder-export" style="padding:8px 16px;background:#5B5BD6;color:white;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">Save my data now</button>
        <button id="backup-reminder-dismiss" title="Remind me later" style="padding:6px 10px;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1;flex-shrink:0;">×</button>
       </div>
      </div>
@@ -1009,7 +1009,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
           </div>
           <div>
-            <label style="display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#5B5BD6,#4C4CC8);color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">
+            <label style="display:inline-block;padding:7px 14px;background:linear-gradient(135deg,#5B5BD6,#4C4CC8);color:white;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">
               Choose Photo
               <input type="file" id="pet-photo-input" accept="image/*" style="display:none;" onchange="previewPetPhoto(this)">
             </label>
@@ -1133,7 +1133,7 @@
        </label>
        <div style="display:flex;flex-wrap:wrap;gap:8px;">
         <button type="submit" id="note-submit-btn" class="btn-primary px-4 py-2">Save Note</button>
-        <button type="button" id="note-cancel-btn" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel edit</button>
+        <button type="button" id="note-cancel-btn" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel edit</button>
        </div>
       </form>
      </div>
@@ -1171,11 +1171,11 @@
         <input type="date" id="timeline-to">
        </div>
       </div>
-      <div id="timeline-range-note" style="display:none;font-size:12px;margin-top:8px;"></div>
+      <div id="timeline-range-note" style="display:none;font-size:13px;margin-top:8px;"></div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
-       <button type="button" id="timeline-copy-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Copy for vet</button>
-       <button type="button" id="timeline-print-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Print</button>
-       <button type="button" id="timeline-range-clear" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid var(--border-color);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Clear dates</button>
+       <button type="button" id="timeline-copy-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Copy for vet</button>
+       <button type="button" id="timeline-print-btn" class="px-4 py-2" style="background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Print</button>
+       <button type="button" id="timeline-range-clear" class="px-4 py-2" style="display:none;background:transparent;color:#64748b;border:1.5px solid var(--border-color);border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Clear dates</button>
       </div>
      </div>
      <div id="timeline-list" class="space-y-3"></div>
@@ -1375,7 +1375,7 @@
         <label id="med-dose-label" class="block font-body text-sm text-secondary mb-1">Dose Times</label>
         <div id="med-dose-times"></div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
-         <button type="button" id="med-dose-add" class="btn-secondary" style="padding:6px 12px;font-size:14px;width:auto;">+ Add dose time</button>
+         <button type="button" id="med-dose-add" class="btn-secondary" style="padding:6px 12px;font-size:15px;width:auto;">+ Add dose time</button>
          <div style="display:flex;align-items:center;gap:8px;">
           <span id="med-dose-end-label" class="font-body text-sm text-secondary" style="white-space:nowrap;">Until</span>
           <input type="date" id="med-dose-end" style="width:auto;">
@@ -1438,7 +1438,7 @@
       <label class="font-body text-sm text-secondary" style="font-weight:600;">Filter by pet:</label>
       <select id="expense-filter-pet" style="flex:1;min-width:160px;max-width:280px;"><option value="">All pets</option></select>
       <span id="expense-filter-count" class="font-body text-xs text-secondary" style="margin-left:auto;"></span>
-      <button type="button" id="expense-export-csv" onclick="exportExpensesCSV()" class="btn-primary px-3 py-2" style="font-size:13px;">Export CSV</button>
+      <button type="button" id="expense-export-csv" onclick="exportExpensesCSV()" class="btn-primary px-3 py-2" style="font-size:14px;">Export CSV</button>
      </div>
      <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-base font-bold text-primary mb-4">Add Expense</h3>
@@ -2041,7 +2041,7 @@
           <div style="display:flex;align-items:center;gap:12px;">
             ${avatarHtml}
             <div>
-              <h3 class="font-heading text-lg font-bold text-primary">${escHtml(p.name)} <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">${escHtml(p.species)}${p.breed ? ' — ' + escHtml(p.breed) : ''}</span></h3>
+              <h3 class="font-heading text-lg font-bold text-primary">${escHtml(p.name)} <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">${escHtml(p.species)}${p.breed ? ' — ' + escHtml(p.breed) : ''}</span></h3>
               ${archived ? `<span class="pet-archived-badge">🌈 Rainbow Bridge${p.archivedDate ? ' · ' + fmtDate(p.archivedDate) : ''}</span>` : ''}
               ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${escHtml(p.sex || '')}</p>` : ''}
             </div>
@@ -2053,10 +2053,10 @@
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
-          ${p.microchip ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${escHtml(p.microchip)}</p></div>` : ''}
-          ${p.vet ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm">${escHtml(p.vet)}</p></div>` : ''}
-          ${p.allergies ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Allergies</p><p class="font-body text-sm" style="color:#e53e3e;">${escHtml(p.allergies)}</p></div>` : ''}
-          ${p.color ? `<div><p class="font-body" style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;">Color</p><p class="font-body text-sm">${escHtml(p.color)}</p></div>` : ''}
+          ${p.microchip ? `<div><p class="font-body" style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;">Microchip</p><p class="font-body text-sm">${escHtml(p.microchip)}</p></div>` : ''}
+          ${p.vet ? `<div><p class="font-body" style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;">Primary Vet</p><p class="font-body text-sm">${escHtml(p.vet)}</p></div>` : ''}
+          ${p.allergies ? `<div><p class="font-body" style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;">Allergies</p><p class="font-body text-sm" style="color:#e53e3e;">${escHtml(p.allergies)}</p></div>` : ''}
+          ${p.color ? `<div><p class="font-body" style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;">Color</p><p class="font-body text-sm">${escHtml(p.color)}</p></div>` : ''}
         </div>
         ${p.notes ? `<p class="font-body text-sm text-secondary mt-3" style="border-top:1px solid var(--border-color);padding-top:8px;">${escHtml(p.notes)}</p>` : ''}
       </div>`;
@@ -2204,7 +2204,7 @@
           <div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
               <span class="font-heading font-bold text-primary">${escHtml(v.petName)}</span>
-              <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">${escHtml(v.type)}</span>
+              <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;">${escHtml(v.type)}</span>
             </div>
             <p class="font-body text-sm text-secondary">${fmtDate(v.date)}${v.vet ? ' · ' + escHtml(v.vet) : ''}</p>
             ${v.reason ? `<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> ${escHtml(v.reason)}</p>` : ''}
@@ -2242,7 +2242,7 @@
     const docs = getList('documents').filter(d => (petId == null || d.petId === petId) && types.includes(d.type));
     if(!docs.length) return '';
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${docs.map(d => {
-      const inner = `<span style="display:inline-block;background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;">📎 ${escHtml(d.name)}</span>`;
+      const inner = `<span style="display:inline-block;background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;font-weight:600;padding:3px 10px;border-radius:12px;">📎 ${escHtml(d.name)}</span>`;
       const href = safeUrl(d.link);
       return href ? `<a href="${href}" target="_blank" rel="noopener" style="text-decoration:none;">${inner}</a>` : inner;
     }).join('')}</div>`;
@@ -2550,7 +2550,7 @@
   function doseTimeRowHTML(value) {
     return `<div class="dose-time-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
       <input type="time" class="dose-time-input" value="${escHtml(value || '')}" style="flex:1;min-width:0;">
-      <button type="button" class="btn-secondary dose-time-remove" aria-label="Remove this dose time" style="padding:6px 12px;font-size:14px;width:auto;flex:0 0 auto;">✕</button>
+      <button type="button" class="btn-secondary dose-time-remove" aria-label="Remove this dose time" style="padding:6px 12px;font-size:15px;width:auto;flex:0 0 auto;">✕</button>
     </div>`;
   }
 
@@ -2972,7 +2972,7 @@
         <div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="font-heading font-bold text-primary">${fmt(e.amount)}</span>
-            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">${escHtml(e.category)}</span>
+            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;padding:2px 8px;border-radius:12px;">${escHtml(e.category)}</span>
           </div>
           <p class="font-body text-sm text-secondary">${escHtml(e.petName || 'General')} · ${fmtDate(e.date)}${e.desc ? ' · ' + escHtml(e.desc) : ''}</p>
         </div>
@@ -3574,7 +3574,7 @@
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
             <span class="font-heading font-bold text-primary">${escHtml(d.name)}</span>
-            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;padding:2px 8px;border-radius:12px;">${escHtml(d.type)}</span>
+            <span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;padding:2px 8px;border-radius:12px;">${escHtml(d.type)}</span>
           </div>
           <p class="font-body text-sm text-secondary">${escHtml(d.petName)}${d.notes ? ' · ' + escHtml(d.notes) : ''}</p>
           ${safeUrl(d.link) ? `<a href="${safeUrl(d.link)}" target="_blank" class="font-body text-sm" style="color:var(--accent-color);">View Document &rarr;</a>` : ''}
@@ -3658,7 +3658,7 @@
             <p class="font-body text-sm font-medium text-primary">${escHtml(r.pet)} — ${escHtml(r.name)}</p>
             <p class="font-body text-xs text-secondary">${r.type} · ${fmtDate(r.date)} · <span style="color:#5B5BD6;">View →</span></p>
           </div>
-          <span style="background:${color};color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">${label}</span>
+          <span style="background:${color};color:white;font-size:13px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">${label}</span>
         </div>`;
       }).join('');
     }
@@ -3769,11 +3769,11 @@
       modal.style.color = '#e8e6f0';
     }
     const buttonsHTML = buttons.map((b, i) =>
-      `<button data-idx="${i}" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;border:none;${b.primary ? 'background:#5B5BD6;color:white;' : 'background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;'}">${b.label}</button>`
+      `<button data-idx="${i}" style="padding:9px 16px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;border:none;${b.primary ? 'background:#5B5BD6;color:white;' : 'background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;'}">${b.label}</button>`
     ).join('');
     modal.innerHTML =
       '<h3 style="font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;margin:0 0 12px 0;color:#5B5BD6;">' + heading + '</h3>' +
-      '<div style="font-size:14px;line-height:1.55;margin-bottom:18px;">' + body + '</div>' +
+      '<div style="font-size:15px;line-height:1.55;margin-bottom:18px;">' + body + '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">' + buttonsHTML + '</div>';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -3806,7 +3806,7 @@
         body:
           '<p style="margin:0 0 10px 0;"><strong>You\'re on version ' + CURRENT_VERSION + '. Latest is ' + info.version + '.</strong></p>' +
           (info.notes ? '<p style="margin:0 0 10px 0;color:#64748b;"><strong>What\'s new:</strong><br>' + info.notes + '</p>' : '') +
-          '<p style="margin:0;color:#64748b;font-size:13px;">Tap <strong>Get update</strong> to load the latest version. You\'ll be able to export a backup of your data first, just in case \u2014 and your data stays safe on this device either way.</p>',
+          '<p style="margin:0;color:#64748b;font-size:14px;">Tap <strong>Get update</strong> to load the latest version. You\'ll be able to export a backup of your data first, just in case \u2014 and your data stays safe on this device either way.</p>',
         buttons: [
           { label: 'Later' },
           { label: 'Get update', primary: true, onClick: () => showForceRefreshModal() }
@@ -3880,15 +3880,15 @@
     modal.style.cssText = 'background:' + (isDark ? '#1e1a32' : '#ffffff') + ';color:' + (isDark ? '#e8e6f0' : '#1f2937') + ';border-radius:12px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.25);font-family:Karla,sans-serif;';
     modal.innerHTML =
       '<h3 style="font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;margin:0 0 12px 0;color:#5B5BD6;">Force refresh to the latest version</h3>' +
-      '<div style="font-size:14px;line-height:1.55;">' +
+      '<div style="font-size:15px;line-height:1.55;">' +
         '<p style="margin:0 0 10px 0;">This clears Pawfolio\'s cached app files and reloads the newest version. It\'s the fix when your app is stuck on an old version.</p>' +
         '<p style="margin:0 0 10px 0;">Your pets, visits, meds, and records are kept. <strong>To be completely safe, export a backup first</strong> \u2014 then you can re-import it if anything ever looks missing.</p>' +
         '<div id="force-refresh-exported" style="display:none;margin:0 0 10px 0;color:#16a34a;font-weight:600;">\u2713 Backup exported.</div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px;">' +
-        '<button id="fr-cancel" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">Cancel</button>' +
-        '<button id="fr-export" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">\u2193 Save my data</button>' +
-        '<button id="fr-continue" style="padding:9px 16px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:#5B5BD6;color:#fff;border:none;">Refresh now</button>' +
+        '<button id="fr-cancel" style="padding:9px 16px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">Cancel</button>' +
+        '<button id="fr-export" style="padding:9px 16px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;">\u2193 Save my data</button>' +
+        '<button id="fr-continue" style="padding:9px 16px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;background:#5B5BD6;color:#fff;border:none;">Refresh now</button>' +
       '</div>';
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -3927,7 +3927,7 @@
           heading: 'Your app looks stuck on an old version',
           body:
             '<p style="margin:0 0 10px 0;">You\'re on <strong>' + CURRENT_VERSION + '</strong>, but the latest is <strong>' + info.version + '</strong>. Sometimes a phone holds onto an old cached copy.</p>' +
-            '<p style="margin:0;color:#64748b;font-size:13px;">Tap <strong>Fix it now</strong> to clear the cached files and load the latest. You\'ll be able to export a backup first.</p>',
+            '<p style="margin:0;color:#64748b;font-size:14px;">Tap <strong>Fix it now</strong> to clear the cached files and load the latest. You\'ll be able to export a backup first.</p>',
           buttons: [
             { label: 'Later' },
             { label: 'Fix it now', primary: true, onClick: () => showForceRefreshModal() }
@@ -4881,7 +4881,7 @@ try {
       if(submit){
         var btn = document.createElement('button');
         btn.type='button'; btn.id='vet-followup-btn';
-        btn.style.cssText='background:transparent;border:1px dashed var(--accent-color);color:var(--accent-color);padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-right:10px;';
+        btn.style.cssText='background:transparent;border:1px dashed var(--accent-color);color:var(--accent-color);padding:8px 14px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-right:10px;';
         btn.textContent='+ Add follow-up appointment';
         btn.addEventListener('click', function(){
           var w=$('vet-next-wrap'); var tw=$('vet-next-time-wrap');
@@ -5208,10 +5208,10 @@ try {
       banner.id = 'vet-edit-banner';
       banner.style.cssText = 'display:none;background:linear-gradient(135deg,rgba(91,91,214,0.12),rgba(91,91,214,0.04));border:1px solid #5B5BD6;border-radius:8px;padding:10px 14px;margin:0 0 14px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;';
       banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">'+
-        '<span style="background:#5B5BD6;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;flex-shrink:0;">EDITING</span>'+
+        '<span style="background:#5B5BD6;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:12px;flex-shrink:0;">EDITING</span>'+
         '<span id="vet-edit-banner-label" class="font-body text-sm font-medium text-primary" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>'+
         '</div>'+
-        '<button type="button" id="vet-edit-cancel" style="background:transparent;border:1px solid #5B5BD6;color:#5B5BD6;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer;flex-shrink:0;">Cancel edit</button>';
+        '<button type="button" id="vet-edit-cancel" style="background:transparent;border:1px solid #5B5BD6;color:#5B5BD6;font-size:13px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer;flex-shrink:0;">Cancel edit</button>';
       var hint = $('vet-form-hint');
       (hint || titleEl).insertAdjacentElement('afterend', banner);
       $('vet-edit-cancel').addEventListener('click', cancelEdit);
@@ -5281,13 +5281,13 @@ try {
     var pid = v.__id;
     var isEditing = editId && String(editId)===String(pid);
     var statusBadge = isUpcoming
-      ? '<span style="background:#f6a623;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
-      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">'+esc(v.type||'Visit')+'</span>';
+      ? '<span style="background:#f6a623;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
+      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;">'+esc(v.type||'Visit')+'</span>';
     var dateLine = fmtDateLocal(v.date) + (v.time ? ' · '+fmtTime(v.time) : '') + (v.vet ? ' · '+esc(v.vet) : '');
     var body = [];
     body.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">'+
               '<span class="font-heading font-bold text-primary">'+esc(v.petName||'')+'</span>'+statusBadge+
-              (isEditing?'<span style="background:#5B5BD6;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;">EDITING</span>':'')+
+              (isEditing?'<span style="background:#5B5BD6;color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:12px;">EDITING</span>':'')+
               '</div>');
     body.push('<p class="font-body text-sm text-secondary">'+dateLine+'</p>');
     if(v.reason) body.push('<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+esc(v.reason)+'</p>');
@@ -5295,8 +5295,8 @@ try {
     if(v.next) body.push('<p class="font-body text-sm mt-1" style="color:#5B5BD6;">Follow-up: '+fmtDateLocal(v.next)+(v.nextTime?' · '+fmtTime(v.nextTime):'')+'</p>');
     if(!isUpcoming){
       var meta = [];
-      if(v.cost) meta.push('<span style="background:rgba(91,91,214,0.08);color:#5B5BD6;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;">'+fmtMoney(v.cost)+'</span>');
-      if(v.weight) meta.push('<span style="background:rgba(0,0,0,0.04);color:var(--text-secondary);font-size:12px;font-weight:500;padding:3px 10px;border-radius:12px;">'+v.weight+' lbs</span>');
+      if(v.cost) meta.push('<span style="background:rgba(91,91,214,0.08);color:#5B5BD6;font-size:13px;font-weight:600;padding:3px 10px;border-radius:12px;">'+fmtMoney(v.cost)+'</span>');
+      if(v.weight) meta.push('<span style="background:rgba(0,0,0,0.04);color:var(--text-secondary);font-size:13px;font-weight:500;padding:3px 10px;border-radius:12px;">'+v.weight+' lbs</span>');
       if(meta.length) body.push('<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'+meta.join('')+'</div>');
     }
     // v3.17.0 — show any receipts/records attached to this visit, so an attachment is
@@ -5304,9 +5304,9 @@ try {
     var receipts = (typeof window.pfVisitReceiptChips === 'function') ? window.pfVisitReceiptChips(pid) : '';
     var hasReceipts = !!receipts;
     if(receipts) body.push(receipts);
-    var btn='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
-    var btnPrimary='background:rgba(91,91,214,0.08);border:1px solid #5B5BD6;color:#5B5BD6;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
-    var btnDanger='background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;';
+    var btn='background:transparent;border:1px solid var(--border-color);color:var(--text-primary);padding:5px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;';
+    var btnPrimary='background:rgba(91,91,214,0.08);border:1px solid #5B5BD6;color:#5B5BD6;padding:5px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;';
+    var btnDanger='background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:5px 10px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;';
     var actions = [];
     actions.push('<button type="button" onclick="pfEditVisit('+pid+')" style="'+btn+'">✎ Edit</button>');
     if(isUpcoming){
@@ -5583,7 +5583,7 @@ try {
           '<p class="font-body text-sm font-medium text-primary">'+esc(r.pet)+' — '+esc(r.name)+'</p>'+
           '<p class="font-body text-xs text-secondary">'+esc(r.type)+' · '+fmtDate(r.date)+timeBit+' · <span style="color:#5B5BD6;">View →</span></p>'+
         '</div>'+
-        '<span style="background:'+color+';color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">'+label+'</span>'+
+        '<span style="background:'+color+';color:white;font-size:13px;font-weight:700;padding:3px 10px;border-radius:12px;flex-shrink:0;margin-left:8px;">'+label+'</span>'+
       '</div>';
     }).join('');
   }
@@ -5982,7 +5982,7 @@ try {
     if(!sBtn || !lBtn) return;
     var active = 'background:#5B5BD6;color:#fff;border-color:#5B5BD6;';
     var idle   = 'background:transparent;color:#5B5BD6;border-color:#5B5BD6;';
-    var base   = 'flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;';
+    var base   = 'flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;';
     sBtn.style.cssText = base + (mode === 'schedule' ? active : idle);
     lBtn.style.cssText = base + (mode === 'log' ? active : idle);
   }
@@ -6198,7 +6198,7 @@ try {
     wrap.innerHTML =
       '<button type="button" id="vet-attach-btn" ' +
       'style="width:100%;background:transparent;border:1px dashed #5B5BD6;color:#5B5BD6;' +
-      'padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">' +
+      'padding:10px 14px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">' +
       '📎 Attach receipt/record</button>' +
       '<p class="font-body text-xs text-secondary" style="margin:6px 2px 0;font-style:italic;">' +
       'Saves this visit first, then opens the Document Vault. Saving the document brings you back here.</p>';
@@ -6595,7 +6595,7 @@ try {
     var leads = getLeadsFor(type);
     var rows = optionsFor(type).map(function(o){
       var checked = leads.indexOf(o.ms) !== -1 ? ' checked' : '';
-      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer;" class="font-body text-secondary">' +
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:14px;cursor:pointer;" class="font-body text-secondary">' +
                '<input type="checkbox" class="pf-lead-cb-' + type + '" value="' + o.ms + '"' + checked + ' style="width:16px;height:16px;accent-color:#5B5BD6;cursor:pointer;">' +
                '<span>' + o.label + '</span>' +
              '</label>';
@@ -6630,7 +6630,7 @@ try {
     var bar = '<div id="pf-typebar-' + type + '" role="button" tabindex="0" ' +
                 'aria-expanded="' + (expanded[type]?'true':'false') + '" aria-controls="pf-typetiming-' + type + '" ' +
                 'style="display:flex;align-items:center;gap:8px;cursor:pointer;">' +
-                '<span style="font-size:14px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + alarmIcon + '</span>' +
+                '<span style="font-size:15px;line-height:1;flex:0 0 auto;color:#5B5BD6;">' + alarmIcon + '</span>' +
                 '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">' + LABELS[type] + '</div>' +
                 toggleHTML(type) +
                 caretHTML(type) +
@@ -6787,11 +6787,11 @@ try {
       'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:10000;' +
       'background:#5B5BD6;color:#fff;border-radius:10px;padding:10px 12px 10px 14px;' +
       'box-shadow:0 8px 24px rgba(0,0,0,0.22);display:flex;align-items:center;gap:10px;' +
-      'font-family:Karla,sans-serif;font-size:14px;max-width:92vw;';
+      'font-family:Karla,sans-serif;font-size:15px;max-width:92vw;';
     toast.innerHTML =
       '<span style="line-height:1.3;">A new version is ready.</span>' +
       '<button id="pawfolio-update-refresh" style="background:#fff;color:#5B5BD6;border:none;' +
-        'border-radius:6px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;' +
+        'border-radius:6px;padding:6px 12px;font-size:14px;font-weight:700;cursor:pointer;' +
         'font-family:inherit;">Refresh</button>' +
       '<button id="pawfolio-update-dismiss" aria-label="Dismiss" style="background:transparent;' +
         'border:none;color:#fff;font-size:18px;line-height:1;cursor:pointer;padding:0 2px;">\u00d7</button>';
@@ -6901,11 +6901,11 @@ try {
     wrap.innerHTML =
       '<div style="max-width:560px;margin:0 auto;">' +
         '<div style="font-weight:700;font-size:15px;margin-bottom:3px;">An update is ready but couldn\u2019t finish installing</div>' +
-        '<div style="font-size:13px;line-height:1.4;opacity:0.95;margin-bottom:11px;">We\u2019ll first save a backup of all your pets, records, and document photos to your device, then finish the update. Your data will not be lost.</div>' +
+        '<div style="font-size:14px;line-height:1.4;opacity:0.95;margin-bottom:11px;">We\u2019ll first save a backup of all your pets, records, and document photos to your device, then finish the update. Your data will not be lost.</div>' +
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
-          '<button id="pawfolio-stuck-go" style="background:#fff;color:#5B5BD6;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Back up and finish update</button>' +
-          '<button id="pawfolio-stuck-later" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Later</button>' +
-          '<span id="pawfolio-stuck-status" style="font-size:12px;opacity:0.95;"></span>' +
+          '<button id="pawfolio-stuck-go" style="background:#fff;color:#5B5BD6;border:none;border-radius:8px;padding:9px 16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Back up and finish update</button>' +
+          '<button id="pawfolio-stuck-later" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Later</button>' +
+          '<span id="pawfolio-stuck-status" style="font-size:13px;opacity:0.95;"></span>' +
         '</div>' +
       '</div>';
     document.body.appendChild(wrap);
@@ -7097,7 +7097,7 @@ try {
           '<div class="font-body text-sm text-primary" style="font-weight:600;">Photo ready (' + fmtKB(pending.blob.size) + ')</div>' +
           '<div class="font-body text-xs text-secondary">Saved with your document.</div>' +
         '</div>' +
-        '<button type="button" id="doc-capture-clear" style="background:none;border:none;color:#e53e3e;font-size:13px;font-weight:600;cursor:pointer;">Remove</button>' +
+        '<button type="button" id="doc-capture-clear" style="background:none;border:none;color:#e53e3e;font-size:14px;font-weight:600;cursor:pointer;">Remove</button>' +
       '</div>';
     var clr = $('doc-capture-clear');
     if (clr) clr.addEventListener('click', function(){ pending = null; renderPendingPreview(); });
@@ -7128,11 +7128,11 @@ try {
     row.innerHTML =
       '<label class="block font-body text-sm text-secondary mb-1">Photo of document</label>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-        '<label style="flex:1;min-width:130px;background:#5B5BD6;color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;">' +
+        '<label style="flex:1;min-width:130px;background:#5B5BD6;color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;">' +
           '\uD83D\uDCF7 Take photo' +
           '<input type="file" id="doc-camera-input" accept="image/*" capture="environment" style="display:none;">' +
         '</label>' +
-        '<label style="flex:1;min-width:130px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;">' +
+        '<label style="flex:1;min-width:130px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:8px;padding:9px 12px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;">' +
           '\uD83D\uDDBC\uFE0F Choose file' +
           '<input type="file" id="doc-file-input" accept="image/*" style="display:none;">' +
         '</label>' +
@@ -7212,10 +7212,10 @@ try {
       var thumbHtml = d.thumb
         ? '<img src="' + d.thumb + '" alt="' + (d.name||'document') + '" data-view="' + d.__id + '" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb);cursor:pointer;flex:0 0 auto;">'
         : '<div style="width:56px;height:56px;border-radius:8px;background:rgba(91,91,214,0.08);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:22px;">\uD83D\uDCC4</div>';
-      var cloudBadge = d.cloudOnly ? '<span style="background:rgba(16,185,129,0.12);color:#059669;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;">\u2601\uFE0F Cloud-only</span>' : '';
-      var btnBase = 'border:1px solid;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;background:#fff;white-space:nowrap;flex:0 0 auto;';
+      var cloudBadge = d.cloudOnly ? '<span style="background:rgba(16,185,129,0.12);color:#059669;font-size:12px;padding:2px 7px;border-radius:10px;margin-left:6px;">\u2601\uFE0F Cloud-only</span>' : '';
+      var btnBase = 'border:1px solid;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;background:#fff;white-space:nowrap;flex:0 0 auto;';
       var btnBlue = btnBase + 'color:#5B5BD6;border-color:rgba(91,91,214,0.4);';
-      var btnBlueFill = 'border:1px solid #5B5BD6;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;padding:5px 11px;line-height:1;background:#5B5BD6;color:#fff;white-space:nowrap;flex:0 0 auto;';
+      var btnBlueFill = 'border:1px solid #5B5BD6;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;padding:5px 11px;line-height:1;background:#5B5BD6;color:#fff;white-space:nowrap;flex:0 0 auto;';
       var btnGreen = btnBase + 'color:#059669;border-color:rgba(5,150,105,0.4);';
       var actions = [];
       if (d.imgKey || d.thumb) actions.push('<button type="button" data-view="' + d.__id + '" style="' + btnBlue + '">View</button>');
@@ -7235,7 +7235,7 @@ try {
             '<div style="flex:1;min-width:0;padding-right:24px;">' +
               '<div class="font-heading font-bold text-primary" style="line-height:1.25;margin-bottom:5px;word-break:break-word;">' + (d.name||'Untitled') + '</div>' +
               '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
-                (d.type ? '<span style="display:inline-block;background:#eef0fb;color:#4b4ba6;font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px;letter-spacing:.2px;">' + d.type + '</span>' : '') +
+                (d.type ? '<span style="display:inline-block;background:#eef0fb;color:#4b4ba6;font-size:13px;font-weight:600;padding:2px 9px;border-radius:6px;letter-spacing:.2px;">' + d.type + '</span>' : '') +
                 cloudBadge +
               '</div>' +
             '</div>' +
@@ -7247,7 +7247,7 @@ try {
             linkHtml +
             '<div data-paste="' + d.__id + '" style="display:none;margin-top:8px;">' +
               '<input type="url" placeholder="Paste the Drive/Dropbox link here" class="font-body text-sm" style="width:100%;padding:7px 10px;border:1px solid var(--border,#cbd5e1);border-radius:6px;margin-bottom:6px;">' +
-              '<button type="button" data-savelink="' + d.__id + '" style="background:#5B5BD6;border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Save link</button>' +
+              '<button type="button" data-savelink="' + d.__id + '" style="background:#5B5BD6;border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">Save link</button>' +
             '</div>' +
             '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">' + actions.join('') + '</div>' +
           '</div>' +
@@ -7360,10 +7360,10 @@ try {
     card.style.cssText = 'background:#fff;border-radius:14px;max-width:340px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
     card.innerHTML =
       '<div style="font-family:inherit;font-weight:700;font-size:16px;color:#1f2937;margin-bottom:4px;">Open this document</div>' +
-      '<div style="font-size:13px;color:#6b7280;line-height:1.45;margin-bottom:16px;">This document is saved both on this device and in your cloud. Which copy do you want to open?</div>' +
-      '<button type="button" data-pick="app" style="display:block;width:100%;background:#5B5BD6;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">\uD83D\uDCF1 On-device photo (fastest)</button>' +
-      '<button type="button" data-pick="cloud" style="display:block;width:100%;background:#fff;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">\u2601\uFE0F Cloud copy (opens link)</button>' +
-      '<button type="button" data-pick="cancel" style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:7px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>';
+      '<div style="font-size:14px;color:#6b7280;line-height:1.45;margin-bottom:16px;">This document is saved both on this device and in your cloud. Which copy do you want to open?</div>' +
+      '<button type="button" data-pick="app" style="display:block;width:100%;background:#5B5BD6;color:#fff;border:none;border-radius:9px;padding:11px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:9px;">\uD83D\uDCF1 On-device photo (fastest)</button>' +
+      '<button type="button" data-pick="cloud" style="display:block;width:100%;background:#fff;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:9px;padding:11px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:9px;">\u2601\uFE0F Cloud copy (opens link)</button>' +
+      '<button type="button" data-pick="cancel" style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:7px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>';
     ov.appendChild(card);
     function close(){ ov.remove(); }
     ov.addEventListener('click', function(e){ if (e.target === ov) close(); });
@@ -7531,9 +7531,9 @@ try {
     card.style.cssText = 'background:#fff;border-radius:14px;max-width:340px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
     card.innerHTML =
       '<div style="font-family:inherit;font-weight:700;font-size:16px;color:#1f2937;margin-bottom:6px;">' + (opts.title || 'Are you sure?') + '</div>' +
-      '<div style="font-size:13px;color:#6b7280;line-height:1.45;margin-bottom:18px;">' + (opts.message || '') + '</div>' +
-      '<button type="button" data-confirm style="display:block;width:100%;background:' + accent + ';color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px;">' + (opts.confirmLabel || 'Confirm') + '</button>' +
-      '<button type="button" data-cancel style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:8px;font-size:13px;font-weight:600;cursor:pointer;">' + (opts.cancelLabel || 'Cancel') + '</button>';
+      '<div style="font-size:14px;color:#6b7280;line-height:1.45;margin-bottom:18px;">' + (opts.message || '') + '</div>' +
+      '<button type="button" data-confirm style="display:block;width:100%;background:' + accent + ';color:#fff;border:none;border-radius:9px;padding:11px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:9px;">' + (opts.confirmLabel || 'Confirm') + '</button>' +
+      '<button type="button" data-cancel style="display:block;width:100%;background:none;color:#6b7280;border:none;padding:8px;font-size:14px;font-weight:600;cursor:pointer;">' + (opts.cancelLabel || 'Cancel') + '</button>';
     ov.appendChild(card);
     function close(){ ov.remove(); document.removeEventListener('keydown', onKey); }
     function onKey(e){ if (e.key === 'Escape') close(); }
@@ -7583,7 +7583,7 @@ try {
       '<div style="height:8px;border-radius:4px;background:var(--border,#e5e7eb);overflow:hidden;">' +
         '<div id="vault-storage-bar" style="height:100%;width:0%;background:#5B5BD6;transition:width .3s;"></div>' +
       '</div>' +
-      '<div id="vault-storage-warn" style="display:none;margin-top:8px;font-size:12px;line-height:1.4;"></div>';
+      '<div id="vault-storage-warn" style="display:none;margin-top:8px;font-size:13px;line-height:1.4;"></div>';
     // Place the meter right under the intro paragraph (before the Add Document card)
     var firstCard = section.querySelector('.card');
     if (firstCard){ firstCard.parentNode.insertBefore(meter, firstCard); }
@@ -7915,7 +7915,7 @@ try {
         el.id = 'pawfolio-backup-toast';
         el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);' +
           'background:#16a34a;color:#fff;padding:9px 16px;border-radius:8px;font-family:Karla,sans-serif;' +
-          'font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10000;opacity:0;' +
+          'font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:10000;opacity:0;' +
           'transition:opacity .25s ease, transform .25s ease;pointer-events:none;max-width:90vw;text-align:center;';
         document.body.appendChild(el);
       }
@@ -8213,7 +8213,7 @@ try {
           '<span id="vet-card-chev" style="display:inline-block;transition:transform .15s;transform:rotate(' + (collapsed ? '0' : '90') + 'deg);color:#64748b;font-size:20px;font-weight:bold;line-height:1;flex:0 0 auto;">▶</span>' +
           '<h3 class="font-heading text-base font-bold text-primary" style="margin:0;">Veterinarians</h3>' +
         '</div>' +
-        '<button id="vet-add-btn" type="button" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">+ Add vet</button>' +
+        '<button id="vet-add-btn" type="button" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">+ Add vet</button>' +
       '</div>' +
       '<div id="vet-card-body" style="display:' + (collapsed ? 'none' : 'block') + ';">' +
         '<div id="overview-vets-list"></div>' +
@@ -8276,24 +8276,24 @@ try {
       if (v.phone){
         rows += '<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 8px;">' +
           (tel
-            ? '<a href="' + tel + '" style="display:inline-flex;align-items:center;gap:8px;color:' + ACCENT + ';font-weight:600;text-decoration:none;font-size:14px;">' +
+            ? '<a href="' + tel + '" style="display:inline-flex;align-items:center;gap:8px;color:' + ACCENT + ';font-weight:600;text-decoration:none;font-size:15px;">' +
                 '<span style="font-size:15px;">📞</span><span>' + esc(v.phone) + '</span></a>' +
-                '<span style="font-size:11px;color:#94a3b8;">tap to call</span>'
+                '<span style="font-size:13px;color:#94a3b8;">tap to call</span>'
             : '<span class="font-body text-sm text-secondary" style="display:inline-flex;align-items:center;gap:8px;"><span style="font-size:15px;">📞</span>' + esc(v.phone) + '</span>') +
           '</div>';
       }
       if (addrStr){
         rows += '<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 8px;">' +
           (maps
-            ? '<a href="' + maps + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:flex-start;gap:8px;color:' + ACCENT + ';text-decoration:none;font-size:14px;line-height:1.4;">' +
+            ? '<a href="' + maps + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:flex-start;gap:8px;color:' + ACCENT + ';text-decoration:none;font-size:15px;line-height:1.4;">' +
                 '<span style="font-size:15px;">📍</span><span>' + esc(addrStr) + '</span></a>' +
-                '<span style="font-size:11px;color:#94a3b8;">open in maps</span>'
+                '<span style="font-size:13px;color:#94a3b8;">open in maps</span>'
             : '<span class="font-body text-sm text-secondary" style="display:inline-flex;align-items:flex-start;gap:8px;line-height:1.4;"><span style="font-size:15px;">📍</span>' + esc(addrStr) + '</span>') +
           '</div>';
       }
       if (v.website && web){
         rows += '<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 8px;">' +
-          '<a href="' + esc(web) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;color:' + ACCENT + ';text-decoration:none;font-size:14px;word-break:break-all;">' +
+          '<a href="' + esc(web) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;color:' + ACCENT + ';text-decoration:none;font-size:15px;word-break:break-all;">' +
             '<span style="font-size:15px;">🌐</span><span>' + esc(v.website) + '</span></a>' +
           '</div>';
       }
@@ -8351,8 +8351,8 @@ try {
         field('vet-f-website', 'Website', 'e.g., happypawsvet.com', v ? v.website : '', 'url') +
       '</div>' +
       '<div style="display:flex;gap:10px;margin-top:14px;">' +
-        '<button type="button" id="vet-f-save" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">' + (v ? 'Save changes' : 'Save vet') + '</button>' +
-        '<button type="button" id="vet-f-cancel" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
+        '<button type="button" id="vet-f-save" style="background:' + ACCENT + ';color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">' + (v ? 'Save changes' : 'Save vet') + '</button>' +
+        '<button type="button" id="vet-f-cancel" style="background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);border-radius:8px;padding:9px 16px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;">Cancel</button>' +
       '</div>';
     wrap.style.display = 'block';
     wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
@@ -8404,7 +8404,7 @@ try {
     return '<label class="block font-body text-sm text-secondary mb-1" for="' + id + '">' + esc(label) + '</label>' +
       '<input id="' + id + '" type="' + (type || 'text') + '" placeholder="' + esc(ph) + '" value="' + esc(value || '') + '" ' +
         'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
-        'style="width:100%;padding:9px 11px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;" />';
+        'style="width:100%;padding:9px 11px;border:1px solid var(--border-color);border-radius:8px;font-size:15px;font-family:inherit;box-sizing:border-box;" />';
   }
   // Reformat an input's value live while preserving the caret position as best we can.
   function attachLiveFormat(el, fmt){
@@ -8556,7 +8556,7 @@ try {
 
     var head = document.createElement('div');
     head.textContent = 'Saved vets';
-    head.style.cssText = 'font-size:11px;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-secondary,#94a3b8);padding:8px 12px 4px;font-weight:700;';
+    head.style.cssText = 'font-size:13px;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-secondary,#94a3b8);padding:8px 12px 4px;font-weight:700;';
     menu.appendChild(head);
 
     opts.forEach(function(o){
@@ -8564,8 +8564,8 @@ try {
       row.setAttribute('role','option');
       row.style.cssText = 'padding:9px 12px;cursor:pointer;border-top:1px solid var(--border-color,#f1f5f9);';
       var sub = [o.phone, o.address].filter(Boolean).join(' \u00b7 ');
-      row.innerHTML = '<div style="font-size:14px;font-weight:600;color:var(--text-primary,#1f2733);">' + esc(o.name) + '</div>' +
-                      (sub ? '<div style="font-size:12px;color:var(--text-secondary,#64748b);margin-top:1px;">' + esc(sub) + '</div>' : '');
+      row.innerHTML = '<div style="font-size:15px;font-weight:600;color:var(--text-primary,#1f2733);">' + esc(o.name) + '</div>' +
+                      (sub ? '<div style="font-size:13px;color:var(--text-secondary,#64748b);margin-top:1px;">' + esc(sub) + '</div>' : '');
       row.addEventListener('mousedown', function(e){
         // mousedown (not click) so it fires before the input blurs.
         e.preventDefault();
@@ -9204,14 +9204,14 @@ try {
     opts = opts || {};
     var editing = formEditId() === String(n.__id);
     var pet = petLabel(n);
-    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
-    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
-    var btnMuted = 'padding:5px 10px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
-    var btnDanger = 'padding:5px 10px;background:transparent;color:#dc2626;border:1.5px solid #fecaca;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;';
+    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var btnMuted = 'padding:5px 10px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var btnDanger = 'padding:5px 10px;background:transparent;color:#dc2626;border:1.5px solid #fecaca;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
     var head = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
       (pet ? '<span class="font-heading font-bold text-primary">'+esc(pet)+'</span>' : '<span class="font-heading font-bold text-primary">General</span>') +
       '<span style="'+chip+'">'+catIcon(n.category)+' '+esc(n.category || 'Observation')+'</span>' +
-      (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;">📌 For the vet</span>' : '') +
+      (n.flag ? '<span style="display:inline-block;background:rgba(220,38,38,0.08);color:#b91c1c;font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;">📌 For the vet</span>' : '') +
       '</div>';
     var ctx = opts.ctx || 'n';
     // On the Timeline each update is its own dated entry, so the inline thread
@@ -9313,7 +9313,7 @@ try {
       '<div class="space-y-2">' + shown.map(function(n){
         var pet = petLabel(n);
         return '<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">' +
-          '<span style="flex-shrink:0;font-size:14px;line-height:1.5;">'+catIcon(n.category)+'</span>' +
+          '<span style="flex-shrink:0;font-size:15px;line-height:1.5;">'+catIcon(n.category)+'</span>' +
           '<div style="flex:1;min-width:0;">' +
             '<p class="font-body text-sm text-primary" style="line-height:1.45;">'+esc(n.text)+'</p>' +
             '<p class="font-body text-xs text-secondary">'+esc(fdate(n.date))+(pet ? ' \u00b7 '+esc(pet) : '')+'</p>' +
@@ -9321,7 +9321,7 @@ try {
           '</div></div>';
       }).join('') + '</div>' +
       (flagged.length > shown.length ? '<p class="font-body text-xs text-secondary mt-2">+ '+(flagged.length - shown.length)+' more.</p>' : '') +
-      '<button type="button" onclick="window.goToTab(\'notes\')" style="margin-top:12px;padding:7px 14px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Open Notes</button>';
+      '<button type="button" onclick="window.goToTab(\'notes\')" style="margin-top:12px;padding:7px 14px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Open Notes</button>';
   }
   window.renderOverviewNotes = renderOverviewNotes;
 
@@ -9341,7 +9341,7 @@ try {
               (u ? ' <span style="font-style:italic;">(latest '+esc(fdate(u.date))+': '+esc(u.text)+')</span>' : '')+'</li>';
           }).join('') + '</ul>' +
           (flagged.length > 5 ? '<p class="font-body text-xs text-secondary mt-1">+ '+(flagged.length-5)+' more below.</p>' : '') +
-          '<button type="button" onclick="window.goToTab(\'timeline\')" style="margin-top:10px;padding:6px 12px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">See them on the Timeline</button>';
+          '<button type="button" onclick="window.goToTab(\'timeline\')" style="margin-top:10px;padding:6px 12px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">See them on the Timeline</button>';
       } else {
         prep.style.display = 'none';
         prep.innerHTML = '';
@@ -9443,7 +9443,7 @@ try {
   }
 
   function visitCard(v){
-    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;';
+    var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;';
     var pet = petLabel(v);
     var lines = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
       '<span class="font-heading font-bold text-primary">'+esc(pet || 'Vet visit')+'</span>' +
@@ -9453,7 +9453,7 @@ try {
       (v.reason ? '<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+esc(v.reason)+'</p>' : '') +
       (v.diagnosis ? '<p class="font-body text-sm text-secondary mt-1" style="white-space:pre-wrap;">'+esc(v.diagnosis)+'</p>' : '') +
       (v.next ? '<p class="font-body text-sm mt-1" style="color:'+ACCENT+';">Next appointment: '+esc(fdate(v.next))+'</p>' : '');
-    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+    var btn = 'padding:5px 10px;background:transparent;color:'+ACCENT+';border:1.5px solid '+ACCENT+';border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
     return '<div class="card p-4"><div>'+lines+'</div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);justify-content:flex-end;">' +
         '<button type="button" onclick="window.goToTab(\'vet-visits\')" style="'+btn+'">Open in Vet Visits</button>' +
@@ -10901,7 +10901,7 @@ try {
     if (!docs.length) return '';
     var toUrl = window.safeUrl || function(){ return ''; };
     var chipStyle = 'display:inline-flex;align-items:center;gap:5px;max-width:100%;background:rgba(72,187,120,0.10);' +
-                    'color:#276749;font-size:12px;font-weight:600;padding:4px 10px;border-radius:12px;' +
+                    'color:#276749;font-size:13px;font-weight:600;padding:4px 10px;border-radius:12px;' +
                     'border:1px solid rgba(72,187,120,0.35);cursor:pointer;font-family:inherit;' +
                     'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     var chips = docs.map(function(d){
@@ -10910,7 +10910,7 @@ try {
       var open = '<button type="button" onclick="window.pfGoToDocument(' + d.__id + ')" style="' + chipStyle +
                  '" title="Open in Document Vault">\uD83D\uDCCE ' + esc(d.name || 'Receipt') + '</button>';
       var view = href
-        ? '<a href="' + href + '" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#5B5BD6;text-decoration:none;">View \u2192</a>'
+        ? '<a href="' + href + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:#5B5BD6;text-decoration:none;">View \u2192</a>'
         : '';
       return open + view;
     }).join('');
@@ -11016,7 +11016,7 @@ try {
         '<span class="font-body text-sm text-primary" style="flex:1;min-width:120px;">Attaching to <strong>' + esc(who) +
         '</strong>. Saving brings you back to that visit.</span>' +
         '<button type="button" id="v3170-return-cancel" style="background:transparent;border:1px solid var(--border-color);' +
-        'color:var(--text-secondary);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;' +
+        'color:var(--text-secondary);padding:4px 10px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;' +
         'font-family:inherit;">Cancel</button>';
       form.parentNode.insertBefore(hint, form);
       var cancel = $('v3170-return-cancel');
@@ -11217,12 +11217,12 @@ try {
 
   function btnStyle(color){
     return 'border:1px solid ' + (color ? 'rgba(91,91,214,0.4)' : 'var(--border-color,#cbd5e1)') + ';' +
-           'border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;' +
+           'border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;padding:5px 11px;line-height:1;' +
            'background:#fff;color:' + (color || 'var(--text-secondary,#64748b)') + ';white-space:nowrap;' +
            'flex:0 0 auto;font-family:inherit;';
   }
   function btnStyleFill(){
-    return 'border:1px solid #5B5BD6;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;' +
+    return 'border:1px solid #5B5BD6;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;' +
            'padding:5px 11px;line-height:1;background:#5B5BD6;color:#fff;white-space:nowrap;flex:0 0 auto;' +
            'font-family:inherit;';
   }
