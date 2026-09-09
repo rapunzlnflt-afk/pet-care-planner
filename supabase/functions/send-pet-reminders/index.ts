@@ -1,6 +1,8 @@
 // Pawfolio — Web Push delivery worker (Supabase Edge Function, Deno runtime).
 //
-// Schedule this on a 1-minute cron via Supabase Scheduled Triggers or pg_cron.
+// Schedule this on a 2-minute cron via pg_cron, on the ODD minutes (see
+// supabase/migrations/0002_reminder_cron.sql -- MedRecords' send-reminders
+// takes the even minutes so the two never compete for a worker slot).
 // It looks up reminders whose fire_at has passed and have not yet been
 // delivered, sends a Web Push to every device the owning user has registered,
 // and stamps delivered_at.
@@ -14,8 +16,11 @@
 //
 // Deploy:   supabase functions deploy send-pet-reminders --no-verify-jwt
 // Secrets:  supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:...
-// Schedule: add a Scheduled Trigger that POSTs to this function every minute,
-//           or use pg_cron + pg_net (see PUSH_SETUP.md).
+// Schedule: run supabase/migrations/0002_reminder_cron.sql (see also
+//           PUSH_SETUP.md step 5). Always pass timeout_milliseconds to
+//           net.http_post -- an unbounded call keeps pg_net's transaction
+//           open, which blocks autovacuum project-wide and trips the Disk IO
+//           budget.
 
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";

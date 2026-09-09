@@ -101,27 +101,54 @@ deployed functions.
 > set new secrets if you deliberately want a separate VAPID pair — but that
 > would change the keys for BOTH functions, so reuse is recommended here.
 
-## 5. Schedule the function (every minute)
+## 5. Schedule the function (every 2 minutes, on the odd minutes)
 
-In the Supabase dashboard, **Database → Cron / Scheduled Triggers**, add a job
-that POSTs to the Pawfolio function every minute (in addition to the existing
-MedRecords schedule). Equivalent SQL:
+Enable the **pg_cron** and **pg_net** extensions under **Database →
+Extensions**, then run:
+
+```
+supabase/migrations/0002_reminder_cron.sql
+```
+
+That file carries the reasoning inline. The job it creates:
 
 ```sql
 select cron.schedule(
   'send-pet-reminders-every-minute',
-  '* * * * *',
-  $$ select net.http_post(
-       url := 'https://<your-project>.functions.supabase.co/send-pet-reminders',
-       headers := jsonb_build_object(
-         'Content-Type', 'application/json',
-         'Authorization', 'Bearer <anon or service-role key>'
-       )
-     ) $$
+  '1-59/2 * * * *',
+  $job$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/send-pet-reminders',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 10000
+  );
+  $job$
 );
 ```
 
-Reminders fire on `fire_at <= now()`, so once-a-minute is plenty.
+Two details are load-bearing:
+
+- **Odd minutes.** MedRecords' `send-reminders` runs on the even minutes
+  (`*/2`), so Pawfolio takes the odd ones and the two never fire together.
+  A small compute instance has only about 6 background worker slots; two
+  pg_cron jobs starting in the same second can exhaust them, and pg_cron
+  records the run as `job startup timeout`. From the app's side that looks
+  like nothing happened — but a push was silently never sent. Reminders fire
+  on `fire_at <= now()`, so the coarser tick delays delivery slightly and
+  never drops one.
+- **`timeout_milliseconds` is not optional.** pg_net holds an open
+  transaction while a request is in flight, and an open transaction stops
+  autovacuum from reclaiming dead rows *anywhere* in the project. One Edge
+  Function call that never returns wedges the worker; the shared project
+  bloated to 370 MB against ~1 MB of real data and tripped a **Disk IO
+  Budget** warning that way.
+
+Because this project is shared with MedRecords, the log-retention jobs are
+defined once over there, in
+`medical-records-keeper/supabase/migrations/0003_reminder_cron_and_maintenance.sql`.
+Run that too on a fresh project, or `cron.job_run_details` and
+`net._http_response` will grow without bound.
 
 ## 6. Try it
 
@@ -133,7 +160,7 @@ Reminders fire on `fire_at <= now()`, so once-a-minute is plenty.
    accept the permission prompt.
 5. Add a vet visit (or medication refill / vaccination) due a few minutes from
    now, with a short lead time selected. Background the app or lock the phone.
-6. The push should arrive within about a minute of the fire time.
+6. The push should arrive within about 2 minutes of the fire time.
 
 ## What gets stored where
 
