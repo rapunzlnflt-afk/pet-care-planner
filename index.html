@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.21">
+                          <meta name="app-version" content="3.17.22">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -518,8 +518,14 @@
     .pet-archived .archive-pet-btn { filter: none; opacity: 1; }
     .pet-archived-badge { display: inline-block; background: rgba(91,91,214,0.12); color: #5B5BD6; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 2px; }
     .weight-sparkline-wrap { margin: 4px 0 12px; }
-    .weight-sparkline-wrap svg { width: 100%; max-width: 240px; height: 48px; display: block; }
-    .weight-spark-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); max-width: 240px; margin-top: 2px; }
+    .weight-sparkline-wrap svg.weight-chart { width: 100%; max-width: 460px; height: auto; display: block; }
+    .weight-readout { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; min-height: 18px; }
+    .weight-readout.on { color: var(--text-primary); font-weight: 600; }
+    .weight-range-row { display: flex; gap: 6px; margin-top: 9px; max-width: 460px; }
+    .wt-range { flex: 1; font: inherit; font-size: 12.5px; padding: 7px 0; border-radius: 8px; border: 1px solid #d7d9e8; background: #fff; color: #4b5563; cursor: pointer; }
+    .wt-range.on { background: var(--accent-color); border-color: var(--accent-color); color: #fff; font-weight: 700; }
+    .wt-range:disabled { opacity: .4; cursor: default; }
+    .weight-spark-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); max-width: 460px; margin-top: 4px; }
     .vacc-quickset { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
     .vacc-quickset button { background: none; border: 1px solid #5B5BD6; color: #5B5BD6; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 12px; cursor: pointer; }
     .vacc-quickset button:hover { background: rgba(91,91,214,0.1); }
@@ -2934,29 +2940,84 @@
 
   // Build a tiny inline SVG sparkline of a pet's weight history (oldest→newest).
   // entries: weight records for one pet (any order). Returns HTML string ('' if no plottable points).
-  function weightSparkline(entries) {
-    const pts = entries
+  // Weight chart for one pet's history.
+  // entries: weight records for one pet (any order). Returns HTML string ('' if no plottable points).
+  // X position is proportional to the actual date, so a long gap between weigh-ins looks long.
+  const weightChartRange = {};
+  const weightChartData = {};
+  const WEIGHT_RANGES = [
+    { key: '3m',  label: '3 months', days: 92 },
+    { key: '1y',  label: '1 year',   days: 366 },
+    { key: 'all', label: 'All',      days: null }
+  ];
+
+  function weightSparkline(entries, petName) {
+    const all = entries
       .map(w => ({ lbs: parseFloat(w.lbs), date: w.date }))
-      .filter(p => !isNaN(p.lbs) && p.date)
+      .filter(p => !isNaN(p.lbs) && p.date && !isNaN(Date.parse(p.date + 'T00:00:00')))
       .sort((a,b) => String(a.date).localeCompare(String(b.date)));
-    if(!pts.length) return '';
-    const W = 240, H = 48, pad = 6;
-    const lbsVals = pts.map(p => p.lbs);
-    const min = Math.min(...lbsVals), max = Math.max(...lbsVals);
-    const range = max - min;
+    if(!all.length) return '';
+
+    const key = petName || '';
+    weightChartData[key] = entries;
+    const tAll = all.map(p => Date.parse(p.date + 'T00:00:00'));
+    const newest = tAll[tAll.length - 1];
+    // A range is only offered if it actually leaves something different to look at.
+    const counts = {};
+    WEIGHT_RANGES.forEach(r => {
+      counts[r.key] = r.days === null ? all.length
+        : all.filter((p,i) => tAll[i] >= newest - r.days * 86400000).length;
+    });
+    const usable = r => r.days === null || (counts[r.key] >= 2 && counts[r.key] < all.length);
+    let active = weightChartRange[key] || 'all';
+    if(!usable(WEIGHT_RANGES.find(r => r.key === active) || {days:null})) active = 'all';
+
+    const cutDays = (WEIGHT_RANGES.find(r => r.key === active) || {}).days;
+    const pts = cutDays === null || cutDays === undefined
+      ? all
+      : all.filter((p,i) => tAll[i] >= newest - cutDays * 86400000);
+
     const n = pts.length;
-    const x = i => n === 1 ? W/2 : pad + (i * (W - 2*pad)) / (n - 1);
-    // Flat line centered vertically when all values equal (avoid divide-by-zero).
-    const y = v => range === 0 ? H/2 : (H - pad) - ((v - min) * (H - 2*pad)) / range;
+    const t = pts.map(p => Date.parse(p.date + 'T00:00:00'));
+    const span = t[n-1] - t[0];
+    const lbsVals = pts.map(p => p.lbs);
+    const minV = Math.min(...lbsVals), maxV = Math.max(...lbsVals);
+
+    const W = 358, H = 182, L = 42, R = 14, T = 18, B = 34;
+    // Pad the scale to round half-pounds so dots never sit on the edge.
+    let lo = Math.floor((minV - 0.6) * 2) / 2;
+    let hi = Math.ceil((maxV + 0.6) * 2) / 2;
+    if(hi - lo < 1) { lo = minV - 0.5; hi = minV + 0.5; }
+    const vRange = hi - lo;
+    // Fall back to even spacing when every reading shares one date (span 0 would divide by zero).
+    const x = i => (n === 1 || span <= 0)
+      ? (n === 1 ? (L + (W - L - R) / 2) : L + (i * (W - L - R)) / (n - 1))
+      : L + ((t[i] - t[0]) * (W - L - R)) / span;
+    const y = v => (H - B) - ((v - lo) * (H - T - B)) / vRange;
     const accent = '#5B5BD6';
+
     let inner = '';
+    [lo, (lo + hi) / 2, hi].forEach(v => {
+      const yy = y(v).toFixed(1);
+      inner += `<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#e8eaf4" stroke-width="1"></line>`;
+      inner += `<text x="${L-8}" y="${(y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#9ca3af">${v.toFixed(1)}</text>`;
+    });
     if(n >= 2) {
       const coords = pts.map((p,i) => `${x(i).toFixed(1)},${y(p.lbs).toFixed(1)}`).join(' ');
-      const area = `${pad},${H-pad} ${coords} ${(W-pad)},${H-pad}`;
-      inner += `<polygon points="${area}" fill="rgba(91,91,214,0.08)" stroke="none"></polygon>`;
-      inner += `<polyline points="${coords}" fill="none" stroke="${accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>`;
+      inner += `<polygon points="${x(0).toFixed(1)},${H-B} ${coords} ${x(n-1).toFixed(1)},${H-B}" fill="rgba(91,91,214,0.08)" stroke="none"></polygon>`;
+      inner += `<polyline points="${coords}" fill="none" stroke="${accent}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>`;
     }
-    inner += pts.map((p,i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.lbs).toFixed(1)}" r="2.5" fill="${accent}"></circle>`).join('');
+    inner += pts.map((p,i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.lbs).toFixed(1)}" r="${i===n-1?5:3.5}" fill="${accent}"></circle>`).join('');
+    // Generous invisible tap targets so a fingertip can hit a 3.5px dot.
+    inner += pts.map((p,i) => `<circle class="wt-hit" data-i="${i}" data-date="${escHtml(p.date)}" data-lbs="${p.lbs}" cx="${x(i).toFixed(1)}" cy="${y(p.lbs).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;"></circle>`).join('');
+    if(n >= 2 && span <= 0) {
+      // Every reading shares one date - say so rather than printing the same date at both ends.
+      inner += `<text x="${(L + (W-L-R)/2).toFixed(1)}" y="${H-12}" text-anchor="middle" font-size="11" fill="#9ca3af">${n} readings on ${escHtml(fmtShortDate(pts[0].date))}</text>`;
+    } else {
+      inner += `<text x="${L}" y="${H-12}" font-size="11" fill="#9ca3af">${escHtml(fmtShortDate(pts[0].date))}</text>`;
+      if(n >= 2) inner += `<text x="${W-R}" y="${H-12}" text-anchor="end" font-size="11" fill="#9ca3af">${escHtml(fmtShortDate(pts[n-1].date))}</text>`;
+    }
+
     const latest = pts[n-1].lbs, prev = n >= 2 ? pts[n-2].lbs : null;
     let trend = '';
     if(prev !== null) {
@@ -2966,14 +3027,71 @@
       else if(delta < 0) trend = `<span style="color:#27AE60;">▼ ${d} lbs</span>`;
       else trend = `<span style="color:var(--text-secondary);">– 0.0 lbs</span>`;
     }
-    return `<div class="weight-sparkline-wrap">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Weight trend">${inner}</svg>
+
+    // Only offer the range row when at least one narrower range would actually change the view.
+    const anyNarrower = WEIGHT_RANGES.some(r => r.days !== null && usable(r));
+    const buttons = anyNarrower
+      ? WEIGHT_RANGES.filter(r => r.days === null || counts[r.key] >= 2)
+          .map(r => `<button type="button" class="wt-range${r.key===active?' on':''}" data-range="${r.key}"${usable(r)?'':' disabled'}>${r.label}</button>`).join('')
+      : '';
+
+    return `<div class="weight-sparkline-wrap" data-pet="${escHtml(key)}">
+      <svg class="weight-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight trend for ${escHtml(key)}">${inner}</svg>
+      <div class="weight-readout">Tap a dot to see that reading</div>
       <div class="weight-spark-labels">
-        <span>min ${min} lbs</span>
+        <span>min ${minV} lbs</span>
         <span style="font-weight:700;color:var(--text-primary);">${latest} lbs ${trend}</span>
-        <span>max ${max} lbs</span>
+        <span>max ${maxV} lbs</span>
       </div>
+      ${buttons ? `<div class="weight-range-row">${buttons}</div>` : ''}
     </div>`;
+  }
+
+  function fmtShortDate(d) {
+    const p = String(d).split('-');
+    if(p.length !== 3) return String(d);
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return M[parseInt(p[1],10)-1] + ' ' + parseInt(p[2],10) + ', ' + p[0];
+  }
+
+  // Wire taps for every chart currently in the DOM. Safe to call after each render.
+  function wireWeightCharts() {
+    document.querySelectorAll('.weight-sparkline-wrap').forEach(wrap => {
+      if(wrap.dataset.wired) return;
+      wrap.dataset.wired = '1';
+      wrap.addEventListener('click', e => {
+        const hit = e.target.closest('.wt-hit');
+        if(hit) {
+          const out = wrap.querySelector('.weight-readout');
+          if(out) {
+            out.textContent = hit.dataset.lbs + ' lbs on ' + fmtShortDate(hit.dataset.date);
+            out.classList.add('on');
+          }
+          wrap.querySelectorAll('.wt-sel').forEach(c => c.remove());
+          const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          c.setAttribute('class','wt-sel');
+          c.setAttribute('cx', hit.getAttribute('cx'));
+          c.setAttribute('cy', hit.getAttribute('cy'));
+          c.setAttribute('r','8'); c.setAttribute('fill','none');
+          c.setAttribute('stroke','#5B5BD6'); c.setAttribute('stroke-width','2');
+          hit.parentNode.insertBefore(c, hit.parentNode.querySelector('.wt-hit'));
+          return;
+        }
+        const btn = e.target.closest('.wt-range');
+        if(btn && !btn.disabled) {
+          const pet = wrap.dataset.pet;
+          weightChartRange[pet] = btn.dataset.range;
+          // Redraw only this pet's chart so a reading tapped on another pet stays put.
+          const html = weightSparkline(weightChartData[pet] || [], pet);
+          if(html) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            wrap.replaceWith(tmp.firstElementChild);
+            wireWeightCharts();
+          }
+        }
+      });
+    });
   }
 
   function renderWeights() {
@@ -2995,7 +3113,7 @@
             ${diff !== null ? `<span class="font-body text-xs ml-2" style="color:${parseFloat(diff)>0?'#e53e3e':'#48bb78'};">${parseFloat(diff)>0?'+':''}${diff} lbs</span>` : ''}
           </div>
         </div>
-        ${weightSparkline(entries)}
+        ${weightSparkline(entries, petName)}
         <div class="space-y-1">
           ${entries.map(w => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border-color);">
             <span class="font-body text-sm text-secondary">${fmtDate(w.date)}${w.notes ? ' · ' + escHtml(w.notes) : ''}</span>
@@ -3007,6 +3125,7 @@
         </div>
       </div>`;
     }).join('');
+    wireWeightCharts();
   }
 
   window.deleteWeight = id => {
