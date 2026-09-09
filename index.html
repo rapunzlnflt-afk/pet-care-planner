@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.23">
+                          <meta name="app-version" content="3.17.24">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -9759,6 +9759,7 @@ try {
     return out;
   }
 
+  function vtime(t){ if(!t) return ''; var p=String(t).split(':'); if(p.length<2) return String(t); var h=parseInt(p[0],10); if(isNaN(h)) return String(t); return (((h+11)%12)+1)+':'+p[1]+' '+(h>=12?'PM':'AM'); }
   function visitCard(v){
     var chip = 'display:inline-block;background:rgba(91,91,214,0.1);color:'+ACCENT+';font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;';
     var pet = petLabel(v);
@@ -9766,7 +9767,7 @@ try {
       '<span class="font-heading font-bold text-primary">'+esc(pet || 'Vet visit')+'</span>' +
       '<span style="'+chip+'">🩺 '+esc(v.type || 'Vet Visit')+'</span>' +
       '</div>' +
-      '<p class="font-body text-sm text-secondary">'+esc(fdate(v.date))+(v.vet ? ' · '+esc(v.vet) : '')+'</p>' +
+      '<p class="font-body text-sm text-secondary">'+esc(fdate(v.date))+(v.time ? ' · '+esc(vtime(v.time)) : '')+(v.vet ? ' · '+esc(v.vet) : '')+'</p>' +
       (v.reason ? '<p class="font-body text-sm text-primary mt-1"><strong>Reason:</strong> '+esc(v.reason)+'</p>' : '') +
       (v.diagnosis ? '<p class="font-body text-sm text-secondary mt-1" style="white-space:pre-wrap;">'+esc(v.diagnosis)+'</p>' : '') +
       (v.next ? '<p class="font-body text-sm mt-1" style="color:'+ACCENT+';">Next appointment: '+esc(fdate(v.next))+'</p>' : '');
