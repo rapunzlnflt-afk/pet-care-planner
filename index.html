@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.22">
+                          <meta name="app-version" content="3.17.23">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2145,13 +2145,16 @@
         : `<div class="pet-avatar-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>`;
       return `<div class="card p-5${archived ? ' pet-archived' : ''}" style="border-left:4px solid var(--accent-color);">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            ${avatarHtml}
-            <div>
-              <h3 class="font-heading text-lg font-bold text-primary">${escHtml(p.name)} <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">${escHtml(p.species)}${p.breed ? ' — ' + escHtml(p.breed) : ''}</span></h3>
-              ${archived ? `<span class="pet-archived-badge">🌈 Rainbow Bridge${p.archivedDate ? ' · ' + fmtDate(p.archivedDate) : ''}</span>` : ''}
-              ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${escHtml(p.sex || '')}</p>` : ''}
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              ${avatarHtml}
+              <div>
+                <h3 class="font-heading text-lg font-bold text-primary">${escHtml(p.name)}</h3>
+                ${archived ? `<span class="pet-archived-badge">🌈 Rainbow Bridge${p.archivedDate ? ' · ' + fmtDate(p.archivedDate) : ''}</span>` : ''}
+                ${age !== null ? `<p class="font-body text-sm text-secondary">${age} year${age!==1?'s':''} old · ${escHtml(p.sex || '')}</p>` : ''}
+              </div>
             </div>
+            <p style="font-size:14px;font-weight:500;color:var(--text-secondary);margin-top:8px;">${escHtml(p.species)}${p.breed ? ' — ' + escHtml(p.breed) : ''}</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
             <button type="button" class="edit-pet-btn" onclick="editPet(${p.__id})" title="Edit">✎</button>
