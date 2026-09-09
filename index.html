@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.24">
+                          <meta name="app-version" content="3.17.25">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -77,6 +77,12 @@
          the card but too narrow to show "08/18/2026" without the native input clipping it.
          One field per row on a phone keeps every value fully readable. */
       #vet-form > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+      /* v3.17.25 - the Notes card had the same problem the vet form did. Pet and Date
+         sat in two columns that come out around 127px each on a narrow phone, and
+         mobile Safari needs more than that to draw "08/16/2026" plus the picker
+         glyph, so the box spilled past the edge of the card. One field per row on
+         a phone, exactly as the vet form already does. */
+      #note-form > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
     }
 
     /* ===== Timeline rail (v3.17.0) =====
