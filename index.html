@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.28">
+                          <meta name="app-version" content="3.17.29">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -824,6 +824,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   max-width: 100% !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
+  /* appearance:none also strips the native control's built-in height on iOS, which
+     collapsed the box. Match the other fields explicitly. */
+  min-height: 44px !important;
+  height: auto !important;
+  line-height: 24px !important;
+  font-size: 16px !important;
+  padding: 9px 14px !important;
+  display: block !important;
 }
 </style>
 </head>
