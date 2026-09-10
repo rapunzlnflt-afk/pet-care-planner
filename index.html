@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.27">
+                          <meta name="app-version" content="3.17.28">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -814,7 +814,19 @@
   }
 }
   </style>
- </head>
+ <style id="pf-date-time-fit">
+/* v3.17.28 - iOS Safari gives date/time inputs an intrinsic width that ignores the
+   form's width, so the boxes ran off the right edge of the card on iPhone. */
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"]{
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+</style>
+</head>
  <body class="h-full">
 
   <!-- Mobile overlay -->
@@ -5227,7 +5239,9 @@ try {
   function applyMode(){
     var date = $('vet-date') ? $('vet-date').value : '';
     var form = $('vet-form'); if(!form) return;
-    var isSched = isFutureOrToday(date) && !form.dataset.forceLogMode;
+    // v3.17.28 - only a future date is an appointment. Today or earlier means the
+    // visit has happened, so the write-up fields stay visible.
+    var isSched = !!date && date > todayISO() && !form.dataset.forceLogMode;
     // Fields to hide in schedule mode
     var logOnlyIds = ['vet-diagnosis','vet-weight','vet-cost'];
     logOnlyIds.forEach(function(id){
@@ -5524,7 +5538,7 @@ try {
       hint.id = 'vet-form-hint';
       hint.className = 'font-body text-xs text-secondary';
       hint.style.cssText = 'margin:-8px 0 14px;font-style:italic;';
-      hint.textContent = 'Pick a future date to schedule an appointment, or a past date to log a visit.';
+      hint.textContent = 'Pick a future date to schedule an appointment, or today or a past date to write up a visit.';
       titleEl.insertAdjacentElement('afterend', hint);
     }
     if(!$('vet-edit-banner')){
@@ -5565,7 +5579,8 @@ try {
   function applyTitleAndMode(){
     var form = $('vet-form'); if(!form) return;
     var date = $('vet-date') ? $('vet-date').value : '';
-    var isSched = isFutureOrToday(date) && !form.dataset.forceLogMode;
+    // v3.17.28 - today or earlier is a visit that has happened, not an appointment.
+    var isSched = !!date && date > todayISO() && !form.dataset.forceLogMode;
     var titleEl = $('vet-form-title');
     if(titleEl){
       if(form.dataset.editId){
@@ -6306,7 +6321,8 @@ try {
     // v3.17.0 — today used to force schedule mode, which fought the common case of
     // writing up a visit that already happened this morning. Today now respects an
     // explicit Log/Schedule choice and otherwise assumes the visit has happened.
-    if(date === todayISO()) return form.dataset.modeChoice === 'schedule' ? 'schedule' : 'log';
+    // v3.17.28 - the Schedule / Log toggle is gone, so today always means log.
+    if(date === todayISO()) return 'log';
     return date > todayISO() ? 'schedule' : 'log';
   }
 
@@ -6500,6 +6516,12 @@ try {
   window.pfAttachFromForm = attachFromForm;
 
   function injectModeButtons(){
+    // v3.17.28 - the Schedule / Log toggle was removed. The date now decides the mode
+    // on its own, and the toggle could silently overwrite a date the user had typed.
+    var old = $('vet-mode-toggle'); if(old && old.parentNode) old.parentNode.removeChild(old);
+    return true;
+  }
+  function injectModeButtons_v3_17_27_unused(){
     var form = $('vet-form'); if(!form) return false;
     if($('vet-mode-toggle')) return true; // already injected
     var card = form.closest('.card'); if(!card) return false;
