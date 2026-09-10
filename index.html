@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.25">
+                          <meta name="app-version" content="3.17.26">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5603,9 +5603,18 @@ try {
     var esc = window.escHtml || function(s){ return String(s==null?'':s); };
     var pid = v.__id;
     var isEditing = editId && String(editId)===String(pid);
+    // v3.17.26 - an appointment whose date has passed with nothing written up is not
+    // history, it is a visit still waiting to be recorded. It used to look identical to
+    // a completed visit and lost its "Fill in visit log" button at midnight.
+    var hasOut = (typeof window.pfVisitHasOutcome === 'function')
+      ? window.pfVisitHasOutcome(v)
+      : !!(String(v.diagnosis||'').trim() || (parseFloat(v.cost)||0) > 0 || (parseFloat(v.weight)||0) > 0);
+    var needsLog = !isUpcoming && !hasOut;
     var statusBadge = isUpcoming
       ? '<span style="background:#f6a623;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
-      : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;">'+esc(v.type||'Visit')+'</span>';
+      : (needsLog
+        ? '<span style="background:rgba(246,166,35,0.14);color:#9a6100;border:1px solid rgba(246,166,35,0.55);font-size:13px;font-weight:700;padding:2px 8px;border-radius:12px;">Needs write-up</span>'
+        : '<span style="background:rgba(91,91,214,0.1);color:#5B5BD6;font-size:13px;font-weight:600;padding:2px 8px;border-radius:12px;">'+esc(v.type||'Visit')+'</span>');
     var dateLine = fmtDateLocal(v.date) + (v.time ? ' · '+fmtTime(v.time) : '') + (v.vet ? ' · '+esc(v.vet) : '');
     var body = [];
     body.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">'+
@@ -5636,6 +5645,7 @@ try {
       actions.push('<button type="button" onclick="pfFillInVisitLog('+pid+')" style="'+btnPrimary+'">Fill in visit log</button>');
       actions.push('<button type="button" onclick="pfCancelAppt('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
     } else {
+      if(needsLog) actions.push('<button type="button" onclick="pfFillInVisitLog('+pid+')" style="'+btnPrimary+'">Fill in visit log</button>');
       actions.push('<button type="button" onclick="pfAttachRecord('+pid+')" style="'+btn+'">📎 '+(hasReceipts?'Attach another':'Attach receipt/record')+'</button>');
       actions.push('<button type="button" onclick="window.deleteVisit('+pid+')" style="'+btnDanger+'">✕ Delete</button>');
     }
@@ -11035,6 +11045,7 @@ try {
     return !hasOutcome(v);
   }
   window.pfVisitIsScheduled = isScheduled;
+  window.pfVisitHasOutcome = hasOutcome;
 
   // Keep the stored status in step with what the UI shows, so nothing drifts.
   function normalizeStatuses(){
