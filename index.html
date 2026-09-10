@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.26">
+                          <meta name="app-version" content="3.17.27">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -5317,6 +5317,7 @@ try {
       var fb=$('vet-followup-btn'); if(fb) fb.textContent='+ Add follow-up appointment';
       applyMode();
       refreshAll();
+      if(typeof window.pfCollapseFormCard === 'function') window.pfCollapseFormCard('vet-form');
       // scroll back down to the cards
       var list = $('vet-visits-list'); if(list) list.scrollIntoView({behavior:'smooth',block:'start'});
     }, true); // capture
@@ -5557,6 +5558,7 @@ try {
       c.style.boxShadow=''; c.style.borderColor='';
     });
     applyTitleAndMode();
+    if(typeof window.pfCollapseFormCard === 'function') window.pfCollapseFormCard('vet-form');
     if(typeof newRenderVetVisits==='function') newRenderVetVisits();
   }
 
@@ -5606,10 +5608,9 @@ try {
     // v3.17.26 - an appointment whose date has passed with nothing written up is not
     // history, it is a visit still waiting to be recorded. It used to look identical to
     // a completed visit and lost its "Fill in visit log" button at midnight.
-    var hasOut = (typeof window.pfVisitHasOutcome === 'function')
-      ? window.pfVisitHasOutcome(v)
-      : !!(String(v.diagnosis||'').trim() || (parseFloat(v.cost)||0) > 0 || (parseFloat(v.weight)||0) > 0);
-    var needsLog = !isUpcoming && !hasOut;
+    // v3.17.27 - a weight or a cost on its own is not a write-up. The visit only counts
+    // as recorded once the diagnosis / notes field has something in it.
+    var needsLog = !isUpcoming && String(v.diagnosis||'').trim() === '';
     var statusBadge = isUpcoming
       ? '<span style="background:#f6a623;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:12px;">Scheduled</span>'
       : (needsLog
@@ -5950,6 +5951,7 @@ try {
       if(submit) submit.textContent = 'Schedule Appointment';
       var hint = $('vet-form-hint'); if(hint) hint.style.display='';
     }
+    if(typeof window.pfCollapseFormCard === 'function') window.pfCollapseFormCard('vet-form');
     if(typeof window.goToTab === 'function') window.goToTab('vet-visits');
     // Wait for the list to render, then scroll to the matching card
     setTimeout(function(){
@@ -10792,6 +10794,16 @@ try {
       }).observe(btn, { childList: true });
     }
   }
+
+  /* v3.17.27 - let the vet form close itself again after an edit is saved or
+     cancelled, so the card returns to its tidy default instead of staying open. */
+  window.pfCollapseFormCard = function(formId){
+    try {
+      var f = document.getElementById(formId); if(!f || !f.closest) return;
+      var card = f.closest('.card'); if(!card || card.dataset.pfCollapsible !== '1') return;
+      setOpen(card, false);
+    } catch(e){}
+  };
 
   function setOpen(card, open){
     var btn = card.querySelector('.pf-collapse-head');
