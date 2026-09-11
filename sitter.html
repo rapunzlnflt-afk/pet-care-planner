@@ -202,6 +202,18 @@
       if(addr) rows+='<div><a class="value tap" data-tap="Map" href="'+mapsHref(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div>';
       return '<div class="field full"><div class="label">'+esc(label)+'</div>'+rows+'</div>';
     }
+    // v3.17.32 - the Veterinary card above already lists the primary clinic, so a
+    // pet's own vet is shown only when it is genuinely a different one. Compared
+    // case-insensitively, trimmed, internal whitespace collapsed, and either value
+    // being contained in the other counts as a match ("Dr Rehm" matches "Dr Rehm
+    // Small Animal Hospital"). Empty pet vet: nothing to show.
+    function vetMatchesPrimary(petVet, primaryVet){
+      var norm=function(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase(); };
+      var a=norm(petVet), b=norm(primaryVet);
+      if(!a) return true;
+      if(!b) return false;
+      return a===b || a.indexOf(b)!==-1 || b.indexOf(a)!==-1;
+    }
     function render(d){
       var app=document.getElementById('app');
       if(!d){
@@ -251,6 +263,10 @@
           rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
           rows+=p.supps?('<div class="field full"><div class="label">Supplements</div><div class="value" style="white-space:pre-line;">'+esc(p.supps)+'</div></div>'):'';
           rows+=fieldText('Microchip', p.chip);
+          // Full-width + nowrap label so the short label can't wrap on paper.
+          if(p.vet && !vetMatchesPrimary(p.vet, vet.name)){
+            rows+='<div class="field full"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">'+esc(p.vet)+'</div></div>';
+          }
           rows+=fieldText('Allergies', p.allergies);
           var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
           var avatar = p.img

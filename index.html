@@ -3565,6 +3565,23 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     });
   }
 
+  // v3.17.32 - the sitter sheet has a top-level Veterinary section with the
+  // primary clinic and its address, and each pet block used to repeat a
+  // "PRIMARY VET" name as well - e.g. Daisy showing "Dr Rehm" under a top-level
+  // "Dr Rehm Small Animal Hospital". A pet's vet is now shown only when it is
+  // genuinely a different clinic. Comparison is case-insensitive, trimmed, with
+  // internal whitespace collapsed, and either value being contained in the
+  // other counts as a match (so "Dr Rehm" is treated as the same clinic).
+  // An empty pet vet returns true (nothing to show) - same as before.
+  function sitterVetMatchesPrimary(petVet, primaryVet) {
+    const norm = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
+    const a = norm(petVet), b = norm(primaryVet);
+    if (!a) return true;
+    if (!b) return false;
+    return a === b || a.indexOf(b) !== -1 || b.indexOf(a) !== -1;
+  }
+  window.sitterVetMatchesPrimary = sitterVetMatchesPrimary;
+
   // One printable field listing the selected meds or supplements for a pet.
   function sitterPrintField(label, items) {
     if(!items.length) return '';
@@ -3624,7 +3641,12 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     <div class="pet-section">
       ${safeImgSrc(p.photo) ? `<img src="${safeImgSrc(p.photo)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #5B5BD6;">` : ''}
       ${p.allergies ? `<p style="color:#e53e3e;font-weight:700;">⚠ Allergies: ${escHtml(p.allergies)}</p>` : ''}
-      ${(p.microchip || p.vet) ? `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${escHtml(p.microchip)}</div></div>` : ''}${p.vet ? `<div class="field"><div class="label">Primary Vet</div><div class="value">${escHtml(p.vet)}</div></div>` : ''}</div>` : ''}
+      ${(() => {
+        // Only surface this pet's vet when it differs from the top-level primary vet.
+        const showVet = !sitterVetMatchesPrimary(p.vet, data['sitter-vet-name'] || '');
+        if (!p.microchip && !showVet) return '';
+        return `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${escHtml(p.microchip)}</div></div>` : ''}${showVet ? `<div class="field"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">${escHtml(p.vet)}</div></div>` : ''}</div>`;
+      })()}
       <div class="grid">
         <div class="field"><div class="label">When to Feed</div><div class="value">${escHtml(data['sitter-feed-'+p.__id]||'')}</div></div>
         <div class="field"><div class="label">Feeding Instructions</div><div class="value">${escHtml(data['sitter-food-'+p.__id]||'')}</div></div>
@@ -3760,6 +3782,10 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       beh: d['sitter-behavior-'+p.__id] || '',
       chip: p.microchip || '',
       allergies: p.allergies || '',
+      // v3.17.32 - carried so sitter.html can show a pet's own clinic, but ONLY
+      // when it differs from the top-level primary vet (same rule as the print
+      // sheet). Matching values are dropped here so they never travel in the link.
+      vet: sitterVetMatchesPrimary(p.vet, d['sitter-vet-name'] || '') ? '' : (p.vet || ''),
       img: await resizePhotoForShare(p.photo || '')
     })));
     return {
