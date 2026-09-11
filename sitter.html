@@ -56,11 +56,19 @@
     .footer strong{ color:var(--accent); }
     .empty{ text-align:center; padding:60px 20px; color:var(--muted); }
     .empty h1{ color:var(--ink); font-size:20px; }
+    /* Scripture line at the bottom of the page (screen and print). */
+    .foot-verse{ margin-top:1.25rem; font-size:.9rem; font-style:italic; line-height:1.5; color:var(--muted); }
+    .foot-verse cite{ font-style:normal; font-size:.82em; opacity:.8; white-space:nowrap; }
+    #page-foot{ max-width:640px; margin:0 auto; padding:0 16px 32px; }
     @media (max-width:420px){ .field{ flex-basis:100%; } }
   </style>
 </head>
 <body>
   <div id="app"></div>
+  <footer id="page-foot">
+    <p class="foot-verse">&ldquo;The righteous care for the needs of their animals.&rdquo;
+      <cite>&mdash; Proverbs 12:10</cite></p>
+  </footer>
   <script>
   (function(){
     'use strict';

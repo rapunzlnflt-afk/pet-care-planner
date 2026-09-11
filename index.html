@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.29">
+                          <meta name="app-version" content="3.17.30">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -50,6 +50,11 @@
     .font-body { font-family: 'Karla', Arial, sans-serif; }
     .text-primary { color: var(--text-primary); }
     .text-secondary { color: var(--text-secondary); }
+    /* Scripture line at the bottom of every screen (and every printed sheet). */
+    .foot-verse { margin-top: 1.25rem; font-size: .9rem; font-style: italic;
+      line-height: 1.5; color: var(--text-secondary); }
+    .foot-verse cite { font-style: normal; font-size: .82em; opacity: .8;
+      white-space: nowrap; }
     .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid var(--border-color); }
     .btn-primary { background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); color: white; border: none; cursor: pointer; font-family: 'Karla', sans-serif; font-weight: 600; border-radius: 8px; padding: 8px 16px; transition: opacity 0.2s; }
     .btn-primary:hover { opacity: 0.9; }
@@ -1947,6 +1952,12 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 
     </section>
 
+    <!-- Shared app footer: shown once, on every screen. -->
+    <footer id="app-foot">
+     <p class="foot-verse">&ldquo;The righteous care for the needs of their animals.&rdquo;
+       <cite>&mdash; Proverbs 12:10</cite></p>
+    </footer>
+
    </main>
   </div>
 
@@ -3558,7 +3569,9 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Additional Notes</div><div class="value">${escHtml(data['sitter-behavior-'+p.__id])}</div></div>` : ''}
     </div>`).join('')}
-    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${escHtml(data['sitter-instructions'])}</p>` : ''}`;
+    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${escHtml(data['sitter-instructions'])}</p>` : ''}
+    <p class="foot-verse" style="margin-top:1.25rem;font-size:.9rem;font-style:italic;line-height:1.5;color:#718096;">&ldquo;The righteous care for the needs of their animals.&rdquo;
+      <cite style="font-style:normal;font-size:.82em;opacity:.8;white-space:nowrap;">&mdash; Proverbs 12:10</cite></p>`;
   }
 
   // In-app full-screen printable overlay. Replaces the old window.open() flow,
@@ -10190,7 +10203,10 @@ try {
       '<h1 class="tl-print-h1">Pawfolio Timeline</h1>' +
       '<p class="tl-print-meta">' + esc(who) + ' \u00b7 oldest first \u00b7 printed ' + esc(fdate(iso())) + '</p>' +
       (rows ? '<ol class="tl-print-list">' + rows + '</ol>' : '<p>No entries.</p>') +
-      '<p class="tl-print-foot">Created with Pawfolio</p>';
+      '<p class="tl-print-foot">Created with Pawfolio</p>' +
+      '<p class="foot-verse" style="margin-top:1.25rem;font-size:.9rem;font-style:italic;line-height:1.5;color:#718096;">' +
+        '\u201cThe righteous care for the needs of their animals.\u201d ' +
+        '<cite style="font-style:normal;font-size:.82em;opacity:.8;white-space:nowrap;">\u2014 Proverbs 12:10</cite></p>';
     syncPicks();
     var ov = $('tl-print-overlay');
     ov.style.display = 'block';
