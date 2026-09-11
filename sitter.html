@@ -61,6 +61,31 @@
     .foot-verse cite{ font-style:normal; font-size:.82em; opacity:.8; white-space:nowrap; }
     #page-foot{ max-width:640px; margin:0 auto; padding:0 16px 32px; }
     @media (max-width:420px){ .field{ flex-basis:100%; } }
+    /* v3.17.32 - printing this shared page. The purple header is white text on a
+       gradient, and printers routinely drop background colours ('Background
+       graphics' is off by default in several print dialogs), which left the title
+       as an invisible blank strip. exact is requested below but NOT relied on:
+       on paper the header is dark ink (--ink) on white with a solid rule beneath
+       it, so it reads whether or not backgrounds print. */
+    @media print {
+      header, .brand, .brand .by, header h1, header .sub {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      header {
+        background: #fff !important;
+        background-image: none !important;
+        color: var(--ink) !important;
+        border-radius: 0 !important;
+        border-bottom: 2pt solid var(--ink) !important;
+        padding: 0 0 8pt !important;
+        margin-bottom: 12pt !important;
+      }
+      .brand, .brand .by, header h1, header .sub {
+        color: var(--ink) !important;
+        opacity: 1 !important;
+      }
+    }
   </style>
 </head>
 <body>

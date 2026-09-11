@@ -21,7 +21,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.17.31">
+                          <meta name="app-version" content="3.17.32">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -468,7 +468,22 @@
 
       /* --- 3. Tighter type, so a long history is a couple of pages. --------- */
       #tl-print-content { color: #000 !important; }
-      .tl-print-h1 { font-size: 14pt !important; margin: 0 0 2pt !important; }
+      /* v3.17.32 - header must survive printers that drop background colours.
+         exact is requested, but not relied on: the title prints as dark ink
+         (#2d3748, the app's --text-primary token, written literally so the
+         dark-theme override can't reach the print sheet) on white, with a solid
+         rule under it to keep the visual break. */
+      #tl-print-content, .tl-print-h1 {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .tl-print-h1 {
+        font-size: 14pt !important; margin: 0 0 2pt !important;
+        background: #fff !important;
+        color: #2d3748 !important;
+        border-bottom: 2pt solid #2d3748 !important;
+        padding-bottom: 4pt !important;
+      }
       .tl-print-meta { font-size: 8.5pt !important; margin: 0 0 8pt !important; }
       .tl-print-list { padding-left: 16pt !important; }
       .tl-print-list li {
@@ -837,10 +852,35 @@
   body.sitter-printing #sitter-print-content .grid { grid-template-columns: 1fr 1fr; }
   body.sitter-print-open #sitter-print-content .pet-section .grid,
   body.sitter-printing #sitter-print-content .pet-section .grid { grid-template-columns: 1fr !important; }
+  /* v3.17.32 - background colours are commonly dropped when printing (the
+     browser's "Background graphics" box is off by default in several print
+     dialogs, and many drivers ignore it anyway). The header used to be white
+     text on a purple block, so when the block dropped out the title printed as
+     a blank strip. print-color-adjust:exact is still requested below, but it is
+     only a request - so on paper the header is deliberately DARK INK ON WHITE
+     with a solid rule underneath to keep the visual break. That prints
+     correctly whether or not backgrounds are enabled. #2d3748 is the app's dark
+     ink token (--text-primary); written literally because the print sheet must
+     not pick up the dark-theme override of that variable. */
   #sitter-print-content .sitter-print-header,
   #sitter-print-content .sitter-print-brand {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  #sitter-print-content .sitter-print-header {
+    background: #fff !important;
+    background-image: none !important;
+    color: #2d3748 !important;
+    border-bottom: 2pt solid #2d3748 !important;
+    padding: 0 0 8pt !important;
+    margin: 0 0 16pt !important;
+  }
+  #sitter-print-content .sitter-print-brand,
+  #sitter-print-content .sitter-print-brand-name,
+  #sitter-print-content .sitter-print-brand-maker,
+  #sitter-print-content .sitter-print-brand-sep,
+  #sitter-print-content .sitter-print-subtitle {
+    color: #2d3748 !important;
   }
 }
   </style>
