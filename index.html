@@ -12019,14 +12019,18 @@ try {
 
 <script>
 /* ==========================================================================
-   Pawfolio v3.20.0 — optional insurance block on the printed sitter sheet.
+   Pawfolio v3.21.0 — Pet Insurance as its own section on the printed sitter
+   sheet. Replaces the v3.20.0 block, which put insurance inside each pet's
+   feeding grid.
 
-   Adds one checkbox per pet in Pet Sitter Info, shown only for pets that have
-   insurance saved. When ticked, that pet's provider, policy number and claims
-   phone are added to the pet's block on the printed sheet, after Supplements.
+   One checkbox per pet in Pet Sitter Info, shown only for pets with insurance
+   saved, unticked by default. Ticked pets appear under a "Pet Insurance"
+   heading placed after Veterinary. Pets sharing the same provider and policy
+   number are combined into a single block with a "Covers" line; a pet on a
+   different policy automatically gets its own block.
 
-   Unticked by default. Reads the insurance fields already on the pet record;
-   writes nothing to pet records. Does not affect the shared sitter link.
+   Reads the insurance fields already on the pet record. Writes nothing to pet
+   records. Does not affect the shared sitter link.
    ========================================================================== */
 (function () {
   'use strict';
@@ -12048,15 +12052,14 @@ try {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
     });
   }
+  function norm(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); }
   function fmtTel(v) {
     var d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
     if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
     if (d.length === 11 && d.charAt(0) === '1') return '(' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7);
     return String(v == null ? '' : v);
   }
-  function wants(p, d) {
-    return !!(d['sitter-inschk-' + p.__id] && hasIns(p));
-  }
+  function wants(p, d) { return !!(d['sitter-inschk-' + p.__id] && hasIns(p)); }
 
   /* ---- 1. the checkbox in Pet Sitter Info -------------------------------- */
 
@@ -12087,19 +12090,19 @@ try {
     }
   }
 
-  if (typeof window.renderSitterPets === 'function' && !window.renderSitterPets.__insChk) {
+  if (typeof window.renderSitterPets === 'function' && !window.renderSitterPets.__insChk2) {
     var origRender = window.renderSitterPets;
     window.renderSitterPets = function () {
       var r = origRender.apply(this, arguments);
       try { addChecks(); } catch (e) {}
       return r;
     };
-    window.renderSitterPets.__insChk = true;
+    window.renderSitterPets.__insChk2 = true;
   }
 
   /* ---- 2. remember the setting ------------------------------------------- */
 
-  if (typeof window.collectSitterData === 'function' && !window.collectSitterData.__insChk) {
+  if (typeof window.collectSitterData === 'function' && !window.collectSitterData.__insChk2) {
     var origCollect = window.collectSitterData;
     window.collectSitterData = function () {
       var data = origCollect.apply(this, arguments) || {};
@@ -12114,48 +12117,76 @@ try {
       } catch (e) {}
       return data;
     };
-    window.collectSitterData.__insChk = true;
+    window.collectSitterData.__insChk2 = true;
   }
 
   /* ---- 3. the printed sheet ---------------------------------------------- */
 
+  function rowsHTML(rows) {
+    return '<div class="grid">' + rows.map(function (r) {
+      return '<div class="field"><div class="label">' + esc(r[0]) +
+             '</div><div class="value">' + esc(r[1]) + '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  /* Group ticked pets by provider + policy so a household on one plan prints
+     once. Different policies fall into separate groups automatically. */
+  function insuranceSectionHTML(list, d) {
+    var ticked = list.filter(function (p) { return wants(p, d); });
+    if (!ticked.length) return '';
+
+    var groups = [];
+    ticked.forEach(function (p) {
+      var key = norm(p.insurance) + '||' + norm(p.policy);
+      var g = null;
+      for (var i = 0; i < groups.length; i++) { if (groups[i].key === key) { g = groups[i]; break; } }
+      if (!g) { g = { key: key, ref: p, pets: [] }; groups.push(g); }
+      g.pets.push(p);
+    });
+
+    var blocks = groups.map(function (g) {
+      var p = g.ref, rows = [];
+      if (list.length > 1) rows.push(['Covers', g.pets.map(function (x) { return x.name; }).join(', ')]);
+      if (p.insurance) rows.push(['Provider', p.insurance]);
+      if (p.policy) rows.push(['Policy Number', p.policy]);
+      var phone = g.pets.map(function (x) { return x.insPhone; }).filter(Boolean)[0];
+      if (phone) rows.push(['Claims Phone', fmtTel(phone)]);
+      if (!rows.length) return '';
+      return '<div class="pet-section">' + rowsHTML(rows) + '</div>';
+    }).join('');
+
+    if (!blocks) return '';
+    return '<h2>Pet Insurance</h2>' + blocks;
+  }
+
   function injectIns(html) {
     var list = petList(), d = sdata();
-    if (!list.some(function (p) { return wants(p, d); })) return html;
+    var section = insuranceSectionHTML(list, d);
+    if (!section) return html;
 
     /* Parsed in an inert document, so no images are fetched. */
     var doc = new DOMParser().parseFromString('<div id="pf-ins-wrap">' + html + '</div>', 'text/html');
     var wrap = doc.getElementById('pf-ins-wrap');
     if (!wrap) return html;
-    var secs = wrap.querySelectorAll('.pet-section');
-    if (secs.length !== list.length) return html;   /* order not trustworthy */
 
-    for (var i = 0; i < secs.length; i++) {
-      var p = list[i];
-      if (!wants(p, d)) continue;
-      var rows = [];
-      if (p.insurance) rows.push(['Pet Insurance', p.insurance]);
-      if (p.policy)    rows.push(['Policy Number', p.policy]);
-      if (p.insPhone)  rows.push(['Insurance Claims Phone', fmtTel(p.insPhone)]);
-      if (!rows.length) continue;
-      var frag = rows.map(function (r) {
-        return '<div class="field"><div class="label">' + esc(r[0]) +
-               '</div><div class="value">' + esc(r[1]) + '</div></div>';
-      }).join('');
-      var grids = secs[i].querySelectorAll('.grid');
-      if (grids.length) grids[grids.length - 1].insertAdjacentHTML('beforeend', frag);
-      else secs[i].insertAdjacentHTML('beforeend', '<div class="grid">' + frag + '</div>');
-    }
+    /* Sits after Veterinary, immediately before the first pet's heading. */
+    var firstPet = wrap.querySelector('.pet-section');
+    var anchor = firstPet;
+    if (anchor && anchor.previousElementSibling &&
+        anchor.previousElementSibling.tagName === 'H2') anchor = anchor.previousElementSibling;
+    if (anchor) anchor.insertAdjacentHTML('beforebegin', section);
+    else wrap.insertAdjacentHTML('beforeend', section);
+
     return wrap.innerHTML;
   }
 
-  if (typeof window.buildSitterPrintableHTML === 'function' && !window.buildSitterPrintableHTML.__insChk) {
+  if (typeof window.buildSitterPrintableHTML === 'function' && !window.buildSitterPrintableHTML.__insChk2) {
     var origBuild = window.buildSitterPrintableHTML;
     window.buildSitterPrintableHTML = function () {
       var html = origBuild.apply(this, arguments);
       try { return injectIns(html); } catch (e) { return html; }
     };
-    window.buildSitterPrintableHTML.__insChk = true;
+    window.buildSitterPrintableHTML.__insChk2 = true;
   }
 })();
 </script>
