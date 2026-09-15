@@ -12016,3 +12016,146 @@ try {
   });
 })();
 </script>
+
+<script>
+/* ==========================================================================
+   Pawfolio v3.20.0 — optional insurance block on the printed sitter sheet.
+
+   Adds one checkbox per pet in Pet Sitter Info, shown only for pets that have
+   insurance saved. When ticked, that pet's provider, policy number and claims
+   phone are added to the pet's block on the printed sheet, after Supplements.
+
+   Unticked by default. Reads the insurance fields already on the pet record;
+   writes nothing to pet records. Does not affect the shared sitter link.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var SKEY = 'petSitterInfo';
+
+  function sdata() {
+    try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch (e) { return {}; }
+  }
+  function petList() {
+    return (typeof window.getList === 'function') ? (window.getList('pets') || []) : [];
+  }
+  function hasIns(p) {
+    return !!(p && (p.insurance || p.policy || p.insPhone));
+  }
+  function esc(s) {
+    if (typeof window.escHtml === 'function') return window.escHtml(s == null ? '' : s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function fmtTel(v) {
+    var d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+    if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+    if (d.length === 11 && d.charAt(0) === '1') return '(' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7);
+    return String(v == null ? '' : v);
+  }
+  function wants(p, d) {
+    return !!(d['sitter-inschk-' + p.__id] && hasIns(p));
+  }
+
+  /* ---- 1. the checkbox in Pet Sitter Info -------------------------------- */
+
+  function addChecks() {
+    var sec = document.getElementById('sitter-pets-section');
+    if (!sec) return;
+    var list = petList(), d = sdata();
+    var cards = sec.children;
+    for (var i = 0; i < cards.length && i < list.length; i++) {
+      var p = list[i];
+      if (!hasIns(p)) continue;
+      var id = 'sitter-inschk-' + p.__id;
+      if (document.getElementById(id)) continue;
+      var box = document.createElement('div');
+      box.style.marginTop = '10px';
+      box.innerHTML =
+        '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">' +
+          '<input type="checkbox" id="' + esc(id) + '" style="margin-top:3px;flex-shrink:0;width:18px;height:18px;display:inline-block;">' +
+          '<span><span class="font-body text-sm font-medium text-primary">Include insurance on the printed sheet</span>' +
+          '<span class="font-body text-xs text-secondary"> · provider, policy number and claims phone</span></span>' +
+        '</label>';
+      cards[i].appendChild(box);
+      var chk = box.querySelector('input');
+      chk.checked = !!d[id];
+      chk.addEventListener('change', function () {
+        if (typeof window.autoSaveSitter === 'function') window.autoSaveSitter();
+      });
+    }
+  }
+
+  if (typeof window.renderSitterPets === 'function' && !window.renderSitterPets.__insChk) {
+    var origRender = window.renderSitterPets;
+    window.renderSitterPets = function () {
+      var r = origRender.apply(this, arguments);
+      try { addChecks(); } catch (e) {}
+      return r;
+    };
+    window.renderSitterPets.__insChk = true;
+  }
+
+  /* ---- 2. remember the setting ------------------------------------------- */
+
+  if (typeof window.collectSitterData === 'function' && !window.collectSitterData.__insChk) {
+    var origCollect = window.collectSitterData;
+    window.collectSitterData = function () {
+      var data = origCollect.apply(this, arguments) || {};
+      try {
+        var prior = sdata();
+        petList().forEach(function (p) {
+          var k = 'sitter-inschk-' + p.__id;
+          var el = document.getElementById(k);
+          if (el) data[k] = !!el.checked;
+          else if (Object.prototype.hasOwnProperty.call(prior, k)) data[k] = prior[k];
+        });
+      } catch (e) {}
+      return data;
+    };
+    window.collectSitterData.__insChk = true;
+  }
+
+  /* ---- 3. the printed sheet ---------------------------------------------- */
+
+  function injectIns(html) {
+    var list = petList(), d = sdata();
+    if (!list.some(function (p) { return wants(p, d); })) return html;
+
+    /* Parsed in an inert document, so no images are fetched. */
+    var doc = new DOMParser().parseFromString('<div id="pf-ins-wrap">' + html + '</div>', 'text/html');
+    var wrap = doc.getElementById('pf-ins-wrap');
+    if (!wrap) return html;
+    var secs = wrap.querySelectorAll('.pet-section');
+    if (secs.length !== list.length) return html;   /* order not trustworthy */
+
+    for (var i = 0; i < secs.length; i++) {
+      var p = list[i];
+      if (!wants(p, d)) continue;
+      var rows = [];
+      if (p.insurance) rows.push(['Pet Insurance', p.insurance]);
+      if (p.policy)    rows.push(['Policy Number', p.policy]);
+      if (p.insPhone)  rows.push(['Insurance Claims Phone', fmtTel(p.insPhone)]);
+      if (!rows.length) continue;
+      var frag = rows.map(function (r) {
+        return '<div class="field"><div class="label">' + esc(r[0]) +
+               '</div><div class="value">' + esc(r[1]) + '</div></div>';
+      }).join('');
+      var grids = secs[i].querySelectorAll('.grid');
+      if (grids.length) grids[grids.length - 1].insertAdjacentHTML('beforeend', frag);
+      else secs[i].insertAdjacentHTML('beforeend', '<div class="grid">' + frag + '</div>');
+    }
+    return wrap.innerHTML;
+  }
+
+  if (typeof window.buildSitterPrintableHTML === 'function' && !window.buildSitterPrintableHTML.__insChk) {
+    var origBuild = window.buildSitterPrintableHTML;
+    window.buildSitterPrintableHTML = function () {
+      var html = origBuild.apply(this, arguments);
+      try { return injectIns(html); } catch (e) { return html; }
+    };
+    window.buildSitterPrintableHTML.__insChk = true;
+  }
+})();
+</script>
