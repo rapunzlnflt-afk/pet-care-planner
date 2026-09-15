@@ -1738,7 +1738,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
      </div>
      <div id="sitter-pets-section"></div>
      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
-      <h3 class="font-heading text-sm font-bold text-primary mb-3">Additional Instructions</h3>
+      <h3 class="font-heading text-sm font-bold text-primary mb-3">Additional Instructions/Notes</h3>
       <textarea id="sitter-instructions" rows="4" placeholder="Any other important notes for the sitter — home access codes, special behaviors, routines, items to avoid..."></textarea>
      </div>
      <div style="display:flex;align-items:center;gap:14px;">
@@ -3665,7 +3665,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       </div>
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Additional Notes</div><div class="value">${escHtml(data['sitter-behavior-'+p.__id])}</div></div>` : ''}
     </div>`).join('')}
-    ${data['sitter-instructions'] ? `<h2>Additional Instructions</h2><p>${escHtml(data['sitter-instructions'])}</p>` : ''}
+    ${data['sitter-instructions'] ? `<h2>Additional Instructions/Notes</h2><p>${escHtml(data['sitter-instructions'])}</p>` : ''}
     <p class="foot-verse" style="margin-top:1.25rem;font-size:.9rem;font-style:italic;line-height:1.5;color:#718096;">&ldquo;The righteous care for the needs of their animals.&rdquo;
       <cite style="font-style:normal;font-size:.82em;opacity:.8;white-space:nowrap;">&mdash; Proverbs 12:10</cite></p>`;
   }
@@ -10847,7 +10847,7 @@ try {
     { sec: 'tab-pet-sitter', head: 'Owner Contact Info' },
     { sec: 'tab-pet-sitter', head: 'Emergency Contacts' },
     { sec: 'tab-pet-sitter', head: 'Veterinary' },
-    { sec: 'tab-pet-sitter', head: 'Additional Instructions' },
+    { sec: 'tab-pet-sitter', head: 'Additional Instructions/Notes' },
     { sec: 'tab-important-links', head: 'Pet Insurance' },
     { sec: 'tab-important-links', head: 'Online Pet Pharmacies' },
     { sec: 'tab-important-links', head: 'Airline Pet Policies' },
