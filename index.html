@@ -780,7 +780,7 @@
 }
 #sitter-print-content .field { margin-bottom: 8px; }
 #sitter-print-content .label { font-size: 13px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
-#sitter-print-content .value { font-size: 15px; font-weight: 600; }
+#sitter-print-content .value { font-size: 15px; font-weight: 600; white-space: pre-wrap; }
 #sitter-print-content p { font-size: 15px; }
 #sitter-print-content .pet-section { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; }
 /* Pet-card fields always stack in a single column (on-screen overlay AND print)
@@ -3402,9 +3402,9 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     section.innerHTML = pets.map(p => `
       <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color-2);">
         <h3 class="font-heading text-sm font-bold text-primary mb-3">${escHtml(p.name)} (${escHtml(p.species)})</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
           <div><label class="block font-body text-xs text-secondary mb-1">When to Feed</label><input type="text" id="sitter-feed-${p.__id}" value="${escHtml(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
-          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><input type="text" id="sitter-food-${p.__id}" value="${escHtml(sitterData['sitter-food-'+p.__id]||'')}" placeholder="e.g., 1 cup Royal Canin, soak in warm water"></div>
+          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><textarea rows="2" id="sitter-food-${p.__id}" placeholder="e.g., 1 cup Royal Canin, soak in warm water">${escHtml(sitterData['sitter-food-'+p.__id]||'')}</textarea></div>
           <div><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${escHtml(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
         </div>
         <div style="margin-top:10px;">
