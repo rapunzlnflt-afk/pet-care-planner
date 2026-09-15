@@ -11900,3 +11900,119 @@ try {
   if (loadInput) loadInput.addEventListener('change', closeMobileMenu);
 })();
 </script>
+
+<script>
+/* ==========================================================================
+   Pet Insurance tab (v3.19.0) — read-only overview.
+   Reads the insurance fields already stored on each pet record. Writes
+   nothing, so there is no migration and no risk to existing data. Editing
+   still happens in Pet Profiles.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var ROWS = [
+    ['Policy number', 'policy'],
+    ['Member ID',     'insMember'],
+    ['Annual limit',  'insLimit'],
+    ['Deductible',    'insDeductible'],
+    ['Reimbursement', 'insReimburse'],
+    ['Renewal',       'insRenewal']
+  ];
+
+  function esc(s) {
+    if (typeof window.escHtml === 'function') return window.escHtml(s == null ? '' : s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  /* Only ever emit http/https, so a pasted javascript: URL can't become a link. */
+  function safeUrl(u) {
+    u = String(u == null ? '' : u).trim();
+    return /^https?:\/\//i.test(u) ? u : '';
+  }
+
+  function render() {
+    var wrap = document.getElementById('pet-insurance-list');
+    if (!wrap) return;
+
+    var pets = (typeof window.getList === 'function') ? (window.getList('pets') || []) : [];
+    if (!pets.length) {
+      wrap.innerHTML = '<p class="font-body text-sm text-secondary italic">Add pets in Pet Profiles first and their policies will appear here.</p>';
+      return;
+    }
+
+    wrap.innerHTML = pets.map(function (p) {
+      var hasPolicy = p.insurance || p.policy || p.insMember || p.insPhone || p.insUrl;
+      var body;
+
+      if (!hasPolicy) {
+        body = '<p class="font-body text-sm text-secondary italic">No policy saved yet.</p>';
+      } else {
+        var detail = ROWS.filter(function (r) { return p[r[1]]; }).map(function (r) {
+          return '<div><span class="font-body text-xs text-secondary">' + esc(r[0]) + '</span><br>' +
+                 '<span class="font-body text-sm font-bold">' + esc(p[r[1]]) + '</span></div>';
+        }).join('');
+
+        var url = safeUrl(p.insUrl);
+        var tel = String(p.insPhone == null ? '' : p.insPhone).replace(/[^0-9+]/g, '');
+        var actions = '';
+        if (url) {
+          actions += '<a class="btn-primary px-4 py-2" style="text-decoration:none;" href="' +
+                     esc(url) + '" target="_blank" rel="noopener noreferrer">Log in</a>';
+        }
+        if (tel) {
+          actions += '<a class="btn-secondary px-4 py-2" style="text-decoration:none;" href="tel:' +
+                     esc(tel) + '">Call claims</a>';
+        }
+
+        body =
+          (p.insurance ? '<p class="font-body text-sm font-bold text-primary mb-3">' + esc(p.insurance) + '</p>' : '') +
+          (detail ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;">' + detail + '</div>' : '') +
+          (actions ? '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + actions + '</div>' : '');
+      }
+
+      return '<div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color-2);">' +
+               '<h3 class="font-heading text-sm font-bold text-primary mb-3">' +
+                 esc(p.name) + ' (' + esc(p.species) + ')</h3>' +
+               body +
+               '<div style="margin-top:14px;">' +
+                 '<button type="button" class="btn-secondary px-4 py-2" data-ins-edit="' +
+                 esc(p.__id) + '">Edit in Pet Profiles</button>' +
+               '</div>' +
+             '</div>';
+    }).join('');
+  }
+
+  /* Fill the tab whenever it is opened, wrapping the existing switcher rather
+     than replacing it. */
+  function hookTabSwitch() {
+    if (typeof window.goToTab !== 'function') return false;
+    if (window.goToTab.__insTabWrapped) return true;
+    var original = window.goToTab;
+    window.goToTab = function (name) {
+      original.apply(this, arguments);
+      if (name === 'pet-insurance') render();
+    };
+    window.goToTab.__insTabWrapped = true;
+    return true;
+  }
+  if (!hookTabSwitch()) {
+    document.addEventListener('DOMContentLoaded', hookTabSwitch);
+  }
+
+  /* "Edit in Pet Profiles" jumps to that pet's record. editPet expects a
+     number, so convert before calling it. */
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-ins-edit]') : null;
+    if (!btn) return;
+    var raw = btn.getAttribute('data-ins-edit');
+    var num = parseInt(raw, 10);
+    if (typeof window.goToTab === 'function') window.goToTab('pet-profiles');
+    if (typeof window.editPet === 'function') {
+      try { window.editPet(isNaN(num) ? raw : num); } catch (err) {}
+    }
+  });
+})();
+</script>
