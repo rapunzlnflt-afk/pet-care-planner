@@ -28,6 +28,7 @@
     :root{ --accent:#5B5BD6; --accent-dark:#4C4CC8; --ink:#1f2733; --muted:#64748b; --line:#e6e8ef; --bg:#f6f7fb; --card:#ffffff; }
     *{ box-sizing:border-box; -webkit-tap-highlight-color:rgba(91,91,214,0.15); }
     html,body{ margin:0; padding:0; }
+    html{ scroll-behavior:smooth; }
     body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.5; }
     .wrap{ max-width:640px; margin:0 auto; padding:0 16px 48px; }
     header{ background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; padding:22px 20px; border-radius:0 0 18px 18px; }
@@ -46,11 +47,20 @@
     a.value, a.value:visited{ color:var(--accent); text-decoration:none; }
     a.tap{ display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; }
     a.tap::after{ content:attr(data-tap); font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:999px; padding:2px 8px; white-space:nowrap; flex-shrink:0; display:inline-block; line-height:1.4; }
-    .pet{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; background:#fbfbfe; }
-    .pet h3{ margin:0 0 10px; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:10px; }
+    /* v3.27.0 - one card per pet, so a sitter with several pets can't mistake
+       whose feeding instructions they're reading. scroll-margin keeps the pet's
+       name clear of the sticky name bar when a chip is tapped. */
+    .pet-card{ scroll-margin-top:60px; }
+    .pet-card h3{ margin:0 0 10px; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:10px; }
     .pet-avatar{ width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid rgba(91,91,214,0.3); flex-shrink:0; }
     .pet-avatar-placeholder{ width:56px; height:56px; border-radius:50%; background:rgba(91,91,214,0.12); border:2px solid rgba(91,91,214,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .pet .tag{ font-size:11px; font-weight:600; color:var(--accent); background:rgba(91,91,214,0.1); border-radius:999px; padding:2px 9px; margin-left:6px; }
+    .pet-card .tag{ font-size:11px; font-weight:600; color:var(--accent); background:rgba(91,91,214,0.1); border-radius:999px; padding:2px 9px; margin-left:6px; }
+    /* Sticky jump bar, shown only when there's more than one pet. Scrolls
+       sideways rather than wrapping, so five names stay on one line. */
+    .petnav{ position:sticky; top:0; z-index:5; display:flex; gap:8px; overflow-x:auto; padding:10px 0; margin-top:16px; background:var(--bg); -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .petnav::-webkit-scrollbar{ display:none; }
+    .petnav .chip{ flex:0 0 auto; -webkit-appearance:none; appearance:none; font-family:inherit; font-size:13px; font-weight:700; line-height:1.5; color:var(--accent); background:rgba(91,91,214,0.10); border:1px solid rgba(91,91,214,0.22); border-radius:999px; padding:6px 13px; text-decoration:none; white-space:nowrap; cursor:pointer; }
+    .petnav .chip.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
     .notes{ white-space:pre-wrap; font-size:14px; font-weight:500; }
     .footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px; }
     .footer strong{ color:var(--accent); }
@@ -85,6 +95,10 @@
         color: var(--ink) !important;
         opacity: 1 !important;
       }
+      /* The jump bar is a screen control; on paper each pet is already its own
+         block, kept whole so instructions never split across two sheets. */
+      .petnav { display: none !important; }
+      .pet-card { break-inside: avoid; page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -268,10 +282,19 @@
       vetRows+=vetBlock('Emergency Vet (24hr)', evet);
       if(vetRows) html+='<div class="card"><h2>Veterinary</h2><div class="row">'+vetRows+'</div></div>';
 
-      // Pets
+      // Pets - one card per pet. With more than one pet we also emit a sticky
+      // bar of pet names that jumps to each card, and label each card "Pet N of
+      // M" so a sitter can tell whether they've seen everybody.
       if(pets.length){
-        var petsHtml='';
-        pets.forEach(function(p){
+        var multiPet = pets.length > 1;
+        var petsHtml='', petChips='';
+        pets.forEach(function(p, i){
+          var petId='pet-'+(i+1);
+          var petName=esc(p.n||'Pet');
+          // Buttons, NOT #anchors: on the fallback link the shared data lives in
+          // the URL fragment, so setting location.hash would wipe the payload
+          // (and on the short link it would wipe the decryption key).
+          if(multiPet) petChips+='<button type="button" class="chip" data-target="'+petId+'">'+petName+'</button>';
           var sub=[p.sp, p.br].filter(Boolean).join(' &mdash; ');
           var rows='';
           rows+=fieldText('When to Feed', p.feed);
@@ -289,9 +312,13 @@
           var avatar = p.img
             ? '<img class="pet-avatar" src="'+esc(p.img)+'" alt="'+esc(p.n||'Pet')+'">'
             : '<span class="pet-avatar-placeholder"><svg width="30" height="30" viewBox="0 0 24 24" fill="#5B5BD6" aria-hidden="true"><ellipse cx="7" cy="9" rx="1.7" ry="2.3"/><ellipse cx="12" cy="6.5" rx="1.7" ry="2.3"/><ellipse cx="17" cy="9" rx="1.7" ry="2.3"/><ellipse cx="19.5" cy="13.5" rx="1.5" ry="2"/><path d="M12 12.5c-2.4 0-4.5 1.7-5.2 3.9-.5 1.6.6 3.1 2.2 3.1.9 0 1.7-.4 3-.4s2.1.4 3 .4c1.6 0 2.7-1.5 2.2-3.1-.7-2.2-2.8-3.9-5.2-3.9z"/></svg></span>';
-          petsHtml+='<div class="pet"><h3>'+avatar+'<span>'+esc(p.n||'Pet')+(sub?'<span class="tag">'+sub+'</span>':'')+'</span></h3><div class="row">'+rows+beh+'</div></div>';
+          var counter = multiPet ? ('<h2>Pet '+(i+1)+' of '+pets.length+'</h2>') : '<h2>Pet</h2>';
+          petsHtml+='<div class="card pet-card" id="'+petId+'">'+counter
+            +'<h3>'+avatar+'<span>'+petName+(sub?'<span class="tag">'+sub+'</span>':'')+'</span></h3>'
+            +'<div class="row">'+rows+beh+'</div></div>';
         });
-        html+='<div class="card"><h2>Pets</h2>'+petsHtml+'</div>';
+        if(multiPet) html+='<nav class="petnav" aria-label="Jump to a pet">'+petChips+'</nav>';
+        html+=petsHtml;
       }
 
       // Instructions
@@ -303,6 +330,33 @@
       html+='</div>';
       app.innerHTML=html;
       document.title=(o.name?o.name+"'s pets — ":'')+'Pet Sitter Info — Pawfolio';
+      setupPetNav();
+    }
+    // Highlights whichever pet is currently on screen in the sticky name bar.
+    // Purely an orientation aid: if IntersectionObserver is missing, the chips
+    // still scroll to their pet, just without the highlight.
+    function setupPetNav(){
+      var nav=document.querySelector('.petnav');
+      if(!nav) return;
+      var chips=[].slice.call(nav.querySelectorAll('.chip'));
+      if(!chips.length) return;
+      var cards=chips.map(function(c){ return document.getElementById(c.getAttribute('data-target')); });
+      chips.forEach(function(c, i){
+        c.addEventListener('click', function(){
+          if(cards[i]) cards[i].scrollIntoView({ behavior:'smooth', block:'start' });
+        });
+      });
+      if(!('IntersectionObserver' in window)) return;
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(!en.isIntersecting) return;
+          var idx=cards.indexOf(en.target);
+          if(idx<0) return;
+          chips.forEach(function(c,j){ if(j!==idx) c.classList.remove('active'); });
+          chips[idx].classList.add('active');
+        });
+      }, { rootMargin:'-70px 0px -55% 0px', threshold:0 });
+      cards.forEach(function(el){ if(el) io.observe(el); });
     }
     async function boot(){
       var app = document.getElementById('app');
