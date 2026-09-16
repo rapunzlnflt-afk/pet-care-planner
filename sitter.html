@@ -194,10 +194,11 @@
     // Render one vet's grouped info: name (plain), phone (tap-to-call), address (tap-for-maps).
     function vetBlock(label,v){
       v=v||{};
-      var name=v.name||'', phone=v.phone||'', addr=v.address||'';
-      if(!name && !phone && !addr) return '';
+      var name=v.name||'', person=v.person||'', phone=v.phone||'', addr=v.address||'';
+      if(!name && !person && !phone && !addr) return '';
       var rows='';
       if(name) rows+='<div class="value" style="font-weight:600;">'+esc(name)+'</div>';
+      if(person) rows+='<div class="value">'+esc(person)+'</div>';
       if(phone) rows+='<div><a class="value tap" data-tap="Call" href="'+telHref(phone)+'">'+esc(phone)+'</a></div>';
       if(addr) rows+='<div><a class="value tap" data-tap="Map" href="'+mapsHref(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div>';
       return '<div class="field full"><div class="label">'+esc(label)+'</div>'+rows+'</div>';
@@ -214,6 +215,22 @@
       if(!b) return false;
       return a===b || a.indexOf(b)!==-1 || b.indexOf(a)!==-1;
     }
+    // v3.26.0 - a vet is up to two values: the clinic's business name and the
+    // veterinarian's own name. A pet's vet is the same as the one above when ANY
+    // of its values matches ANY of the primary vet's values (pairwise rule above).
+    // Values are compared across both fields because older records kept a
+    // clinician's name in the single clinic field. Mirrors the printed sheet.
+    function vetIdentityMatchesPrimary(petVet, petVetPerson, primaryVet, primaryVetPerson){
+      var clean=function(s){ return String(s==null?'':s).trim(); };
+      var petVals=[clean(petVet), clean(petVetPerson)].filter(Boolean);
+      if(!petVals.length) return true;
+      var primVals=[clean(primaryVet), clean(primaryVetPerson)].filter(Boolean);
+      if(!primVals.length) return false;
+      return petVals.some(function(a){ return primVals.some(function(b){ return vetMatchesPrimary(a,b); }); });
+    }
+    function vetDisplay(vetName, vetPerson){
+      return [vetName, vetPerson].map(function(s){ return String(s==null?'':s).trim(); }).filter(Boolean).join(' \u2014 ');
+    }
     function render(d){
       var app=document.getElementById('app');
       if(!d){
@@ -224,8 +241,8 @@
       // Backward-compat: older links used vet.np / vet.emerg (combined name+phone strings).
       if((vet.np!==undefined || vet.emerg!==undefined) && !vet.name && !vet.phone && !evet.name && !evet.phone){
         var pnp=splitNamePhone(vet.np); var enp=splitNamePhone(vet.emerg);
-        vet={ name:pnp.name, phone:pnp.phone, address:vet.address||'' };
-        evet={ name:enp.name, phone:enp.phone, address:'' };
+        vet={ name:pnp.name, person:'', phone:pnp.phone, address:vet.address||'' };
+        evet={ name:enp.name, person:'', phone:enp.phone, address:'' };
       }
       var html='';
       html+='<header><div class="wrap" style="padding:0;max-width:none;">'
@@ -264,8 +281,8 @@
           rows+=p.supps?('<div class="field full"><div class="label">Supplements</div><div class="value" style="white-space:pre-line;">'+esc(p.supps)+'</div></div>'):'';
           rows+=fieldText('Microchip', p.chip);
           // Full-width + nowrap label so the short label can't wrap on paper.
-          if(p.vet && !vetMatchesPrimary(p.vet, vet.name)){
-            rows+='<div class="field full"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">'+esc(p.vet)+'</div></div>';
+          if((p.vet || p.vp) && !vetIdentityMatchesPrimary(p.vet, p.vp, vet.name, vet.person)){
+            rows+='<div class="field full"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">'+esc(vetDisplay(p.vet, p.vp))+'</div></div>';
           }
           rows+=fieldText('Allergies', p.allergies);
           var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
