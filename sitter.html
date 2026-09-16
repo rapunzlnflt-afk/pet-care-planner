@@ -52,6 +52,17 @@
        name clear of the sticky name bar when a chip is tapped. */
     .pet-card{ scroll-margin-top:60px; }
     .pet-card h3{ margin:0 0 10px; font-size:16px; color:var(--ink); display:flex; align-items:center; gap:10px; }
+    /* v3.27.1 - the microchip belongs with the pet's identity, not in the middle
+       of the care instructions: it's only ever needed when a pet has got out. */
+    .pet-card h3 .pet-id{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .pet-card .pet-name{ display:block; }
+    .pet-card .pet-chip{ font-size:11.5px; font-weight:600; color:var(--muted); letter-spacing:0.2px; word-break:break-word; text-transform:none; }
+    /* Allergies sit directly under the name and microchip in red, matching the
+       printed sitter sheet. Slightly darker than the paper red (#e53e3e) so it
+       still clears contrast on a phone screen. The word and the symbol carry the
+       warning on their own, in case a printer drops colour. */
+    .pet-card .pet-allergy{ color:#c81e1e; font-weight:800; font-size:14.5px; line-height:1.45; margin:-4px 0 12px; word-break:break-word; }
+    .pet-card .pet-allergy .warn{ font-weight:700; margin-right:2px; }
     .pet-avatar{ width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid rgba(91,91,214,0.3); flex-shrink:0; }
     .pet-avatar-placeholder{ width:56px; height:56px; border-radius:50%; background:rgba(91,91,214,0.12); border:2px solid rgba(91,91,214,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .pet-card .tag{ font-size:11px; font-weight:600; color:var(--accent); background:rgba(91,91,214,0.1); border-radius:999px; padding:2px 9px; margin-left:6px; }
@@ -99,6 +110,12 @@
          block, kept whole so instructions never split across two sheets. */
       .petnav { display: none !important; }
       .pet-card { break-inside: avoid; page-break-inside: avoid; }
+      /* Ask for the red on paper, but the warning still reads in greyscale. */
+      .pet-card .pet-allergy {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color: #c81e1e !important;
+      }
     }
   </style>
 </head>
@@ -302,19 +319,23 @@
           rows+=fieldText('Walks', p.walk);
           rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
           rows+=p.supps?('<div class="field full"><div class="label">Supplements</div><div class="value" style="white-space:pre-line;">'+esc(p.supps)+'</div></div>'):'';
-          rows+=fieldText('Microchip', p.chip);
           // Full-width + nowrap label so the short label can't wrap on paper.
           if((p.vet || p.vp) && !vetIdentityMatchesPrimary(p.vet, p.vp, vet.name, vet.person)){
             rows+='<div class="field full"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">'+esc(vetDisplay(p.vet, p.vp))+'</div></div>';
           }
-          rows+=fieldText('Allergies', p.allergies);
           var beh = p.beh ? '<div class="field full"><div class="label">Additional Notes</div><div class="notes">'+esc(p.beh)+'</div></div>' : '';
           var avatar = p.img
             ? '<img class="pet-avatar" src="'+esc(p.img)+'" alt="'+esc(p.n||'Pet')+'">'
             : '<span class="pet-avatar-placeholder"><svg width="30" height="30" viewBox="0 0 24 24" fill="#5B5BD6" aria-hidden="true"><ellipse cx="7" cy="9" rx="1.7" ry="2.3"/><ellipse cx="12" cy="6.5" rx="1.7" ry="2.3"/><ellipse cx="17" cy="9" rx="1.7" ry="2.3"/><ellipse cx="19.5" cy="13.5" rx="1.5" ry="2"/><path d="M12 12.5c-2.4 0-4.5 1.7-5.2 3.9-.5 1.6.6 3.1 2.2 3.1.9 0 1.7-.4 3-.4s2.1.4 3 .4c1.6 0 2.7-1.5 2.2-3.1-.7-2.2-2.8-3.9-5.2-3.9z"/></svg></span>';
           var counter = multiPet ? ('<h2>Pet '+(i+1)+' of '+pets.length+'</h2>') : '<h2>Pet</h2>';
+          var chipLine = p.chip ? ('<span class="pet-chip">Microchip &middot; '+esc(p.chip)+'</span>') : '';
+          var allergyLine = p.allergies ? ('<div class="pet-allergy"><span class="warn">&#9888;</span> Allergies: '+esc(p.allergies)+'</div>') : '';
           petsHtml+='<div class="card pet-card" id="'+petId+'">'+counter
-            +'<h3>'+avatar+'<span>'+petName+(sub?'<span class="tag">'+sub+'</span>':'')+'</span></h3>'
+            +'<h3>'+avatar+'<span class="pet-id">'
+              +'<span class="pet-name">'+petName+(sub?'<span class="tag">'+sub+'</span>':'')+'</span>'
+              +chipLine
+            +'</span></h3>'
+            +allergyLine
             +'<div class="row">'+rows+beh+'</div></div>';
         });
         if(multiPet) html+='<nav class="petnav" aria-label="Jump to a pet">'+petChips+'</nav>';
