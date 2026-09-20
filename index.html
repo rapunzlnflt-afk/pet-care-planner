@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.28.1">
+                          <meta name="app-version" content="3.28.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -907,6 +907,21 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   display: block !important;
 }
 </style>
+<script>
+/* === Pawfolio v3.28.2 — never clear a form after a failed save ===
+   saveData() stamps window.__pfSaveFailedAt when a write is refused (storage full).
+   Any form.reset() fired within the following second is skipped, so the user's typing
+   stays on screen and can be saved again after they free up space. */
+(function(){
+  if (window.__pf_reset_guard) return; window.__pf_reset_guard = true;
+  var native = HTMLFormElement.prototype.reset;
+  HTMLFormElement.prototype.reset = function(){
+    var t = window.__pfSaveFailedAt || 0;
+    if (t && (Date.now() - t) < 1000) return;
+    return native.apply(this, arguments);
+  };
+})();
+</script>
 </head>
  <body class="h-full">
 
@@ -2073,7 +2088,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       if (data && typeof data === 'object') data.schemaVersion = SCHEMA_VERSION;
       localStorage.setItem(STORE_KEY, JSON.stringify(data));
     } catch(e) {
-      var msg = 'Storage is full. Your latest change could not be saved. Please export a backup and remove some document photos to free up space.';
+      window.__pfSaveFailedAt = Date.now();
+      var msg = 'Storage is full — this was NOT saved. Nothing you typed has been lost: it is still on the form. Export a backup and remove some document photos, then press Save again.';
       try {
         if (typeof window.toast === 'function') window.toast(msg);
         else alert(msg);
@@ -2090,13 +2106,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   function saveList(type, list) {
     const data = loadData();
     data[type] = list;
-    saveData(data);
+    return saveData(data);
   }
   function addItem(type, item) {
     item.__id = nextId();
     const list = getList(type);
     list.push(item);
-    saveList(type, list);
+    // v3.28.2: propagate a failed write so callers never clear the form on failure.
+    if (saveList(type, list) === false) return null;
     return item;
   }
   function deleteItem(type, id) {
@@ -2193,11 +2210,44 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   // Photo preview before saving
   window.previewPetPhoto = function(input) {
     if(!input.files || !input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const preview = document.getElementById('pet-photo-preview');
-      preview.innerHTML = `<img src="${evt.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
-      preview.dataset.photo = evt.target.result;
+    var preview = document.getElementById('pet-photo-preview');
+    if(!preview) return;
+    var MAX_EDGE = 512, QUALITY = 0.82, SAFE_BYTES = 300 * 1024;
+    function approxBytes(dataUrl){
+      var i = dataUrl.indexOf(',');
+      return Math.round((dataUrl.length - (i + 1)) * 0.75);
+    }
+    function apply(dataUrl){
+      if (approxBytes(dataUrl) > SAFE_BYTES) {
+        var m = 'That photo is too large to save. Please pick a smaller one.';
+        try { if (typeof window.toast === 'function') window.toast(m); else alert(m); } catch(_){}
+        return;
+      }
+      preview.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
+      preview.dataset.photo = dataUrl;
+    }
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      var original = evt.target.result;
+      var img = new Image();
+      img.onload = function(){
+        var out = original;
+        try {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if (w && h) {
+            var scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+            var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+            var c = document.createElement('canvas');
+            c.width = cw; c.height = ch;
+            c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+            var jpg = c.toDataURL('image/jpeg', QUALITY);
+            if (jpg && jpg.length < original.length) out = jpg;
+          }
+        } catch(e){}
+        apply(out);
+      };
+      img.onerror = function(){ apply(original); };
+      img.src = original;
     };
     reader.readAsDataURL(input.files[0]);
   };
@@ -2206,7 +2256,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     e.preventDefault();
     const photoEl = document.getElementById('pet-photo-preview');
     const photo = photoEl.dataset.photo || '';
-    addItem('pets', {
+    const savedPet = addItem('pets', {
       name: document.getElementById('pet-name').value.trim(),
       species: document.getElementById('pet-species').value,
       breed: document.getElementById('pet-breed').value,
@@ -2222,6 +2272,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       notes: document.getElementById('pet-notes').value,
       photo,
     });
+    // v3.28.2: if the write failed, keep everything on the form so nothing typed is lost.
+    if (!savedPet) return;
     e.target.reset();
     document.getElementById('pet-photo-preview').innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
     delete document.getElementById('pet-photo-preview').dataset.photo;
