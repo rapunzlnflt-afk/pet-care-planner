@@ -25,6 +25,7 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
                           <meta name="app-version" content="3.29.0">
+                          <meta name="robots" content="noindex">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -12300,7 +12301,8 @@ try {
 
     var LS_KEY    = 'pawfolioLicense';
     var GRACE_DAYS = 30;               // keeps working offline for 30 days
-    var BUY_URL   = 'https://cleartrackapps.lemonsqueezy.com/checkout/buy/7c9c2303-cea0-4a31-9526-138981e4d0df';
+    // TEMP-TEST: test-mode checkout. Never merge this branch.
+    var BUY_URL   = 'https://cleartrackapps.lemonsqueezy.com/checkout/buy/87d752a7-033d-4198-b4e6-97e5b1ac1e0c';
     // Lemon Squeezy identifiers for Pawfolio Complete. A key from any other
     // store or product is refused, so a key bought for something else
     // cannot unlock Pawfolio.
@@ -12678,8 +12680,9 @@ try {
     }
 
     function ours(meta){
+      // TEMP-TEST: also accept the test-mode product 1405744. Never merge.
       return !!meta && Number(meta.store_id) === STORE_ID
-                    && Number(meta.product_id) === PRODUCT_ID;
+                    && (Number(meta.product_id) === PRODUCT_ID || Number(meta.product_id) === 1405744);
     }
 
     function deviceName(){
@@ -12756,8 +12759,9 @@ try {
       return lsPost('validate', { license_key:l.key, instance_id:l.instanceId })
         .then(function(d){
           if (!d || (d.valid === undefined && !d.license_key)) return; // unusable reply: leave as is
-          if (d.license_key && !ours(d.meta)) return;
-          if (d.valid && d.license_key) { record(l.key, l.instanceId, d); }
+          // A saved key that turns out to belong to another product is not
+          // a Pawfolio Complete subscription: lock rather than trust it.
+          if (d.valid && d.license_key && ours(d.meta)) { record(l.key, l.instanceId, d); }
           else {
             var cur = readLic();
             cur.status = 'lapsed';
