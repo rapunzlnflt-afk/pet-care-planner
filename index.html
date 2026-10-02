@@ -4552,7 +4552,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 
   // Known localStorage keys that a backup is allowed to write. Mirrors LS_BACKUP_KEYS
   // in the vault block (different scope), so the legacy import can't write arbitrary keys.
-  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
+  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
   // Timestamp like 2026-06-24-1430 for safety-backup filenames.
   function importSafetyStamp(){
     const d = new Date();
@@ -8188,7 +8188,7 @@ try {
   // A normal export only saves localStorage. Document photos live in IndexedDB, so a true
   // "lose nothing" backup must include them. We read every Blob, turn it into a base64 data
   // URL, and bundle it alongside the localStorage data into one downloadable JSON file.
-  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
+  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
 
   function blobToDataUrl(blob){
     return new Promise(function(resolve, reject){
@@ -8437,7 +8437,7 @@ try {
       return window.pawfolioBuildBackupPayload().then(function(p){ return JSON.stringify(p); });
     }
     // Fallback: localStorage-only snapshot (matches the legacy export shape).
-    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks'];
+    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
     var ls = {};
     keys.forEach(function(k){ try { var v = localStorage.getItem(k); if (v != null) ls[k] = v; } catch(e){} });
     var payload = { __pawfolioBackup: true, version: '0.0', savedAt: new Date().toISOString(), localStorage: ls, photos: {} };
@@ -12357,24 +12357,46 @@ try {
        someone from qualifying later by editing that date.
        There is no purchase flag in any earlier release, so this is also the only
        way an old $14.99 buyer keeps what they paid for. */
+    // The day the free/Complete split reached users. Set to the real release
+    // date when 3.29.0 ships. Only backups saved before this version need it;
+    // later backups carry GF_KEY themselves.
+    var TIERS_LAUNCH = '2026-10-02';
+    var GF_KEY = 'pawfolioGrandfathered';   // included in every backup
+
+    function grandfather(seen){
+      writeLic({ status:'active', grandfathered:true, since:(seen||null),
+                 key:'GRANDFATHERED', lastCheck:new Date().toISOString() });
+      try { localStorage.setItem(GF_KEY, '1'); } catch(e){}
+    }
+
     function decideGrandfathered(){
       var l = readLic();
-      if (l.status || l.grandfathered) return;   // already decided, or a real customer
       var seen = '';
       try { seen = String(localStorage.getItem('petPlannerFirstSeen') || '').slice(0,10); } catch(e){}
+      var validSeen = /^\d{4}-\d{2}-\d{2}$/.test(seen);
+      if (l.grandfathered) {
+        // Devices grandfathered before GF_KEY existed get it now, so their
+        // next backup carries it.
+        try { if (localStorage.getItem(GF_KEY) !== '1') localStorage.setItem(GF_KEY, '1'); } catch(e){}
+        return;
+      }
+      // A restored backup can prove this person was grandfathered on their
+      // old phone: either it carries GF_KEY, or it predates this version and
+      // its first-seen date is before launch. Checked every start, because a
+      // restore happens after this phone already reached a "free" verdict.
+      var flagged = false;
+      try { flagged = localStorage.getItem(GF_KEY) === '1'; } catch(e){}
+      if (flagged || (validSeen && seen < TIERS_LAUNCH)) { grandfather(seen); return; }
+      if (l.status) return;                         // already decided: free or a real customer
       var today = new Date().toISOString().slice(0,10);
-      var wasHereFirst = /^\d{4}-\d{2}-\d{2}$/.test(seen) && seen < today;
+      var wasHereFirst = validSeen && seen < today;
       // Belt and braces: records in a paid list can only come from an older release.
       var hasOldRecords = false;
       for (var i=0; i<PAID.length && !hasOldRecords; i++){
         if (PAID[i].list) { try { hasOldRecords = hasData(PAID[i].list); } catch(e){} }
       }
-      if (wasHereFirst || hasOldRecords) {
-        writeLic({ status:'active', grandfathered:true, since:(seen||null),
-                   key:'GRANDFATHERED', lastCheck:new Date().toISOString() });
-      } else {
-        writeLic({ status:'free', decidedOn:today });
-      }
+      if (wasHereFirst || hasOldRecords) grandfather(seen);
+      else writeLic({ status:'free', decidedOn:today });
     }
     window.pawfolioIsGrandfathered = function(){ return !!readLic().grandfathered; };
 
