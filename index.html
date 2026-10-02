@@ -12292,7 +12292,7 @@ try {
 
 <script>
   /* === Pawfolio tiers v3.29.0 — free / paid gate ===
-     Self-contained. Adds a lock to the seven paid tabs.
+     Self-contained. Adds a lock to the six Complete tabs.
      Free tabs are untouched. Printing, sharing, export and
      unlimited pets stay free by design (never referenced here). */
   (function(){
@@ -12300,7 +12300,14 @@ try {
 
     var LS_KEY    = 'pawfolioLicense';
     var GRACE_DAYS = 30;               // keeps working offline for 30 days
-    var BUY_URL   = 'https://cleartrackapps.com/pawfolio/';
+    var BUY_URL   = 'https://cleartrackapps.lemonsqueezy.com/checkout/buy/7c9c2303-cea0-4a31-9526-138981e4d0df';
+    // Lemon Squeezy identifiers for Pawfolio Complete. A key from any other
+    // store or product is refused, so a key bought for something else
+    // cannot unlock Pawfolio.
+    var LS_API     = 'https://api.lemonsqueezy.com/v1/licenses/';
+    var STORE_ID   = 478073;
+    var PRODUCT_ID = 1405596;
+    var RECHECK_HOURS = 12;           // how often an online device re-asks the store
     var DEMO_URL = 'https://cleartrackapps.com/pet-care-planner-demo/';
 
     var PAID = [
@@ -12330,13 +12337,12 @@ try {
       // Grandfathered users never expire and are never re-checked against the store.
       if (l.grandfathered) return true;
       if (l.status !== 'active') return false;
-      // Subscription end date reported by the store, if we have one.
-      if (l.expiresAt && Date.now() > Date.parse(l.expiresAt)) return false;
-      // Offline grace: if we haven't been able to re-check in a long while,
-      // keep working rather than locking out a paying customer.
+      // Offline grace: a paying customer keeps working without a connection,
+      // but not indefinitely. After GRACE_DAYS with no successful check the
+      // tabs lock (records stay visible) until the next check succeeds.
       if (l.lastCheck) {
         var days = (Date.now() - Date.parse(l.lastCheck)) / 86400000;
-        if (days > GRACE_DAYS && l.hardExpired) return false;
+        if (days > GRACE_DAYS) return false;
       }
       return true;
     }
@@ -12372,13 +12378,6 @@ try {
     }
     window.pawfolioIsGrandfathered = function(){ return !!readLic().grandfathered; };
 
-    // Test helper — lets you flip states without buying anything.
-    window.pawfolioSetPaid = function(on){
-      if (on) writeLic({ status:'active', lastCheck:new Date().toISOString(), key:'TEST-MODE' });
-      else    localStorage.removeItem(LS_KEY);
-      applyGate();
-      return isPaid();
-    };
 
     /* ---------- styles ---------- */
 
@@ -12580,7 +12579,9 @@ try {
       if (b) { e.preventDefault(); showUnlock(''); }
     });
 
-    function showUnlock(what){
+    function showUnlock(what, prefill){
+      // A lapsed customer sees their own key already filled in.
+      if (!prefill) { var saved = readLic().key; if (saved && saved !== 'GRANDFATHERED') prefill = saved; }
       var wrap = document.getElementById('pf-unlock-modal');
       if (wrap) { wrap.remove(); }
       wrap = document.createElement('div');
@@ -12591,12 +12592,14 @@ try {
           '<div class="pf-modal-card">'
         +   '<h3 style="margin:0 0 8px;font-size:18px;">Pawfolio Complete</h3>'
         +   '<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#64748b;">'
-        +     'Unlocks Vet Visits, Vaccinations, Weight, Expenses, Timeline, Document Vault '
-        +     'and Pet Insurance. Printing, sharing and export stay free.</p>'
+        +     'Unlocks Vet Visits, Vaccinations, Weight, Expenses, Timeline and Document Vault. '
+        +     '$4.99 a month or $29.99 a year. Printing, sharing and export stay free.</p>'
         +   '<a href="' + BUY_URL + '" target="_blank" rel="noopener" class="pf-lock-btn" '
-        +     'style="display:inline-block;text-decoration:none;">See pricing</a>'
-        +   '<p style="margin:16px 0 0;font-size:13px;font-weight:700;">Already bought? Paste your key</p>'
-        +   '<input class="pf-key" id="pf-key-input" placeholder="PAWF-XXXX-XXXX-XXXX" autocomplete="off">'
+        +     'style="display:inline-block;text-decoration:none;">Get Pawfolio Complete</a>'
+        +   '<p style="margin:16px 0 0;font-size:13px;font-weight:700;">Already bought? Enter your license key</p>'
+        +   '<p style="margin:2px 0 0;font-size:13px;color:#64748b;">It\u2019s in your receipt email from Lemon Squeezy.</p>'
+        +   '<input class="pf-key" id="pf-key-input" placeholder="Paste your license key" '
+        +     'autocomplete="off" autocapitalize="off" spellcheck="false" value="' + (prefill || '').replace(/[^A-Za-z0-9-]/g, '') + '">'
         +   '<button type="button" class="pf-lock-btn" id="pf-key-go">Activate</button>'
         +   '<button type="button" class="pf-lock-btn pf-ghost" id="pf-close">Close</button>'
         +   '<p class="pf-msg" id="pf-msg"></p>'
@@ -12605,13 +12608,16 @@ try {
 
       wrap.querySelector('#pf-close').onclick = function(){ wrap.remove(); };
       wrap.addEventListener('click', function(ev){ if (ev.target === wrap) wrap.remove(); });
-      wrap.querySelector('#pf-key-go').onclick = function(){
+      var go = wrap.querySelector('#pf-key-go');
+      go.onclick = function(){
         var key = (document.getElementById('pf-key-input').value || '').trim();
         var msg = document.getElementById('pf-msg');
         if (!key) { msg.style.color = '#dc2626'; msg.textContent = 'Enter your key first.'; return; }
         msg.style.color = '#64748b';
         msg.textContent = 'Checking\u2026';
+        go.disabled = true;
         activate(key).then(function(r){
+          go.disabled = false;
           if (r.ok) {
             msg.style.color = '#16a34a';
             msg.textContent = 'Unlocked. Thank you.';
@@ -12625,17 +12631,123 @@ try {
       };
     }
     window.pawfolioShowUnlock = showUnlock;
+    showUnlock.autoSubmit = function(){
+      var go = document.getElementById('pf-key-go');
+      if (go) go.click();
+    };
 
-    /* ---------- key check ----------
-       STUB: step 3 wires this to Lemon Squeezy licence validation.
-       Until then it recognises nothing, so no one can unlock by guessing. */
+    /* ---------- key check (Lemon Squeezy License API) ----------
+       Called straight from the browser: the License API needs no secret and
+       allows cross-origin requests. Each device is one "instance" of the key,
+       so the activation limit set in Lemon Squeezy (3) caps devices. */
 
-    function activate(key){
-      return Promise.resolve({
-        ok: false,
-        message: 'Key checking isn\u2019t switched on yet.'
+    function lsPost(action, fields){
+      var body = Object.keys(fields).map(function(k){
+        return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]);
+      }).join('&');
+      return fetch(LS_API + action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json',
+                   'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      }).then(function(res){
+        return res.json().catch(function(){ return {}; });
       });
     }
+
+    function ours(meta){
+      return !!meta && Number(meta.store_id) === STORE_ID
+                    && Number(meta.product_id) === PRODUCT_ID;
+    }
+
+    function deviceName(){
+      var ua = navigator.userAgent || '';
+      var kind = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad'
+               : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac'
+               : /Windows/.test(ua) ? 'Windows PC' : 'device';
+      return 'Pawfolio on ' + kind;
+    }
+
+    // Store the store's answer. Anything but "active" is treated as not paid:
+    // subscription keys follow the subscription, so a cancelled or unpaid
+    // subscription stops reporting active.
+    function record(key, instanceId, data){
+      var lk = (data && data.license_key) || {};
+      var meta = (data && data.meta) || {};
+      writeLic({
+        status: lk.status === 'active' ? 'active' : 'lapsed',
+        storeStatus: lk.status || null,
+        key: key,
+        instanceId: instanceId,
+        plan: meta.variant_name || null,
+        expiresAt: lk.expires_at || null,
+        lastCheck: new Date().toISOString()
+      });
+    }
+
+    function friendly(err){
+      err = String(err || '');
+      if (/activation limit/i.test(err))
+        return 'This key is already in use on 3 devices. Remove one from My Orders at app.lemonsqueezy.com, then try again.';
+      if (/not found|invalid/i.test(err))
+        return 'That key was not recognised. Copy it again from your receipt email.';
+      return err || 'That key was not recognised.';
+    }
+
+    function activate(key){
+      key = String(key || '').trim();
+      var l = readLic();
+      // Same key already on this device: re-check it instead of using up
+      // another activation.
+      if (l.key === key && l.instanceId) {
+        return revalidate(true).then(function(){
+          return isPaid() ? { ok:true }
+            : { ok:false, message:'This subscription isn\u2019t active. Renew it from My Orders at app.lemonsqueezy.com, then tap Activate again.' };
+        });
+      }
+      return lsPost('activate', { license_key:key, instance_name:deviceName() })
+        .then(function(d){
+          if (!d || !d.activated) return { ok:false, message:friendly(d && d.error) };
+          if (!ours(d.meta)) {
+            // Free the slot we just took on someone else's product.
+            lsPost('deactivate', { license_key:key, instance_id:(d.instance||{}).id || '' }).catch(function(){});
+            return { ok:false, message:'That key is for a different product, not Pawfolio Complete.' };
+          }
+          record(key, (d.instance || {}).id || null, d);
+          return isPaid() ? { ok:true }
+            : { ok:false, message:'This subscription isn\u2019t active. Renew it from My Orders at app.lemonsqueezy.com.' };
+        })
+        .catch(function(){
+          return { ok:false, message:'Couldn\u2019t reach the license server. Check your connection and try again.' };
+        });
+    }
+
+    // Re-ask the store about a saved key. Runs at start-up when the last check
+    // is older than RECHECK_HOURS, so a cancelled subscription locks within a
+    // day and a renewed one unlocks on its own. Offline, nothing changes.
+    function revalidate(force){
+      var l = readLic();
+      if (!l.key || !l.instanceId || l.grandfathered) return Promise.resolve();
+      var age = l.lastCheck ? (Date.now() - Date.parse(l.lastCheck)) / 3600000 : Infinity;
+      if (!force && age < RECHECK_HOURS) return Promise.resolve();
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve();
+      return lsPost('validate', { license_key:l.key, instance_id:l.instanceId })
+        .then(function(d){
+          if (!d || (d.valid === undefined && !d.license_key)) return; // unusable reply: leave as is
+          if (d.license_key && !ours(d.meta)) return;
+          if (d.valid && d.license_key) { record(l.key, l.instanceId, d); }
+          else {
+            var cur = readLic();
+            cur.status = 'lapsed';
+            cur.storeStatus = (d.license_key && d.license_key.status) || 'invalid';
+            cur.lastCheck = new Date().toISOString();
+            writeLic(cur);
+          }
+          applyGate();
+        })
+        .catch(function(){ /* offline or blocked: keep the current state */ });
+    }
+    window.pawfolioRecheck = function(){ return revalidate(true); };
     window.pawfolioActivate = activate;
 
     /* ---------- keep the gate applied ---------- */
@@ -12649,7 +12761,32 @@ try {
       };
     }
 
-    function boot(){ decideGrandfathered(); applyGate(); }
+    // The receipt's "Open Pawfolio" button can carry the key as ?key=...
+    // (Lemon Squeezy's [license_key] variable), so a buyer unlocks in one tap.
+    // The key is removed from the address bar straight away.
+    function keyFromUrl(){
+      try {
+        var u = new URL(window.location.href);
+        var k = u.searchParams.get('key') || u.searchParams.get('license_key');
+        if (!k) return null;
+        u.searchParams.delete('key'); u.searchParams.delete('license_key');
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+        return k.replace(/[^A-Za-z0-9-]/g, '');
+      } catch(e){ return null; }
+    }
+
+    function boot(){
+      decideGrandfathered();
+      applyGate();
+      var k = keyFromUrl();
+      var l = readLic();
+      if (k && !(l.key === k && isPaid())) {
+        showUnlock('', k);
+        showUnlock.autoSubmit();
+      } else {
+        revalidate(false);
+      }
+    }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', boot);
     } else {
