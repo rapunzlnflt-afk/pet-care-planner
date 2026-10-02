@@ -12346,6 +12346,14 @@ try {
         var days = (Date.now() - Date.parse(l.lastCheck)) / 86400000;
         if (days > GRACE_DAYS) return false;
       }
+      // A cancelled subscription keeps its key active until expires_at (the
+      // end of the paid period). If that date is 3+ days gone and we haven't
+      // heard from the store since, we can't confirm a renewal, so lock until
+      // the next check succeeds. A renewed key gets a later date on that check.
+      if (l.expiresAt && l.lastCheck) {
+        var exp = Date.parse(l.expiresAt), chk = Date.parse(l.lastCheck);
+        if (Date.now() > exp + 3 * 86400000 && chk < exp) return false;
+      }
       return true;
     }
     window.pawfolioIsPaid = isPaid;
@@ -12754,7 +12762,9 @@ try {
       var l = readLic();
       if (!l.key || !l.instanceId || l.grandfathered) return Promise.resolve();
       var age = l.lastCheck ? (Date.now() - Date.parse(l.lastCheck)) / 3600000 : Infinity;
-      if (!force && age < RECHECK_HOURS) return Promise.resolve();
+      var pastExpiry = l.expiresAt && Date.now() > Date.parse(l.expiresAt)
+                       && (!l.lastCheck || Date.parse(l.lastCheck) < Date.parse(l.expiresAt));
+      if (!force && !pastExpiry && age < RECHECK_HOURS) return Promise.resolve();
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve();
       return lsPost('validate', { license_key:l.key, instance_id:l.instanceId })
         .then(function(d){
