@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.29.1">
+                          <meta name="app-version" content="3.29.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -12417,6 +12417,11 @@ try {
       + '[data-theme="dark"] .pf-lock{border-color:rgba(139,124,248,0.35);background:rgba(139,124,248,0.08);}'
       + '.pf-lock-head{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;'
       +   'color:var(--accent-color);margin:0 0 6px;}'
+      // "Pawfolio COMPLETE": the tier's name mark, on its lock cards and unlock panel.
+      // A real space precedes it, so it still reads "Pawfolio Complete" as text.
+      + '.pf-tag{display:inline-block;vertical-align:.12em;margin-left:.1em;font-size:.68em;'
+      +   'font-weight:800;letter-spacing:.07em;text-transform:uppercase;line-height:1;'
+      +   'padding:.38em .62em .34em;border-radius:999px;background:var(--accent-color);color:#fff;}'
       + '.pf-lock p{margin:0 0 12px;font-size:14px;line-height:1.5;color:#64748b;}'
       + '[data-theme="dark"] .pf-lock p{color:#9b98b0;}'
       + '.pf-lock-btn{background:var(--accent-color);color:#fff;border:none;border-radius:8px;'
@@ -12514,7 +12519,7 @@ try {
           + '<button type="button" class="pf-lock-btn" data-pf-unlock="1">Renew</button>';
       } else {
         d.innerHTML =
-            '<div class="pf-lock-head">\uD83D\uDD12 Part of Pawfolio Complete</div>'
+            '<div class="pf-lock-head"><span>\uD83D\uDD12 Part of Pawfolio <span class="pf-tag">Complete</span></span></div>'
           + '<p>' + (DESC[p.tab] || '') + '</p>'
           + '<button type="button" class="pf-lock-btn" data-pf-unlock="1">Unlock Pawfolio Complete</button>'
           + '<p class="pf-lock-links">Want to see it filled in first? '
@@ -12620,7 +12625,7 @@ try {
         + 'display:flex;align-items:center;justify-content:center;padding:20px;';
       wrap.innerHTML =
           '<div class="pf-modal-card">'
-        +   '<h3 style="margin:0 0 8px;font-size:18px;">Pawfolio Complete</h3>'
+        +   '<h3 style="margin:0 0 8px;font-size:18px;">Pawfolio <span class="pf-tag">Complete</span></h3>'
         +   '<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#64748b;">'
         +     'Unlocks Vet Visits, Vaccinations, Weight, Expenses, Timeline and Document Vault. '
         +     '$4.99 a month or $29.99 a year. Printing, sharing and export stay free.</p>'
