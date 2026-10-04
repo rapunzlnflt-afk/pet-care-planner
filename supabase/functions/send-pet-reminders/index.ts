@@ -78,6 +78,7 @@ interface DueDoseRow {
     label: string;
     subject_name: string | null;
     timezone: string | null;
+    shared: boolean;
   };
 }
 
@@ -104,7 +105,7 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
 
   const { data: dueDoses, error: dueErr } = await supabase
     .from("pawfolio_dose_events")
-    .select("id, due_at, pawfolio_dose_schedules!inner(user_id, source_id, label, subject_name, timezone)")
+    .select("id, due_at, pawfolio_dose_schedules!inner(user_id, source_id, label, subject_name, timezone, shared)")
     .eq("status", "pending")
     .is("notified_at", null)
     .lte("due_at", now.toISOString())
@@ -133,12 +134,30 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
   for (const row of rows) {
     const schedule = row.pawfolio_dose_schedules;
     const deviceId = deviceByUser.get(schedule.user_id);
+    const timeZone = isValidTimeZone(schedule.timezone) ? schedule.timezone : "UTC";
+
+    // Shared medication: sitters get the push straight away (they have no
+    // pawfolio_reminders rows of their own). Runs once, since notified_at is
+    // stamped below.
+    if (schedule.shared) {
+      await sendToMembers(schedule.user_id, null, JSON.stringify({
+        title: `💊 Dose due: ${schedule.label}`,
+        body: (schedule.subject_name ? `${schedule.subject_name} — ` : "") + `Due ${formatLocalClock(new Date(row.due_at), timeZone)}`,
+        tag: `dose-${row.id}`,
+        url: `./doses.html#dose=${row.id}`,
+        source: "dose",
+        doseEventId: row.id,
+      }));
+    }
+
     if (!deviceId) {
-      // Phone reminders are off. The dose is still tracked in the app.
+      // Owner's phone reminders are off. The dose is still tracked in the app.
       skipped++;
+      if (schedule.shared) {
+        await supabase.from("pawfolio_dose_events").update({ notified_at: new Date().toISOString() }).eq("id", row.id);
+      }
       continue;
     }
-    const timeZone = isValidTimeZone(schedule.timezone) ? schedule.timezone : "UTC";
     const { error: insErr } = await supabase.from("pawfolio_reminders").insert({
       user_id: schedule.user_id,
       device_id: deviceId,
@@ -168,6 +187,102 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
     if (stampErr) errors.push(`dose ${row.id}: notified_at failed: ${stampErr.message}`);
   }
   return { created, skipped, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Sitter sharing (0004_pawfolio_dose_sharing.sql).
+// ---------------------------------------------------------------------------
+
+/** Push to every active sitter of this owner's current link, except one. */
+async function sendToMembers(ownerUser: string, exceptMember: string | null, payload: string): Promise<number> {
+  const { data: groups } = await supabase
+    .from("pawfolio_dose_groups")
+    .select("id")
+    .eq("owner_user", ownerUser)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString());
+  const gid = (groups ?? [])[0]?.id;
+  if (!gid) return 0;
+  const { data: members } = await supabase
+    .from("pawfolio_dose_members")
+    .select("id, endpoint, p256dh, auth")
+    .eq("group_id", gid)
+    .is("removed_at", null)
+    .not("endpoint", "is", null);
+  let sent = 0;
+  for (const m of (members ?? []) as Array<{ id: string; endpoint: string; p256dh: string; auth: string }>) {
+    if (m.id === exceptMember) continue;
+    try {
+      await webpush.sendNotification({ endpoint: m.endpoint, keys: { p256dh: m.p256dh, auth: m.auth } }, payload);
+      sent++;
+    } catch (e) {
+      const status = (e as any)?.statusCode || 0;
+      if (status === 404 || status === 410) {
+        await supabase.from("pawfolio_dose_members").update({ endpoint: null, p256dh: null, auth: null }).eq("id", m.id);
+      }
+    }
+  }
+  return sent;
+}
+
+/** Push to every phone the owner has Pawfolio reminders on. */
+async function sendToOwner(ownerUser: string, payload: string): Promise<number> {
+  const { data: devices } = await supabase
+    .from("pawfolio_devices")
+    .select("endpoint, p256dh, auth")
+    .eq("user_id", ownerUser);
+  let sent = 0;
+  for (const d of (devices ?? []) as DeviceRow[]) {
+    if (!d.p256dh || !d.auth) continue;
+    try {
+      await webpush.sendNotification({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, payload);
+      sent++;
+    } catch (e) {
+      const status = (e as any)?.statusCode || 0;
+      if (status === 404 || status === 410) await supabase.from("pawfolio_devices").delete().eq("endpoint", d.endpoint);
+    }
+  }
+  return sent;
+}
+
+/** "Given by Dana at 2:14 PM" to everyone else, for doses of shared medications
+ *  logged in the last two hours. Same tag as the due push, so Android
+ *  replaces it; iOS may show both, and the newer one carries the truth. */
+async function sendFollowUps(): Promise<{ sent: number; errors: string[] }> {
+  const since = new Date(Date.now() - 2 * 3600000).toISOString();
+  const { data, error } = await supabase
+    .from("pawfolio_dose_events")
+    .select("id, status, taken_at, logged_at, actor_label, actor_member, pawfolio_dose_schedules!inner(user_id, label, subject_name, timezone, shared)")
+    .is("followup_sent_at", null)
+    .gte("logged_at", since)
+    .in("status", ["taken", "skipped"])
+    .eq("pawfolio_dose_schedules.shared", true)
+    .limit(100);
+  if (error) return { sent: 0, errors: [`followup lookup: ${error.message}`] };
+  let sent = 0;
+  for (const ev of (data ?? []) as any[]) {
+    const s = ev.pawfolio_dose_schedules;
+    const tz = isValidTimeZone(s.timezone) ? s.timezone : "UTC";
+    const who = (ev.actor_label || "").trim() || "someone";
+    const at = formatLocalClock(new Date(ev.taken_at || ev.logged_at), tz);
+    const verb = ev.status === "taken" ? "Given" : "Skipped";
+    const base = {
+      title: `✓ ${s.label} ${ev.status === "taken" ? "given" : "skipped"}`,
+      body: (s.subject_name ? `${s.subject_name} — ` : "") + `${verb} by ${who} at ${at}`,
+      tag: `dose-${ev.id}`,
+      source: "dose",
+      doseEventId: ev.id,
+    };
+    // Stamp first: a follow-up is a courtesy, and sending it twice is worse
+    // than occasionally not sending it.
+    const { error: stampErr } = await supabase.from("pawfolio_dose_events")
+      .update({ followup_sent_at: new Date().toISOString() }).eq("id", ev.id).is("followup_sent_at", null);
+    if (stampErr) continue;
+    sent += await sendToMembers(s.user_id, ev.actor_member, JSON.stringify({ ...base, url: `./doses.html#dose=${ev.id}` }));
+    // A sitter logged it: tell the owner. The owner logged it: they know.
+    if (ev.actor_member) sent += await sendToOwner(s.user_id, JSON.stringify({ ...base, url: `./index.html#dose=${ev.id}` }));
+  }
+  return { sent, errors: [] };
 }
 
 /** What a phone shows for a dose. iOS ignores notification action buttons,
@@ -239,6 +354,7 @@ Deno.serve(async (_req) => {
   // so the delivery pass below sends them like any other reminder.
   const sweep = await sweepDoses();
   const doses = await materializeDoseReminders(now);
+  const followups = await sendFollowUps();
 
   const nowIso = now.toISOString();
   const { data: due, error } = await supabase
@@ -252,7 +368,7 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
   if (!due || due.length === 0) {
-    return new Response(JSON.stringify({ delivered: 0, sweep, doses }), { status: 200 });
+    return new Response(JSON.stringify({ delivered: 0, sweep, doses, followups }), { status: 200 });
   }
 
   let delivered = 0;
@@ -293,7 +409,7 @@ Deno.serve(async (_req) => {
     }
   }
 
-  return new Response(JSON.stringify({ delivered, failed, superseded, considered: due.length, sweep, doses }), {
+  return new Response(JSON.stringify({ delivered, failed, superseded, considered: due.length, sweep, doses, followups }), {
     headers: { "content-type": "application/json" },
     status: 200,
   });

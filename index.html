@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.30.0">
+                          <meta name="app-version" content="3.31.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -12611,8 +12611,8 @@ try {
           '<div class="pf-modal-card">'
         +   '<h3 style="margin:0 0 8px;font-size:18px;">Pawfolio <span class="pf-tag">Complete</span></h3>'
         +   '<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#64748b;">'
-        +     'Unlocks Vet Visits, Vaccinations, Weight, Expenses, Timeline and Document Vault. '
-        +     '$4.99 a month or $29.99 a year. Printing, sharing and export stay free.</p>'
+        +     'Unlocks Vet Visits, Vaccinations, Weight, Expenses, Timeline, Document Vault and sharing doses with a sitter. '
+        +     '$4.99 a month or $29.99 a year. Printing, the sitter info link and export stay free.</p>'
         +   '<a href="' + BUY_URL + '" target="_blank" rel="noopener" class="pf-lock-btn" '
         +     'style="display:inline-block;text-decoration:none;">Get Pawfolio Complete</a>'
         +   '<p style="margin:16px 0 0;font-size:13px;font-weight:700;">Already bought? Enter your license key</p>'
@@ -12885,6 +12885,15 @@ try {
     return null;
   }
 
+  function paid(){ return typeof window.pawfolioIsPaid === 'function' && !!window.pawfolioIsPaid(); }
+  // Who the sitter sees on doses given from this phone ("Given by Shauna").
+  function ownerLabel(){
+    try {
+      var n = (JSON.parse(localStorage.getItem('petSitterInfo') || '{}')['sitter-owner-name'] || '').trim();
+      return n ? n.split(/\s+/)[0].slice(0, 40) : 'Owner';
+    } catch(e){ return 'Owner'; }
+  }
+
   function sigOf(m){ return [timesOf(m).join(','), m.start || '', m.doseEnd || ''].join('|'); }
   function readSigs(){ try { return JSON.parse(localStorage.getItem(KEY_SIG) || '{}'); } catch(e){ return {}; } }
   function writeSigs(v){ try { localStorage.setItem(KEY_SIG, JSON.stringify(v)); } catch(e){} }
@@ -12909,7 +12918,9 @@ try {
           subject_name: m.petName || null,
           interval_min: intervalMin(times), anchor: 'fixed', fixed_times: times,
           starts_on: m.start || null, ends_on: m.doseEnd || null,
-          enabled: on, timezone: tz()
+          enabled: on, timezone: tz(),
+          // Pawfolio Complete only: a sitter sees this medication's doses.
+          shared: on && paid() && !!m.doseShared
         };
       });
       var keep = list.map(function(m){ return m.__id; });
@@ -12974,7 +12985,7 @@ try {
         var ids = s.data.map(function(r){ return r.id; });
         var bySched = {}; s.data.forEach(function(r){ bySched[r.id] = Number(r.source_id); });
         if(!ids.length){ state = {}; loaded = true; rerender(); return; }
-        return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at')
+        return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at, actor_label, actor_member')
           .in('schedule_id', ids).in('status', ['pending', 'taken']).order('due_at', { ascending: false }).limit(300)
           .then(function(ev){
             if(ev.error) return;
@@ -13017,7 +13028,12 @@ try {
       html += '<p class="font-body text-sm text-secondary">No more ' + noun + 's scheduled.</p>';
     }
     if(st.lastTaken && st.lastTaken.taken_at){
-      html += '<p class="font-body text-xs text-secondary" style="margin-top:6px;">Last given ' + when(new Date(st.lastTaken.taken_at)) + '</p>';
+      // Name the sitter when they gave it; the owner's own doses stay plain.
+      var by = st.lastTaken.actor_member && st.lastTaken.actor_label ? ' by ' + esc(st.lastTaken.actor_label) : '';
+      html += '<p class="font-body text-xs text-secondary" style="margin-top:6px;">Last given' + by + ' ' + when(new Date(st.lastTaken.taken_at)) + '</p>';
+    }
+    if(m.doseShared && paid()){
+      html += '<p class="pf-dose-shared">Shared with sitter</p>';
     }
     return html + '</div>';
   };
@@ -13025,7 +13041,7 @@ try {
   // ---- logging ----
   function rpcLog(eventId, taken, force){
     return window.getSupabase().then(function(sb){
-      return sb.rpc('pawfolio_log_dose', { p_event_id: eventId, p_taken: !!taken, p_force: !!force }).then(function(r){
+      return sb.rpc('pawfolio_log_dose', { p_event_id: eventId, p_taken: !!taken, p_force: !!force, p_actor_label: ownerLabel() }).then(function(r){
         if(r.error) throw r.error;
         return r.data || {};
       });
@@ -13132,6 +13148,7 @@ try {
   }
   function wireClose(){ var o = document.getElementById('pf-dose-sheet'); if(!o) return; o.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeSheet); }); }
   window.pfDoseOpen = openConfirm;
+  window.pfDoseInternals = { active: active, paid: paid, ownerLabel: ownerLabel, meds: meds, timesOf: timesOf, esc: esc, toast: toast, when: when };
 
   function doseIdFrom(url){ var m = /[#&?]dose=([0-9a-f-]{36})/i.exec(url || ''); return m ? m[1] : null; }
 
@@ -13172,4 +13189,241 @@ try {
   #pf-dose-sheet .pf-dose-secondary { margin-top: 10px; background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600; }
   #pf-dose-sheet .pf-dose-link { margin-top: 6px; background: none; border: none; color: #6b7280; padding: 10px; font-size: 14px; font-weight: 600; }
   #pf-dose-sheet button:disabled { opacity: 0.6; }
+</style>
+<script>
+/* === Pawfolio v3.31.0 — share doses with a sitter (Pawfolio Complete) ===
+   One sitter link covers every medication switched on here. The link's secret
+   stays in its #fragment; the server keeps only a hash. A sitter sees only the
+   shared medications' names, the pet's name and dose times, and can record
+   doses (sitter page: doses.html, server: pawfolio-dose-share). */
+(function(){
+  var KEY = 'pawfolioDoseShare';      // { groupId, token } for the link made on this phone
+  var open = false, group = null, members = [], loadedOnce = false;
+
+  function I(){ return window.pfDoseInternals || null; }
+  function readLocal(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } }
+  function writeLocal(v){ try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch(e){} }
+  function b64url(bytes){ var s = ''; for(var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  function sha256Hex(str){
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function sitterBase(){
+    var u = new URL(location.href), path = u.pathname;
+    if(/\/[^/]*\.[^/]*$/.test(path)) path = path.replace(/[^/]*$/, ''); else if(!path.endsWith('/')) path += '/';
+    return u.origin + path + 'doses.html';
+  }
+  function linkFor(token){ return sitterBase() + '#t=' + token; }
+
+  function sb(){ return typeof window.getSupabase === 'function' ? window.getSupabase() : Promise.resolve(null); }
+
+  function load(){
+    var i = I(); if(!i || !i.active() || !i.paid()) { render(); return Promise.resolve(); }
+    return sb().then(function(c){
+      if(!c) return;
+      return c.from('pawfolio_dose_groups').select('id, created_at').is('revoked_at', null).then(function(g){
+        group = (g.data && g.data[0]) || null;
+        var local = readLocal();
+        if(local && (!group || local.groupId !== group.id)) writeLocal(null);
+        if(!group){ members = []; return; }
+        return c.from('pawfolio_dose_members').select('id, label, joined_at, last_seen_at, endpoint')
+          .eq('group_id', group.id).is('removed_at', null).order('joined_at').then(function(m){
+            members = (m.data || []).map(function(r){ return { id: r.id, label: r.label, joined_at: r.joined_at, last_seen_at: r.last_seen_at, reminders: !!r.endpoint }; });
+          });
+      });
+    }).catch(function(){}).then(function(){ loadedOnce = true; render(); });
+  }
+
+  function resync(){
+    return sb().then(function(c){ if(c && typeof window.pfDoseSync === 'function') return window.pfDoseSync(c); });
+  }
+
+  function setShared(id, on){
+    var list = getList('medications');
+    var m = list.find(function(x){ return String(x.__id) === String(id); });
+    if(!m) return;
+    m.doseShared = !!on;
+    saveList('medications', list);
+    render();
+    if(typeof window.pfRenderMedications === 'function') window.pfRenderMedications();
+    resync();
+  }
+
+  function shareLink(token){
+    var i = I();
+    var url = linkFor(token);
+    var text = i.ownerLabel() + '\u2019s pet doses on Pawfolio \u2014 tap to open';
+    if(navigator.share){
+      return navigator.share({ title: 'Pet doses', text: text, url: url }).catch(function(e){
+        if(e && e.name === 'AbortError') return;
+        return copy(url);
+      });
+    }
+    return copy(url);
+  }
+  function copy(url){
+    var i = I();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(url).then(function(){ i.toast('Sitter link copied'); }, function(){ prompt('Copy this link for your sitter:', url); });
+    }
+    prompt('Copy this link for your sitter:', url);
+    return Promise.resolve();
+  }
+
+  function createLink(){
+    var i = I();
+    var token = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    return sha256Hex(token).then(function(hash){
+      return sb().then(function(c){
+        return c.from('pawfolio_dose_groups').insert({ owner_label: i.ownerLabel(), token_hash: hash }).select('id').single();
+      });
+    }).then(function(r){
+      if(r.error) throw r.error;
+      writeLocal({ groupId: r.data.id, token: token });
+      return load().then(function(){ return shareLink(token); });
+    }).catch(function(){ i.toast('Could not make the sitter link. Check your connection.'); });
+  }
+
+  function stopSharing(makeNew){
+    var i = I();
+    if(!group) return Promise.resolve();
+    return sb().then(function(c){
+      return c.from('pawfolio_dose_groups').update({ revoked_at: new Date().toISOString() }).eq('id', group.id);
+    }).then(function(r){
+      if(r && r.error) throw r.error;
+      writeLocal(null); group = null; members = [];
+      if(makeNew) return createLink();
+      i.toast('Sharing stopped. The old link no longer works.');
+      render();
+    }).catch(function(){ i.toast('Could not stop sharing. Check your connection.'); });
+  }
+
+  function removeMember(id){
+    return sb().then(function(c){
+      return c.from('pawfolio_dose_members').update({ removed_at: new Date().toISOString() }).eq('id', id);
+    }).then(function(){ return load(); });
+  }
+
+  function confirmStop(){
+    window.showConfirmModal({
+      title: 'Stop sharing doses?',
+      message: 'Your sitter link stops working right away. You can make a new one later.',
+      confirmLabel: 'Stop sharing', cancelLabel: 'Keep sharing', danger: true,
+      onConfirm: function(){ stopSharing(false); }
+    });
+  }
+
+  function sw(on, attrs){
+    return '<button type="button" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" ' + attrs +
+      ' style="flex:0 0 auto;background:' + (on ? '#5B5BD6' : '#d1d5db') + ';border:none;width:40px;height:22px;border-radius:11px;position:relative;cursor:pointer;">' +
+      '<span style="position:absolute;top:3px;' + (on ? 'right' : 'left') + ':3px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></button>';
+  }
+
+  function bodyHTML(){
+    var i = I();
+    if(!i.paid()){
+      return '<p class="font-body text-sm text-secondary">Your sitter sees what\u2019s due and records each dose from their phone. You both see who gave it.</p>' +
+             '<button type="button" class="pf-share-btn" data-act="unlock">Unlock Pawfolio Complete</button>';
+    }
+    if(!i.active()){
+      return '<p class="font-body text-sm text-secondary">Turn on Dose reminders first. Sharing uses the same dose times.</p>';
+    }
+    var list = i.meds().filter(function(m){ return i.timesOf(m).length; });
+    if(!list.length){
+      return '<p class="font-body text-sm text-secondary">Add dose times to a medication to share it.</p>';
+    }
+    var rows = list.map(function(m){
+      return '<div class="pf-share-row"><div style="flex:1;min-width:0;">' +
+               '<div class="font-body text-sm" style="font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;">' + i.esc(m.name || 'Medication') + '</div>' +
+               '<div class="font-body text-xs text-secondary">' + i.esc(m.petName || '') + '</div></div>' +
+               sw(!!m.doseShared, 'data-med="' + m.__id + '" aria-label="Share ' + i.esc(m.name || 'medication') + ' with sitter"') +
+             '</div>';
+    }).join('');
+    var anyShared = list.some(function(m){ return m.doseShared; });
+    var local = readLocal();
+    var link = '';
+    if(!loadedOnce){
+      link = '<p class="font-body text-xs text-secondary">Loading\u2026</p>';
+    } else if(!group){
+      link = anyShared ? '<button type="button" class="pf-share-btn" data-act="create">Create sitter link</button>'
+                       : '<p class="font-body text-xs text-secondary">Switch on a medication to make a sitter link.</p>';
+    } else {
+      link = (local && local.token
+                ? '<button type="button" class="pf-share-btn" data-act="send">Send sitter link</button>'
+                : '<p class="font-body text-xs text-secondary">This link was made on another phone.</p><button type="button" class="pf-share-btn" data-act="renew">Make a new link</button>') +
+             '<button type="button" class="pf-share-stop" data-act="stop">Stop sharing</button>';
+      if(members.length){
+        link += '<p class="font-body text-xs text-secondary" style="margin:12px 0 4px;font-weight:700;">Sitters</p>' + members.map(function(mb){
+          return '<div class="pf-share-row"><div style="flex:1;min-width:0;"><div class="font-body text-sm" style="font-weight:700;color:var(--text-primary);">' + i.esc(mb.label) + '</div>' +
+                 '<div class="font-body text-xs text-secondary">' + (mb.reminders ? 'Reminders on' : 'No reminders on their phone') + '</div></div>' +
+                 '<button type="button" class="pf-share-remove" data-member="' + mb.id + '">Remove</button></div>';
+        }).join('');
+      } else {
+        link += '<p class="font-body text-xs text-secondary" style="margin-top:10px;">No one has opened the link yet.</p>';
+      }
+    }
+    return rows +
+      '<div style="margin-top:12px;">' + link + '</div>' +
+      '<p class="font-body text-xs text-secondary" style="margin-top:12px;">Your sitter sees only these medications, your pet\u2019s name and dose times. Reminders can be delayed or silenced, so check the app if unsure.</p>';
+  }
+
+  function render(){
+    var host = document.getElementById('pf-dose-share');
+    if(!host){
+      var anchor = document.getElementById('pf-typectl-dose');
+      if(!anchor) return;
+      host = document.createElement('div');
+      host.id = 'pf-dose-share';
+      host.className = 'card mb-5';
+      host.style.cssText = 'padding:8px 12px;border-left:3px solid #5B5BD6;margin-top:8px;';
+      anchor.insertAdjacentElement('afterend', host);
+    }
+    var i = I(); if(!i) return;
+    host.innerHTML =
+      '<div id="pf-share-bar" role="button" tabindex="0" aria-expanded="' + open + '" style="display:flex;align-items:center;gap:8px;cursor:pointer;">' +
+        '<div class="font-heading text-sm font-bold text-primary" style="flex:1;min-width:0;line-height:1.2;">Share doses with a sitter</div>' +
+        '<span aria-hidden="true" style="flex:0 0 auto;font-size:20px;font-weight:bold;line-height:1;margin-left:10px;color:#64748b;transition:transform 0.15s;' + (open ? 'transform:rotate(90deg);' : '') + '">&#9656;</span>' +
+      '</div>' +
+      (open ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' + bodyHTML() + '</div>' : '');
+    var bar = host.querySelector('#pf-share-bar');
+    var toggle = function(){ open = !open; render(); if(open) load(); };
+    bar.addEventListener('click', toggle);
+    bar.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); } });
+    host.querySelectorAll('[data-med]').forEach(function(b){
+      b.addEventListener('click', function(){ setShared(b.getAttribute('data-med'), b.getAttribute('aria-checked') !== 'true'); });
+    });
+    host.querySelectorAll('[data-member]').forEach(function(b){
+      b.addEventListener('click', function(){ removeMember(b.getAttribute('data-member')); });
+    });
+    host.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var a = b.getAttribute('data-act');
+        if(a === 'unlock' && typeof window.pawfolioShowUnlock === 'function') window.pawfolioShowUnlock();
+        if(a === 'create') createLink();
+        if(a === 'send'){ var l = readLocal(); if(l && l.token) shareLink(l.token); }
+        if(a === 'renew') stopSharing(true);
+        if(a === 'stop') confirmStop();
+      });
+    });
+  }
+  window.pfDoseShareRender = function(){ render(); if(open) load(); };
+
+  function boot(){
+    if(!document.getElementById('pf-typectl-dose') || !I()) return setTimeout(boot, 150);
+    render();
+    // Repaint when the dose switch or the licence changes.
+    document.addEventListener('click', function(e){
+      if(e.target && e.target.closest && (e.target.closest('#pf-typetgl-dose') || e.target.closest('#pf-key-go'))) setTimeout(window.pfDoseShareRender, 1500);
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<style>
+  .pf-dose-shared { display: inline-block; margin-top: 8px; font-family: 'Karla', sans-serif; font-size: 12px; font-weight: 700; color: #4338ca; background: rgba(91,91,214,0.10); border-radius: 999px; padding: 3px 10px; }
+  .pf-share-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-color, #e5e7eb); }
+  .pf-share-btn { display: block; width: 100%; margin-top: 8px; background: #5B5BD6; color: #fff; border: none; border-radius: 10px; padding: 11px; font-family: 'Karla', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .pf-share-stop { display: block; width: 100%; margin-top: 6px; background: none; border: none; color: #c53030; padding: 8px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .pf-share-remove { flex: 0 0 auto; background: none; border: 1px solid var(--border-color, #d1d5db); color: var(--text-primary); border-radius: 8px; padding: 6px 12px; font-family: 'Karla', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
 </style>
