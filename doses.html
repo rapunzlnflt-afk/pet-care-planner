@@ -61,6 +61,9 @@
     #sheet .link{ display:block; width:100%; margin-top:4px; }
     @media (min-width:640px){ #sheet{ align-items:center; } #sheet .in{ border-radius:16px; } }
     button:disabled{ opacity:0.6; }
+    .early{ background:none; border:none; padding:6px 0 0; color:var(--accent-dark); font-size:15px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
+    .undo{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#1f2937; color:#fff; border-radius:10px; padding:7px 7px 7px 14px; margin-bottom:12px; font-size:15px; font-weight:700; }
+    .undo button{ flex:0 0 auto; background:none; border:1px solid rgba(255,255,255,0.5); color:#fff; border-radius:8px; padding:6px 16px; font-size:15px; font-weight:700; }
   </style>
 </head>
 <body>
@@ -72,7 +75,8 @@
     var VAPID = 'BCc_bFqs1a5CZ6ep5bFyjk1zoIodRggwwxpD6GXBPmLEm32IDLYOtUYwdZtzfBnPlNsVQtRt8UqpO_tX-i5532I';
     var KEY_TOKEN = 'pawfolioSitterToken', KEY_DEVICE = 'pawfolioSitterDevice', KEY_PUSH = 'pawfolioSitterPush';
     var app = document.getElementById('app');
-    var data = null, member = null;
+    var data = null, member = null, tick = null;
+    var OPEN_BEFORE_MS = 90 * 60000, UNDO_MS = 5 * 60000;
 
     function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function ls(k, v){ try { if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch(e){ return null; } }
@@ -182,13 +186,19 @@
         html += '<div class="card"><p class="muted" style="margin:0;">No doses are shared right now.</p></div>';
       }
       meds.forEach(function(m){
-        html += '<div class="card med"><h2>' + esc(m.label) + '</h2>' + (m.pet ? '<div class="pet">for ' + esc(m.pet) + '</div>' : '') +
+        var u = (m.history || []).filter(function(e){ return e.can_undo && e.logged_at && Date.now() - new Date(e.logged_at).getTime() < UNDO_MS; })[0];
+        html += '<div class="card med">' +
+                (u ? '<div class="undo"><span>' + (u.status === 'taken' ? 'Given ' + esc(clock(new Date(u.taken_at))) : 'Skipped') + '</span><button type="button" data-undo="' + u.id + '">Undo</button></div>' : '') +
+                '<h2>' + esc(m.label) + '</h2>' + (m.pet ? '<div class="pet">for ' + esc(m.pet) + '</div>' : '') +
                 (m.times && m.times.length ? '<div class="times">Doses: ' + m.times.map(fmtTime).map(esc).join(', ') + '</div>' : '');
         if(m.pending){
           var due = new Date(m.pending.due_at), late = due.getTime() <= Date.now();
+          var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
           html += '<div class="due' + (late ? ' late' : '') + '">' + (late ? 'Due now \u00b7 <span class="nowrap">' + esc(clock(due)) + '</span>' : 'Next dose: <span class="nowrap">' + esc(when(due)) + '</span>') + '</div>' +
-                  '<div class="btns"><button type="button" class="primary" data-log="' + m.pending.id + '" data-taken="1">\u2713 Given</button>' +
-                  '<button type="button" class="secondary" data-log="' + m.pending.id + '" data-taken="0">Skip</button></div>';
+                  (open
+                    ? '<div class="btns"><button type="button" class="primary" data-log="' + m.pending.id + '" data-taken="1">\u2713 Given</button>' +
+                      '<button type="button" class="secondary" data-log="' + m.pending.id + '" data-taken="0">Skip</button></div>'
+                    : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
         } else {
           html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
         }
@@ -205,12 +215,42 @@
       app.querySelectorAll('[data-log]').forEach(function(b){
         b.addEventListener('click', function(){ log(b.getAttribute('data-log'), b.getAttribute('data-taken') === '1', false); });
       });
+      app.querySelectorAll('[data-early]').forEach(function(b){
+        b.addEventListener('click', function(){
+          if(confirm('This dose isn\u2019t due until ' + when(new Date(b.getAttribute('data-due'))) + '. Only give it early if the owner or vet says that\u2019s okay. Give it now?')) log(b.getAttribute('data-early'), true, false);
+        });
+      });
+      app.querySelectorAll('[data-undo]').forEach(function(b){
+        b.addEventListener('click', function(){ undo(b.getAttribute('data-undo')); });
+      });
+      scheduleTick();
       var on = document.getElementById('pushon'); if(on) on.onclick = turnOnPush;
       var off = document.getElementById('pushoff'); if(off) off.onclick = turnOffPush;
       document.getElementById('leave').onclick = function(){
         if(!confirm('Stop getting these doses on this phone?')) return;
         call('leave').then(function(){ ls(KEY_TOKEN, null); ls(KEY_PUSH, null); app.innerHTML = header('You\u2019re all set') + '<div class="wrap"><div class="card"><p class="muted" style="margin:0;">You won\u2019t see these doses here any more.</p></div></div>'; });
       };
+    }
+
+    // Repaint when a dose's buttons appear or an Undo runs out.
+    function scheduleTick(){
+      if(tick){ clearTimeout(tick); tick = null; }
+      var now = Date.now(), soonest = Infinity;
+      (data && data.meds || []).forEach(function(m){
+        if(m.pending){ var o = new Date(m.pending.due_at).getTime() - OPEN_BEFORE_MS; if(o > now) soonest = Math.min(soonest, o); }
+        (m.history || []).forEach(function(e){ if(e.can_undo && e.logged_at){ var x = new Date(e.logged_at).getTime() + UNDO_MS; if(x > now) soonest = Math.min(soonest, x); } });
+      });
+      if(soonest < Infinity) tick = setTimeout(render, Math.min(soonest - now + 500, 2147000000));
+    }
+
+    function undo(id){
+      return call('undo', { event_id: id }).then(function(r){
+        if(r.error === 'link_inactive') { showInactive(); return; }
+        if(r.state) data = r.state;
+        var o = (r.result || {}).outcome;
+        toast(o === 'undone' ? 'Undone' : o === 'too_late' ? 'Too late to undo' : r.error ? 'Could not undo. Try again.' : 'Nothing to undo');
+        render();
+      }, function(){ toast('Could not undo. Check your connection.'); });
     }
 
     function findEvent(id){
@@ -237,8 +277,6 @@
         }
         if(res.outcome === 'already_logged'){
           toast(res.status === 'taken' && res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + res.actor_label : '') + ' ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
-        } else if(res.outcome === 'logged'){
-          toast(taken ? 'Given ' + clock(new Date(res.taken_at)) : 'Skipped');
         } else if(r.error){
           toast('Could not record the dose. Try again.');
         }
@@ -274,7 +312,10 @@
             ? (res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + esc(res.actor_label) : '') + ' ' + esc(when(new Date(res.taken_at))) + '.' : 'This dose was already recorded.')
             : (taken ? 'Given ' + esc(clock(new Date(res.taken_at))) + '.' : 'Skipped.');
           var nxt = res.next_due_at ? '<p class="muted">Next dose ' + esc(when(new Date(res.next_due_at))) + '</p>' : '';
-          sheet(head + '<p class="status">' + msg + '</p>' + nxt + '<button type="button" class="secondary" data-close>Done</button>');
+          var s2 = sheet(head + '<p class="status">' + msg + '</p>' + nxt + '<button type="button" class="secondary" data-close>Done</button>' +
+            (res.outcome === 'logged' ? '<button type="button" class="link" id="sundo">Undo</button>' : ''));
+          var ub = document.getElementById('sundo');
+          if(ub) ub.onclick = function(){ closeSheet(); undo(ev.id); };
         });
       }
       document.getElementById('sg').onclick = function(){ done(true); };

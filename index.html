@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.31.0">
+                          <meta name="app-version" content="3.32.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -12828,7 +12828,12 @@ try {
    only where dose times already went to the server before this version. */
 (function(){
   var KEY_SIG = 'pawfolioDoseSigs';
-  var state = {};          // source_id -> { scheduleId, pending, lastTaken }
+  var state = {};          // source_id -> { scheduleId, pending, lastTaken, lastLogged }
+  // Given/Skip show from 90 minutes before a dose is due; earlier needs "Give early".
+  var OPEN_BEFORE_MS = 90 * 60000;
+  // Undo stays available this long after Given or Skip (matches the server).
+  var UNDO_MS = 5 * 60000;
+  var tick = null;
   var loaded = false;
 
   function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -12985,16 +12990,17 @@ try {
         var ids = s.data.map(function(r){ return r.id; });
         var bySched = {}; s.data.forEach(function(r){ bySched[r.id] = Number(r.source_id); });
         if(!ids.length){ state = {}; loaded = true; rerender(); return; }
-        return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at, actor_label, actor_member')
-          .in('schedule_id', ids).in('status', ['pending', 'taken']).order('due_at', { ascending: false }).limit(300)
+        return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at, logged_at, actor_label, actor_member')
+          .in('schedule_id', ids).in('status', ['pending', 'taken', 'skipped']).order('due_at', { ascending: false }).limit(300)
           .then(function(ev){
             if(ev.error) return;
             var next = {};
-            ids.forEach(function(id){ next[bySched[id]] = { scheduleId: id, pending: null, lastTaken: null }; });
+            ids.forEach(function(id){ next[bySched[id]] = { scheduleId: id, pending: null, lastTaken: null, lastLogged: null }; });
             (ev.data || []).forEach(function(e){
               var st = next[bySched[e.schedule_id]]; if(!st) return;
-              if(e.status === 'pending') st.pending = e;
-              else if(!st.lastTaken || e.taken_at > st.lastTaken.taken_at) st.lastTaken = e;
+              if(e.status === 'pending') { st.pending = e; return; }
+              if(e.status === 'taken' && (!st.lastTaken || e.taken_at > st.lastTaken.taken_at)) st.lastTaken = e;
+              if(e.logged_at && (!st.lastLogged || e.logged_at > st.lastLogged.logged_at)) st.lastLogged = e;
             });
             state = next; loaded = true; rerender();
           });
@@ -13003,7 +13009,25 @@ try {
   }
   window.pfDoseRefresh = function(){ return refresh(); };
 
-  function rerender(){ if(typeof window.pfRenderMedications === 'function'){ try { window.pfRenderMedications(); } catch(e){} } }
+  function rerender(){
+    if(typeof window.pfRenderMedications === 'function'){ try { window.pfRenderMedications(); } catch(e){} }
+    scheduleTick();
+  }
+  // Repaint exactly when a card changes on its own: a dose's buttons appear,
+  // or an Undo runs out.
+  function scheduleTick(){
+    if(tick){ clearTimeout(tick); tick = null; }
+    var now = Date.now(), soonest = Infinity;
+    Object.keys(state).forEach(function(k){
+      var st = state[k];
+      if(st.pending){ var open = new Date(st.pending.due_at).getTime() - OPEN_BEFORE_MS; if(open > now) soonest = Math.min(soonest, open); }
+      if(st.lastLogged){ var end = new Date(st.lastLogged.logged_at).getTime() + UNDO_MS; if(end > now) soonest = Math.min(soonest, end); }
+    });
+    if(soonest < Infinity) tick = setTimeout(rerender, Math.min(soonest - now + 500, 2147000000));
+  }
+  function undoable(st){
+    return st && st.lastLogged && (Date.now() - new Date(st.lastLogged.logged_at).getTime()) < UNDO_MS ? st.lastLogged : null;
+  }
 
   // ---- medication card ----
   window.pfDoseCardHTML = function(m){
@@ -13015,15 +13039,26 @@ try {
     var st = state[m.__id];
     if(!st){ return loaded ? '' : '<p class="font-body text-xs text-secondary mt-2">Loading ' + noun + 's…</p>'; }
     var html = '<div class="pf-dose-box">';
+    var u = undoable(st);
+    if(u){
+      var uw = u.status === 'taken' ? 'Given ' + clock(new Date(u.taken_at)) : 'Skipped';
+      html += '<div class="pf-dose-undo"><span>' + uw + '</span>' +
+              '<button type="button" onclick="pfDoseUndo(\'' + u.id + '\')">Undo</button></div>';
+    }
     if(st.pending){
       var due = new Date(st.pending.due_at);
       var late = due.getTime() <= Date.now();
+      var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
       html += '<p class="font-body text-sm" style="font-weight:700;' + (late ? 'color:#b45309;' : 'color:var(--text-primary);') + '">' +
-              (late ? 'Due now · <span style="white-space:nowrap;">' + clock(due) + '</span>' : 'Next ' + noun + ': <span style="white-space:nowrap;">' + when(due) + '</span>') + '</p>' +
-              '<div class="pf-dose-btns">' +
-                '<button type="button" class="pf-dose-given" onclick="pfDoseLog(\'' + st.pending.id + '\', true)">✓ Given</button>' +
-                '<button type="button" class="pf-dose-skip" onclick="pfDoseLog(\'' + st.pending.id + '\', false)">Skip</button>' +
-              '</div>';
+              (late ? 'Due now · <span style="white-space:nowrap;">' + clock(due) + '</span>' : 'Next ' + noun + ': <span style="white-space:nowrap;">' + when(due) + '</span>') + '</p>';
+      if(open){
+        html += '<div class="pf-dose-btns">' +
+                  '<button type="button" class="pf-dose-given" onclick="pfDoseLog(\'' + st.pending.id + '\', true)">✓ Given</button>' +
+                  '<button type="button" class="pf-dose-skip" onclick="pfDoseLog(\'' + st.pending.id + '\', false)">Skip</button>' +
+                '</div>';
+      } else {
+        html += '<button type="button" class="pf-dose-early" onclick="pfDoseEarly(\'' + st.pending.id + '\', \'' + st.pending.due_at + '\')">Give early</button>';
+      }
     } else {
       html += '<p class="font-body text-sm text-secondary">No more ' + noun + 's scheduled.</p>';
     }
@@ -13071,14 +13106,33 @@ try {
       }
       if(res.outcome === 'already_logged'){
         toast(res.status === 'taken' && res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
-      } else if(res.outcome === 'logged'){
-        toast(taken ? 'Given ' + clock(new Date(res.taken_at)) : 'Skipped');
       }
+      // A logged dose shows its own "Given 2:14 PM · Undo" bar on the card.
       return refresh().then(function(){ return res; });
     }).catch(function(err){
       toast('Could not record the dose. Check your connection and try again.');
       throw err;
     });
+  };
+
+  window.pfDoseEarly = function(eventId, dueAt){
+    window.showConfirmModal({
+      title: 'Give this dose early?',
+      message: 'It isn\u2019t due until ' + when(new Date(dueAt)) + '. Only give it early if your vet says that\u2019s okay.',
+      confirmLabel: 'Give now', cancelLabel: 'Cancel',
+      onConfirm: function(){ window.pfDoseLog(eventId, true); }
+    });
+  };
+
+  window.pfDoseUndo = function(eventId){
+    return window.getSupabase().then(function(sb){
+      return sb.rpc('pawfolio_undo_dose', { p_event_id: eventId });
+    }).then(function(r){
+      if(r.error) throw r.error;
+      var o = (r.data || {}).outcome;
+      toast(o === 'undone' ? 'Undone' : o === 'too_late' ? 'Too late to undo' : 'Nothing to undo');
+      return refresh();
+    }).catch(function(){ toast('Could not undo. Check your connection and try again.'); });
   };
 
   // ---- one-tap confirm screen, opened from a dose notification ----
@@ -13134,8 +13188,12 @@ try {
             ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) + '.' : 'This dose was already recorded.')
             : (taken ? 'Given ' + clock(new Date(res.taken_at)) + '.' : 'Skipped.');
           var nxt = res.next_due_at ? '<p class="pf-dose-muted">Next dose ' + when(new Date(res.next_due_at)) + '</p>' : '';
-          sheet(head + '<p class="pf-dose-status">' + msg + '</p>' + nxt + '<button type="button" class="pf-dose-secondary" data-close>Done</button>');
+          var canUndo = res.outcome === 'logged';
+          var ov2 = sheet(head + '<p class="pf-dose-status">' + msg + '</p>' + nxt + '<button type="button" class="pf-dose-secondary" data-close>Done</button>' +
+                (canUndo ? '<button type="button" class="pf-dose-link" data-undo>Undo</button>' : ''));
           wireClose();
+          var ub = ov2.querySelector('[data-undo]');
+          if(ub) ub.addEventListener('click', function(){ closeSheet(); window.pfDoseUndo(ev.id); });
         }, function(){ ov.querySelectorAll('button').forEach(function(b){ b.disabled = false; }); });
       }
       ov.querySelector('[data-given]').addEventListener('click', function(){ done(true); });
@@ -13176,6 +13234,9 @@ try {
   .pf-dose-btns button { font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; min-height: 40px; }
   .pf-dose-given { background: #5B5BD6; color: #fff; border: 1px solid #5B5BD6; }
   .pf-dose-skip { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
+  .pf-dose-early { display: inline-block; margin-top: 6px; background: none; border: none; padding: 4px 0; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; color: #4338ca; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .pf-dose-undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #1f2937; color: #fff; border-radius: 8px; padding: 6px 6px 6px 12px; margin-bottom: 8px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; }
+  .pf-dose-undo button { flex: 0 0 auto; background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 6px; padding: 5px 14px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
   .pf-dose-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 10003; max-width: calc(100% - 32px); text-align: center; }
   #pf-dose-sheet { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10002; display: flex; align-items: flex-end; justify-content: center; }
   #pf-dose-sheet .pf-dose-card { background: #fff; width: 100%; max-width: 420px; border-radius: 16px 16px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.25); }
