@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Pet doses — Pawfolio</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pawfolio">
+  <meta property="og:title" content="Pet doses — Pawfolio">
+  <meta property="og:description" content="Tap to see what's due and record each dose.">
+  <meta property="og:image" content="https://cleartrackapps.com/pet-care-planner/icon-192.png">
+  <meta name="theme-color" content="#5B5BD6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pet doses">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" href="./icon-192.png">
+  <link rel="manifest" href="./doses.webmanifest">
+  <style>
+    :root{ --accent:#5B5BD6; --accent-dark:#4C4CC8; --ink:#1f2733; --muted:#64748b; --line:#e6e8ef; --bg:#f6f7fb; --card:#ffffff; --late:#b45309; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.5; }
+    header{ background:linear-gradient(135deg,var(--accent),var(--accent-dark)); color:#fff; padding:calc(18px + env(safe-area-inset-top)) 20px 20px; border-radius:0 0 18px 18px; }
+    .brand{ font-size:13px; opacity:0.95; display:flex; align-items:center; gap:8px; }
+    .brand img{ border-radius:6px; }
+    header h1{ margin:8px 0 0; font-size:22px; font-weight:800; line-height:1.25; }
+    header .sub{ font-size:14px; opacity:0.92; margin-top:2px; }
+    .wrap{ max-width:560px; margin:0 auto; padding:0 16px 40px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
+    .med h2{ margin:0; font-size:19px; font-weight:800; overflow-wrap:anywhere; }
+    .pet{ font-size:14px; color:var(--muted); margin-top:1px; }
+    .times{ font-size:13px; color:var(--muted); margin-top:4px; }
+    .due{ margin-top:12px; font-size:16px; font-weight:800; }
+    .due.late{ color:var(--late); }
+    .nowrap{ white-space:nowrap; }
+    .btns{ display:flex; gap:8px; margin-top:10px; }
+    button{ font-family:inherit; cursor:pointer; }
+    .primary{ flex:1; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:13px; font-size:16px; font-weight:800; }
+    .secondary{ flex:0 0 auto; background:#fff; color:var(--ink); border:1px solid #d1d5db; border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; }
+    .block{ display:block; width:100%; margin-top:10px; }
+    .link{ background:none; border:none; color:var(--muted); font-size:14px; font-weight:700; padding:10px; }
+    .hist{ margin:14px 0 0; padding:0; list-style:none; border-top:1px solid var(--line); }
+    .hist li{ font-size:14px; padding:7px 0; border-bottom:1px solid var(--line); display:flex; gap:8px; justify-content:space-between; }
+    .hist li span:last-child{ color:var(--muted); text-align:right; }
+    .missed{ color:var(--late); font-weight:700; }
+    label{ display:block; font-size:14px; font-weight:700; margin-top:12px; }
+    input{ width:100%; font-size:17px; padding:12px; border:1px solid #cbd5e1; border-radius:10px; margin-top:6px; font-family:inherit; }
+    .muted{ color:var(--muted); font-size:14px; }
+    .small{ font-size:13px; }
+    .err{ color:#b91c1c; font-size:14px; margin-top:8px; }
+    .foot{ text-align:center; margin-top:22px; }
+    .toast{ position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:#1f2937; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; font-weight:700; z-index:30; max-width:calc(100% - 32px); text-align:center; }
+    #sheet{ position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20; display:flex; align-items:flex-end; justify-content:center; }
+    #sheet .in{ background:#fff; width:100%; max-width:420px; border-radius:16px 16px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); }
+    #sheet h2{ margin:0; font-size:22px; font-weight:800; overflow-wrap:anywhere; }
+    #sheet .status{ font-size:16px; font-weight:800; margin-top:14px; }
+    #sheet .primary{ display:block; width:100%; margin-top:18px; padding:15px; font-size:17px; }
+    #sheet .secondary{ display:block; width:100%; margin-top:10px; }
+    #sheet .link{ display:block; width:100%; margin-top:4px; }
+    @media (min-width:640px){ #sheet{ align-items:center; } #sheet .in{ border-radius:16px; } }
+    button:disabled{ opacity:0.6; }
+  </style>
+</head>
+<body>
+  <div id="app"><header><div class="brand"><img src="./icon-192.png" alt="" width="24" height="24"><span>Pawfolio &bull; Pet doses</span></div><h1>Loading…</h1></header></div>
+  <script>
+  (function(){
+    var FN = 'https://mpanuzarzcfgjbheepmj.supabase.co/functions/v1/pawfolio-dose-share';
+    var ANON = 'sb_publishable_gQ7s_Xuxnn9aYiJmaa6K_w_RYXbQRUk';
+    var VAPID = 'BCc_bFqs1a5CZ6ep5bFyjk1zoIodRggwwxpD6GXBPmLEm32IDLYOtUYwdZtzfBnPlNsVQtRt8UqpO_tX-i5532I';
+    var KEY_TOKEN = 'pawfolioSitterToken', KEY_DEVICE = 'pawfolioSitterDevice', KEY_PUSH = 'pawfolioSitterPush';
+    var app = document.getElementById('app');
+    var data = null, member = null;
+
+    function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+    function ls(k, v){ try { if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch(e){ return null; } }
+    function tz(){ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch(e){ return 'UTC'; } }
+    function clock(d){ return d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }); }
+    function dayWord(d){
+      var a = new Date(); a.setHours(0,0,0,0); var b = new Date(d); b.setHours(0,0,0,0);
+      var diff = Math.round((b - a) / 86400000);
+      if(diff === 0) return 'today'; if(diff === 1) return 'tomorrow'; if(diff === -1) return 'yesterday';
+      return d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
+    }
+    function when(d){ return dayWord(d) + ' at ' + clock(d); }
+    function fmtTime(t){ var p = String(t).split(':'); var h = +p[0]; return (((h + 11) % 12) + 1) + ':' + p[1] + ' ' + (h >= 12 ? 'PM' : 'AM'); }
+    function toast(msg){ var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3200); }
+
+    function deviceId(){
+      var id = ls(KEY_DEVICE);
+      if(!id){ id = (crypto.randomUUID ? crypto.randomUUID() : 'sit-' + Date.now() + '-' + Math.random().toString(36).slice(2)); ls(KEY_DEVICE, id); }
+      return id;
+    }
+    // The share secret arrives in the #fragment (never sent to a server by the
+    // browser). It is kept on this phone so the Home Screen copy keeps working.
+    function hashParam(name){ var m = new RegExp('(?:^|[#&])' + name + '=([^&]+)').exec(location.hash || ''); return m ? decodeURIComponent(m[1]) : ''; }
+    function token(){ var t = hashParam('t'); if(t){ ls(KEY_TOKEN, t); } return t || ls(KEY_TOKEN) || ''; }
+    function tokenFrom(text){ var m = /[#&]t=([A-Za-z0-9_-]{20,})/.exec(text || ''); return m ? m[1] : ''; }
+
+    function call(action, extra){
+      var body = Object.assign({ action: action, token: token(), device_id: deviceId() }, extra || {});
+      return fetch(FN, { method:'POST', headers:{ 'content-type':'application/json', apikey: ANON }, body: JSON.stringify(body) })
+        .then(function(r){ return r.json().then(function(j){ j.__status = r.status; return j; }); });
+    }
+
+    function header(title, sub){
+      return '<header><div class="brand"><img src="./icon-192.png" alt="" width="24" height="24"><span>Pawfolio &bull; Pet doses</span></div>' +
+             '<h1>' + title + '</h1>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</header>';
+    }
+
+    function showPaste(msg){
+      app.innerHTML = header('Open your dose link') + '<div class="wrap"><div class="card">' +
+        '<p class="muted" style="margin:0;">' + (msg || 'Paste the link you were sent to see the doses here.') + '</p>' +
+        '<label for="paste">Link</label><input id="paste" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://cleartrackapps.com/…">' +
+        '<button type="button" class="primary block" id="go">Open</button><p class="err" id="err"></p></div></div>';
+      document.getElementById('go').onclick = function(){
+        var t = tokenFrom(document.getElementById('paste').value);
+        if(!t){ document.getElementById('err').textContent = 'That doesn\u2019t look like a dose link.'; return; }
+        ls(KEY_TOKEN, t); start();
+      };
+    }
+
+    function showInactive(){
+      ls(KEY_TOKEN, null);
+      app.innerHTML = header('This link is turned off') + '<div class="wrap"><div class="card"><p class="muted" style="margin:0;">Sharing was stopped or the link expired. Ask for a new link if you\u2019re still helping.</p></div></div>';
+    }
+
+    function showJoin(){
+      app.innerHTML = header('Pet doses', 'Someone shared their pet\u2019s doses with you') + '<div class="wrap"><div class="card">' +
+        '<p class="muted" style="margin:0;">You\u2019ll see what\u2019s due and can record each dose. Your name shows next to doses you record.</p>' +
+        '<label for="name">Your first name</label><input id="name" autocomplete="given-name" maxlength="40" placeholder="e.g. Dana">' +
+        '<button type="button" class="primary block" id="join">Continue</button><p class="err" id="err"></p></div></div>';
+      var go = document.getElementById('join');
+      go.onclick = function(){
+        var name = document.getElementById('name').value.trim();
+        if(!name){ document.getElementById('err').textContent = 'Enter your first name.'; return; }
+        go.disabled = true;
+        call('join', { label: name, timezone: tz() }).then(function(r){
+          go.disabled = false;
+          if(r.error === 'link_inactive') return showInactive();
+          if(r.error){ document.getElementById('err').textContent = 'Could not join. Check your connection and try again.'; return; }
+          member = r.member; data = r.state; render();
+        }, function(){ go.disabled = false; document.getElementById('err').textContent = 'Could not join. Check your connection and try again.'; });
+      };
+    }
+
+    function histLine(e){
+      var t = new Date(e.taken_at || e.logged_at || e.due_at);
+      if(e.status === 'taken') return '<li><span>Given' + (e.actor_label ? ' by ' + esc(e.actor_label) : '') + '</span><span>' + esc(when(t)) + '</span></li>';
+      if(e.status === 'skipped') return '<li><span>Skipped' + (e.actor_label ? ' by ' + esc(e.actor_label) : '') + '</span><span>' + esc(when(new Date(e.logged_at || e.due_at))) + '</span></li>';
+      return '<li><span class="missed">Not recorded</span><span>due ' + esc(when(new Date(e.due_at))) + '</span></li>';
+    }
+
+    function pushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+    function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+    function standalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+
+    function remindersHTML(){
+      if(ls(KEY_PUSH) === '1'){
+        return '<p style="margin:0;font-weight:800;">Reminders are on for this phone</p><p class="muted small" style="margin:4px 0 0;">Reminders can be delayed or silenced, so check here if you\u2019re unsure.</p>' +
+               '<button type="button" class="link" id="pushoff" style="padding-left:0;">Turn off reminders</button>';
+      }
+      if(isIOS() && !standalone()){
+        return '<p style="margin:0;font-weight:800;">Get a reminder when a dose is due</p>' +
+               '<p class="muted" style="margin:6px 0 0;">On iPhone, add this page to your Home Screen first: tap the Share button, then <strong>Add to Home Screen</strong>. Open it from there and turn reminders on.</p>';
+      }
+      if(!pushSupported()){
+        return '<p class="muted" style="margin:0;">This browser can\u2019t show reminders. You can still check and record doses here.</p>';
+      }
+      return '<p style="margin:0;font-weight:800;">Get a reminder when a dose is due</p><button type="button" class="primary block" id="pushon">Turn on reminders</button><p class="err" id="perr"></p>';
+    }
+
+    function render(){
+      if(!data) return;
+      var meds = data.meds || [];
+      var who = data.owner ? esc(data.owner) + '\u2019s pets' : 'Pet doses';
+      var html = header(who, member ? 'Signed in as ' + esc(member.label) : '');
+      html += '<div class="wrap">';
+      if(!meds.length){
+        html += '<div class="card"><p class="muted" style="margin:0;">No doses are shared right now.</p></div>';
+      }
+      meds.forEach(function(m){
+        html += '<div class="card med"><h2>' + esc(m.label) + '</h2>' + (m.pet ? '<div class="pet">for ' + esc(m.pet) + '</div>' : '') +
+                (m.times && m.times.length ? '<div class="times">Doses: ' + m.times.map(fmtTime).map(esc).join(', ') + '</div>' : '');
+        if(m.pending){
+          var due = new Date(m.pending.due_at), late = due.getTime() <= Date.now();
+          html += '<div class="due' + (late ? ' late' : '') + '">' + (late ? 'Due now \u00b7 <span class="nowrap">' + esc(clock(due)) + '</span>' : 'Next dose: <span class="nowrap">' + esc(when(due)) + '</span>') + '</div>' +
+                  '<div class="btns"><button type="button" class="primary" data-log="' + m.pending.id + '" data-taken="1">\u2713 Given</button>' +
+                  '<button type="button" class="secondary" data-log="' + m.pending.id + '" data-taken="0">Skip</button></div>';
+        } else {
+          html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
+        }
+        var hist = (m.history || []).slice(0, 5);
+        if(hist.length) html += '<ul class="hist">' + hist.map(histLine).join('') + '</ul>';
+        html += '</div>';
+      });
+      html += '<div class="card">' + remindersHTML() + '</div>';
+      html += '<div class="foot"><button type="button" class="link" id="leave">Stop getting these doses</button>' +
+              '<p class="muted small" style="margin:6px 0 0;">Shared from <strong>Pawfolio</strong> by CleartrackApps. You see only the doses shared with you.</p></div>';
+      html += '</div>';
+      app.innerHTML = html;
+      document.title = (data.owner ? data.owner + '\u2019s pet doses' : 'Pet doses') + ' — Pawfolio';
+      app.querySelectorAll('[data-log]').forEach(function(b){
+        b.addEventListener('click', function(){ log(b.getAttribute('data-log'), b.getAttribute('data-taken') === '1', false); });
+      });
+      var on = document.getElementById('pushon'); if(on) on.onclick = turnOnPush;
+      var off = document.getElementById('pushoff'); if(off) off.onclick = turnOffPush;
+      document.getElementById('leave').onclick = function(){
+        if(!confirm('Stop getting these doses on this phone?')) return;
+        call('leave').then(function(){ ls(KEY_TOKEN, null); ls(KEY_PUSH, null); app.innerHTML = header('You\u2019re all set') + '<div class="wrap"><div class="card"><p class="muted" style="margin:0;">You won\u2019t see these doses here any more.</p></div></div>'; });
+      };
+    }
+
+    function findEvent(id){
+      var out = null;
+      (data && data.meds || []).forEach(function(m){
+        if(m.pending && m.pending.id === id) out = { med: m, ev: m.pending };
+        (m.history || []).forEach(function(e){ if(e.id === id) out = { med: m, ev: e }; });
+      });
+      return out;
+    }
+
+    function log(id, taken, force){
+      app.querySelectorAll('[data-log]').forEach(function(b){ b.disabled = true; });
+      return call('log', { event_id: id, taken: taken, force: force }).then(function(r){
+        if(r.error === 'link_inactive') { showInactive(); return null; }
+        if(r.state) data = r.state;
+        var res = r.result || {};
+        if(res.outcome === 'too_soon'){
+          var mins = res.minutes_ago || 0;
+          var ago = mins < 1 ? 'just now' : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago' : (Math.round(mins / 6) / 10) + ' hours ago';
+          render();
+          if(confirm('A dose was already given ' + ago + '. Record another one now?')) return log(id, taken, true);
+          return res;
+        }
+        if(res.outcome === 'already_logged'){
+          toast(res.status === 'taken' && res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + res.actor_label : '') + ' ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
+        } else if(res.outcome === 'logged'){
+          toast(taken ? 'Given ' + clock(new Date(res.taken_at)) : 'Skipped');
+        } else if(r.error){
+          toast('Could not record the dose. Try again.');
+        }
+        render();
+        return res;
+      }, function(){ toast('Could not record the dose. Check your connection.'); render(); return null; });
+    }
+
+    // One-tap confirm, opened from a reminder (doses.html#dose=<id>).
+    function closeSheet(){ var s = document.getElementById('sheet'); if(s) s.remove(); }
+    function sheet(inner){ closeSheet(); var s = document.createElement('div'); s.id = 'sheet'; s.innerHTML = '<div class="in" role="dialog" aria-modal="true">' + inner + '</div>'; s.addEventListener('click', function(e){ if(e.target === s) closeSheet(); }); document.body.appendChild(s); s.querySelectorAll('[data-close]').forEach(function(b){ b.onclick = closeSheet; }); return s; }
+    function openConfirm(id){
+      try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+      var f = findEvent(id);
+      if(!f){ sheet('<h2>Dose not found</h2><p class="muted">It may have been changed.</p><button type="button" class="secondary" data-close>Close</button>'); return; }
+      var head = '<h2>' + esc(f.med.label) + '</h2>' + (f.med.pet ? '<div class="pet">for ' + esc(f.med.pet) + '</div>' : '');
+      var ev = f.ev;
+      if(ev.status && ev.status !== 'pending'){
+        var what = ev.status === 'taken' ? 'Already given' + (ev.actor_label ? ' by ' + esc(ev.actor_label) : '') + ' ' + esc(when(new Date(ev.taken_at))) + '.'
+                 : ev.status === 'skipped' ? 'This dose was skipped' + (ev.actor_label ? ' by ' + esc(ev.actor_label) : '') + '.' : 'This dose wasn\u2019t recorded in time.';
+        sheet(head + '<p class="status">' + what + '</p><button type="button" class="secondary" data-close>Close</button>');
+        return;
+      }
+      var s = sheet(head + '<p class="muted">Due ' + esc(when(new Date(ev.due_at))) + '</p>' +
+        '<button type="button" class="primary" id="sg">Given at ' + esc(clock(new Date())) + '</button>' +
+        '<button type="button" class="secondary" id="ss">Skip this dose</button>' +
+        '<button type="button" class="link" data-close>Not now</button>');
+      function done(taken){
+        s.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+        log(ev.id, taken, false).then(function(res){
+          if(!res || res.outcome === 'too_soon'){ closeSheet(); return; }
+          var msg = res.outcome === 'already_logged'
+            ? (res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + esc(res.actor_label) : '') + ' ' + esc(when(new Date(res.taken_at))) + '.' : 'This dose was already recorded.')
+            : (taken ? 'Given ' + esc(clock(new Date(res.taken_at))) + '.' : 'Skipped.');
+          var nxt = res.next_due_at ? '<p class="muted">Next dose ' + esc(when(new Date(res.next_due_at))) + '</p>' : '';
+          sheet(head + '<p class="status">' + msg + '</p>' + nxt + '<button type="button" class="secondary" data-close>Done</button>');
+        });
+      }
+      document.getElementById('sg').onclick = function(){ done(true); };
+      document.getElementById('ss').onclick = function(){ done(false); };
+    }
+    function doseIdFrom(url){ var m = /[#&?]dose=([0-9a-f-]{36})/i.exec(url || ''); return m ? m[1] : null; }
+
+    // ---- reminders on the sitter's phone ----
+    function b64ToBytes(b64){ var pad = '='.repeat((4 - b64.length % 4) % 4); var raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/')); var out = new Uint8Array(raw.length); for(var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i); return out; }
+    function turnOnPush(){
+      var err = document.getElementById('perr');
+      Notification.requestPermission().then(function(p){
+        if(p !== 'granted'){ if(err) err.textContent = 'Notifications are blocked for this page. Allow them in Settings, then try again.'; return; }
+        return navigator.serviceWorker.register('./sw.js').then(function(){ return navigator.serviceWorker.ready; }).then(function(reg){
+          return reg.pushManager.getSubscription().then(function(sub){
+            return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID) });
+          });
+        }).then(function(sub){
+          return call('subscribe', { subscription: sub.toJSON(), timezone: tz() });
+        }).then(function(r){
+          if(r && r.reminders){ ls(KEY_PUSH, '1'); toast('Reminders are on'); render(); }
+          else if(err) err.textContent = 'Could not turn on reminders. Try again.';
+        });
+      }).catch(function(){ if(err) err.textContent = 'Could not turn on reminders. Try again.'; });
+    }
+    function turnOffPush(){
+      call('subscribe', { subscription: null }).then(function(){ ls(KEY_PUSH, null); render(); });
+    }
+
+    function refresh(){
+      return call('state').then(function(r){
+        if(r.error === 'link_inactive') { showInactive(); return; }
+        if(r.error === 'not_joined') { showJoin(); return; }
+        if(r.error){ app.innerHTML = header('Couldn\u2019t load') + '<div class="wrap"><div class="card"><p class="muted" style="margin:0;">Check your connection and reopen this page.</p></div></div>'; return; }
+        member = r.member; data = r.state; render();
+      }, function(){
+        if(!data) app.innerHTML = header('You\u2019re offline') + '<div class="wrap"><div class="card"><p class="muted" style="margin:0;">Reconnect to see and record doses.</p></div></div>';
+      });
+    }
+
+    function start(){
+      if(!token()) return showPaste();
+      var id = doseIdFrom(location.hash);
+      refresh().then(function(){ if(id && data) openConfirm(id); });
+    }
+
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+      navigator.serviceWorker.addEventListener('message', function(e){
+        var d = e && e.data;
+        if(d && d.type === 'pawfolio-open'){ var id = doseIdFrom(d.url); refresh().then(function(){ if(id && data) openConfirm(id); }); }
+      });
+    }
+    window.addEventListener('hashchange', function(){ var id = doseIdFrom(location.hash); if(id) refresh().then(function(){ if(data) openConfirm(id); }); });
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && token() && data) refresh(); });
+    start();
+  })();
+  </script>
+</body>
+</html>

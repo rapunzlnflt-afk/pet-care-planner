@@ -1,7 +1,9 @@
-const CACHE_NAME = 'pet-care-planner-197';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-198';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
+  './doses.html',
+  './doses.webmanifest',
   './tailwind.css',
   './manifest.json',
   './icon-192.png',
@@ -32,8 +34,12 @@ self.addEventListener('notificationclick', event => {
   const target = (event.notification.data && event.notification.data.url) || './index.html';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      // Prefer a window already on the target page (the app or the sitter's
+      // doses page); otherwise open the target rather than the wrong page.
+      const page = u => { const p = new URL(u, self.registration.scope).pathname; return p.endsWith('/') ? p + 'index.html' : p; };
+      const want = page(target);
       for (const c of clients) {
-        if ('focus' in c) { c.postMessage({ type: 'pawfolio-open', url: target }); return c.focus(); }
+        if ('focus' in c && page(c.url) === want) { c.postMessage({ type: 'pawfolio-open', url: target }); return c.focus(); }
       }
       if (self.clients.openWindow) return self.clients.openWindow(target);
     })
