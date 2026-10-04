@@ -78,10 +78,21 @@ async function touch(groupId: string, memberId?: string) {
 // recent history with who logged each one.
 const UNDO_MS = 5 * 60000;
 
+// The owner's missed-dose instruction, as the sentence the sitter sees.
+const MISSED_TEXT: Record<string, string> = {
+  asap: "Give it as soon as you remember.",
+  skip: "Skip it and give the next one as usual.",
+  double: "Give a double dose at the next dose time.",
+};
+function missedText(s: any): string | null {
+  if (s.missed_rule === "note") return (s.missed_note || "").trim() || null;
+  return MISSED_TEXT[s.missed_rule] ?? null;
+}
+
 async function buildState(group: { id: string; owner_user: string; owner_label: string | null }, memberId: string | null = null) {
   const { data: schedules } = await supabase
     .from("pawfolio_dose_schedules")
-    .select("id, label, subject_name, fixed_times, timezone, enabled")
+    .select("id, label, subject_name, fixed_times, timezone, enabled, anchor, interval_min, missed_rule, missed_note")
     .eq("user_id", group.owner_user)
     .eq("shared", true)
     .eq("enabled", true)
@@ -111,7 +122,9 @@ async function buildState(group: { id: string; owner_user: string; owner_label: 
         schedule_id: s.id,
         label: s.label,
         pet: s.subject_name,
-        times: s.fixed_times,
+        times: s.anchor === "from_last_dose" ? null : s.fixed_times,
+        every_hours: s.anchor === "from_last_dose" ? Math.round(s.interval_min / 60) : null,
+        missed: missedText(s),
         pending: mine.find((e) => e.status === "pending") ?? null,
         history: mine.filter((e) => e.status !== "pending").slice(0, 10),
       };

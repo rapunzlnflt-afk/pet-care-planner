@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.32.0">
+                          <meta name="app-version" content="3.33.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1598,6 +1598,16 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
         </div>
        </div>
        <div>
+        <label for="med-dose-mode" class="block font-body text-sm text-secondary mb-1">Dose Timing</label>
+        <select id="med-dose-mode" style="margin-bottom:10px;">
+         <option value="fixed">At set times each day</option>
+         <option value="rolling">Every few hours (rolling)</option>
+        </select>
+        <div id="med-dose-every-row" style="display:none;align-items:center;gap:8px;margin-bottom:10px;">
+         <span class="font-body text-sm text-secondary">Every</span>
+         <input type="number" id="med-dose-every" min="1" max="72" step="1" inputmode="numeric" placeholder="6" style="width:80px;">
+         <span class="font-body text-sm text-secondary">hours</span>
+        </div>
         <label id="med-dose-label" class="block font-body text-sm text-secondary mb-1">Dose Times</label>
         <div id="med-dose-times"></div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
@@ -1608,6 +1618,18 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
          </div>
         </div>
         <p id="med-dose-hint" class="font-body text-xs text-secondary mt-1 italic"></p>
+       </div>
+       <div id="med-missed-row">
+        <label for="med-missed" id="med-missed-label" class="block font-body text-sm text-secondary mb-1">If a Dose Is Missed</label>
+        <select id="med-missed">
+         <option value="">No instruction</option>
+         <option value="asap">Give it when remembered</option>
+         <option value="skip">Skip it, give next as usual</option>
+         <option value="double">Double the next dose</option>
+         <option value="note">Follow my vet’s note</option>
+        </select>
+        <input type="text" id="med-missed-note" maxlength="300" placeholder="Your vet’s instructions for a missed dose" style="display:none;margin-top:8px;">
+        <p id="med-missed-hint" class="font-body text-xs text-secondary mt-1 italic">Shown on the card, and to your sitter, when a dose is late or missed.</p>
        </div>
        <div>
         <label class="block font-body text-sm text-secondary mb-1">Notes</label>
@@ -2802,9 +2824,37 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     m.doseTimes.forEach(t => {
       if(typeof t === 'string' && /^\d{2}:\d{2}$/.test(t) && !out.includes(t)) out.push(t);
     });
-    return out.sort();
+    out.sort();
+    // Rolling timing keeps one time: when the first dose is due.
+    return medDoseEvery(m) ? out.slice(0, 1) : out;
   }
   window.medDoseTimes = medDoseTimes;
+
+  // v3.33.0: "Every N hours from the last dose". Returns N, or 0 for set times.
+  function medDoseEvery(m) {
+    if(!m || m.doseMode !== 'rolling') return 0;
+    const h = parseInt(m.doseEvery, 10);
+    return h >= 1 && h <= 72 ? h : 0;
+  }
+  window.medDoseEvery = medDoseEvery;
+
+  // v3.33.0: the owner's missed-dose instruction, as one sentence.
+  const MISSED_TEXT = {
+    asap: 'Give it as soon as you remember.',
+    skip: 'Skip it and give the next one as usual.',
+    double: 'Give a double dose at the next dose time.',
+  };
+  function medMissedText(m) {
+    if(!m || !m.missedRule) return '';
+    if(m.missedRule === 'note') return (m.missedNote || '').trim();
+    return MISSED_TEXT[m.missedRule] || '';
+  }
+  window.medMissedText = medMissedText;
+
+  // v3.33.0: archived medications keep their history but leave the list,
+  // reminders and sitter sharing.
+  function isArchivedMed(m) { return !!(m && m.archived); }
+  window.isArchivedMed = isArchivedMed;
 
   function fmtDoseTime(t) {
     const p = String(t).split(':');
@@ -2855,6 +2905,15 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     if(!hint) return;
     const n = readDoseTimes().length;
     const noun = document.getElementById('med-type').value === 'supplement' ? 'serving' : 'dose';
+    if(document.getElementById('med-dose-mode').value === 'rolling') {
+      const h = parseInt(document.getElementById('med-dose-every').value, 10);
+      hint.textContent = !(h >= 1 && h <= 72)
+        ? `Enter how many hours apart each ${noun} should be.`
+        : n
+          ? `Each ${noun} is due ${h} hour${h === 1 ? '' : 's'} after the last one was given. Turn on Dose reminders at the top of this tab to receive them.`
+          : `Add when the first ${noun} is due. After that, each one is due ${h} hour${h === 1 ? '' : 's'} after the last.`;
+      return;
+    }
     hint.textContent = n
       ? `${n} ${noun} reminder${n === 1 ? '' : 's'} a day. Turn on Dose reminders at the top of this tab to receive them.`
       : `Optional. Add a time to be reminded when each ${noun} is due — separate from the refill reminder.`;
@@ -2875,10 +2934,52 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   });
   document.getElementById('med-dose-times').addEventListener('change', updateDoseHint);
   document.getElementById('med-frequency').addEventListener('change', e => {
+    if(document.getElementById('med-dose-mode').value === 'rolling') {
+      const ev = document.getElementById('med-dose-every');
+      if(!ev.value && EVERY_SUGGESTIONS[e.target.value]) ev.value = EVERY_SUGGESTIONS[e.target.value];
+      updateDoseHint();
+      return;
+    }
     if(readDoseTimes().length) return;
     const suggested = DOSE_TIME_SUGGESTIONS[e.target.value];
     if(suggested) renderDoseTimes(suggested.slice());
   });
+
+  // v3.33.0: dose timing and the missed-dose instruction.
+  const EVERY_SUGGESTIONS = { 'Once daily': 24, 'Twice daily': 12, 'Every 8 hours': 8 };
+  function applyDoseModeUI() {
+    const rolling = document.getElementById('med-dose-mode').value === 'rolling';
+    const supp = document.getElementById('med-type').value === 'supplement';
+    document.getElementById('med-dose-every-row').style.display = rolling ? 'flex' : 'none';
+    document.getElementById('med-dose-label').textContent = rolling
+      ? (supp ? 'First Serving At' : 'First Dose At')
+      : (supp ? 'Serving Times' : 'Dose Times');
+    const host = document.getElementById('med-dose-times');
+    if(rolling) {
+      // One start time: keep the earliest, drop the rest.
+      const first = readDoseTimes()[0];
+      if(host.querySelectorAll('.dose-time-row').length !== 1 || !first) renderDoseTimes([first || '08:00']);
+    }
+    document.getElementById('med-dose-add').style.display = rolling ? 'none' : '';
+    host.classList.toggle('pf-rolling', rolling);
+    updateDoseHint();
+  }
+  function applyMissedUI() {
+    const v = document.getElementById('med-missed').value;
+    document.getElementById('med-missed-note').style.display = v === 'note' ? '' : 'none';
+    document.getElementById('med-missed-hint').textContent = v === 'double'
+      ? 'Only choose this if your vet told you to.'
+      : 'Shown on the card, and to your sitter, when a dose is late or missed.';
+  }
+  document.getElementById('med-dose-mode').addEventListener('change', () => {
+    const ev = document.getElementById('med-dose-every');
+    if(document.getElementById('med-dose-mode').value === 'rolling' && !ev.value) {
+      ev.value = EVERY_SUGGESTIONS[document.getElementById('med-frequency').value] || '';
+    }
+    applyDoseModeUI();
+  });
+  document.getElementById('med-dose-every').addEventListener('input', e => { e.target.setCustomValidity(''); updateDoseHint(); });
+  document.getElementById('med-missed').addEventListener('change', applyMissedUI);
   updateDoseHint();
 
   // Reflect the selected type (and any edit in progress) across the form's
@@ -2905,8 +3006,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     document.getElementById('med-notes').placeholder = supp
       ? 'e.g., give with dinner, half a scoop'
       : 'e.g., give with food, refrigerate';
-    document.getElementById('med-dose-label').textContent = supp ? 'Serving Times' : 'Dose Times';
-    updateDoseHint();
+    document.getElementById('med-missed-label').textContent = supp ? 'If a Serving Is Missed' : 'If a Dose Is Missed';
+    applyDoseModeUI();
     applyMedFormMode();
   };
 
@@ -2925,14 +3026,28 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     const type = document.getElementById('med-type').value === 'supplement' ? 'supplement' : 'medication';
     let name = document.getElementById('med-name').value;
     if(name === 'Other') name = document.getElementById('med-other').value.trim();
+    const rolling = document.getElementById('med-dose-mode').value === 'rolling';
+    if(rolling) {
+      const ev = document.getElementById('med-dose-every');
+      const h = parseInt(ev.value, 10);
+      if(!(h >= 1 && h <= 72)) {
+        ev.setCustomValidity('Enter how many hours apart, from 1 to 72.');
+        ev.reportValidity();
+        return;
+      }
+    }
     const fields = {
       petId, petName: pet ? pet.name : '', type,
       name, dosage: document.getElementById('med-dosage').value,
       frequency: document.getElementById('med-frequency').value,
       start: document.getElementById('med-start').value,
       refill: document.getElementById('med-refill').value,
-      doseTimes: readDoseTimes(),
+      doseTimes: rolling ? readDoseTimes().slice(0, 1) : readDoseTimes(),
       doseEnd: document.getElementById('med-dose-end').value,
+      doseMode: rolling ? 'rolling' : 'fixed',
+      doseEvery: rolling ? (parseInt(document.getElementById('med-dose-every').value, 10) || '') : '',
+      missedRule: document.getElementById('med-missed').value,
+      missedNote: document.getElementById('med-missed').value === 'note' ? document.getElementById('med-missed-note').value.trim() : '',
       vet: type === 'supplement' ? '' : document.getElementById('med-vet').value,
       notes: document.getElementById('med-notes').value,
     };
@@ -2953,6 +3068,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     // reset() blanks the time inputs but leaves the rows behind — drop them.
     renderDoseTimes([]);
     handleMedType();
+    applyMissedUI();
     refreshAll();
   });
 
@@ -2993,7 +3109,13 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     document.getElementById('med-frequency').value = med.frequency || '';
     document.getElementById('med-start').value = med.start || '';
     document.getElementById('med-refill').value = med.refill || '';
+    document.getElementById('med-dose-mode').value = medDoseEvery(med) ? 'rolling' : 'fixed';
+    document.getElementById('med-dose-every').value = medDoseEvery(med) || '';
     renderDoseTimes(medDoseTimes(med));
+    applyDoseModeUI();
+    document.getElementById('med-missed').value = med.missedRule || '';
+    document.getElementById('med-missed-note').value = med.missedNote || '';
+    applyMissedUI();
     document.getElementById('med-dose-end').value = med.doseEnd || '';
     document.getElementById('med-vet').value = med.vet || '';
     document.getElementById('med-notes').value = med.notes || '';
@@ -3010,6 +3132,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     document.getElementById('med-other-container').style.display = 'none';
     renderDoseTimes([]);
     handleMedType();
+    applyMissedUI();
     renderMedications();
   };
 
@@ -3022,45 +3145,63 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
     const refillUrgency = daysToRefill !== null ? (daysToRefill < 0 ? 'color:#e53e3e;' : daysToRefill < 7 ? 'color:#f6a623;' : '') : '';
     const isEditing = editId === String(m.__id);
-    const doseList = medDoseTimes(m).map(fmtDoseTime).join(', ');
+    const every = medDoseEvery(m);
+    const doseList = every
+      ? `every ${every} hour${every === 1 ? '' : 's'} from the last ${supp ? 'serving' : 'dose'}`
+      : medDoseTimes(m).map(fmtDoseTime).join(', ');
+    const missed = medMissedText(m);
+    const archived = isArchivedMed(m);
     return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
       <div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
           <span class="font-heading font-bold text-primary">${escHtml(m.name)}</span>
           <span class="type-badge ${supp ? 'supplement' : 'medication'}">${supp ? 'Supplement' : 'Medication'}</span>
           ${isEditing ? '<span class="type-badge editing">EDITING</span>' : ''}
+          ${archived ? '<span class="type-badge editing">ARCHIVED</span>' : ''}
         </div>
         <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
         ${!supp && m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
         ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
-        ${doseList ? `<p class="font-body text-sm text-secondary mt-1">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
+        ${doseList && medDoseTimes(m).length ? `<p class="font-body text-sm text-secondary mt-1">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
+        ${missed ? `<p class="font-body text-sm text-secondary mt-1">If missed: ${escHtml(missed)}</p>` : ''}
         ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
-        ${typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
+        ${!archived && typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
       </div>
       <div class="card-actions">
-        <button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
+        ${archived
+          ? `<button type="button" onclick="restoreMed(${m.__id})">↺ Restore</button>`
+          : `<button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
+             <button type="button" onclick="archiveMed(${m.__id})">Archive</button>`}
         <button type="button" class="danger" onclick="deleteMed(${m.__id})">✕ Delete</button>
       </div>
     </div>`;
   }
 
   function renderMedications() {
-    const all = getList('medications');
+    const everything = getList('medications');
+    const archivedList = everything.filter(isArchivedMed);
+    const all = everything.filter(m => !isArchivedMed(m));
     const meds = all.filter(m => !isSupplement(m));
     const supps = all.filter(isSupplement);
+    if(medListFilter === 'archived' && !archivedList.length) medListFilter = 'all';
     const filterEl = document.getElementById('med-filter');
     if(filterEl) {
-      filterEl.innerHTML = !all.length ? '' : [
+      filterEl.innerHTML = !everything.length ? '' : [
         ['all', 'All', all.length],
         ['medication', 'Medications', meds.length],
         ['supplement', 'Supplements', supps.length],
-      ].map(([key, label, count]) =>
+      ].concat(archivedList.length ? [['archived', 'Archived', archivedList.length]] : []).map(([key, label, count]) =>
         `<button type="button" class="${medListFilter === key ? 'active' : ''}" onclick="setMedFilter('${key}')">${label} (${count})</button>`
       ).join('');
     }
     const el = document.getElementById('medications-list');
-    if(!all.length) { el.innerHTML = '<p class="font-body text-sm text-secondary italic">No medications or supplements added yet.</p>'; return; }
     const editId = medEditId();
+    if(medListFilter === 'archived') {
+      el.innerHTML = `<p class="font-body text-xs text-secondary" style="margin-bottom:8px;">Archived items keep their history. They don\u2019t send reminders or appear for your sitter.</p>` +
+        archivedList.map(m => medCardHTML(m, editId)).join('');
+      return;
+    }
+    if(!all.length) { el.innerHTML = `<p class="font-body text-sm text-secondary italic">${archivedList.length ? 'No active medications or supplements.' : 'No medications or supplements added yet.'}</p>`; return; }
     const empty = label => `<p class="font-body text-sm text-secondary italic">No ${label} added yet.</p>`;
     if(medListFilter === 'medication') {
       el.innerHTML = meds.length ? meds.map(m => medCardHTML(m, editId)).join('') : empty('medications');
@@ -3076,6 +3217,31 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   }
 
   window.pfRenderMedications = renderMedications;
+
+  // Archive/restore change what the server should remind about, so sync now.
+  function resyncDoses() {
+    if(typeof window.getSupabase !== 'function' || typeof window.pfDoseSync !== 'function') return;
+    window.getSupabase().then(sb => { if(sb) return window.pfDoseSync(sb); }).catch(() => {});
+  }
+  window.archiveMed = id => {
+    const list = getList('medications');
+    const m = list.find(x => String(x.__id) === String(id));
+    if(!m) return;
+    if(medEditId() === String(id)) window.cancelMedEdit();
+    m.archived = new Date().toISOString().slice(0, 10);
+    saveList('medications', list);
+    refreshAll();
+    resyncDoses();
+  };
+  window.restoreMed = id => {
+    const list = getList('medications');
+    const m = list.find(x => String(x.__id) === String(id));
+    if(!m) return;
+    delete m.archived;
+    saveList('medications', list);
+    refreshAll();
+    resyncDoses();
+  };
 
   window.deleteMed = id => {
     var doDelete = function(){
@@ -3417,7 +3583,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   // Returns [{name,dosage,frequency,instructions}].
   function sitterSelectedMeds(petId, data, kind) {
     const sel = (data['sitter-selmeds-'+petId]) || {};
-    const meds = getList('medications').filter(m => m.petId === petId && medType(m) === kind);
+    const meds = getList('medications').filter(m => m.petId === petId && medType(m) === kind && !m.archived);
     const out = [];
     meds.forEach(m => {
       const s = sel[m.__id];
@@ -3442,7 +3608,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   // 'sitter-selmeds-<petId>' keyed by the entry's __id, for both kinds.
   function sitterMedPickerHTML(p, data, kind) {
     const supp = kind === 'supplement';
-    const meds = getList('medications').filter(m => m.petId === p.__id && medType(m) === kind);
+    const meds = getList('medications').filter(m => m.petId === p.__id && medType(m) === kind && !m.archived);
     if(!meds.length) {
       return `<p class="font-body text-xs text-secondary italic">No ${supp ? 'supplements' : 'medications'} in your app for this pet. Add them in the Medications tab to include them here.</p>`;
     }
@@ -4091,7 +4257,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       const days = Math.ceil((new Date(v.next) - now) / 86400000);
       if(days <= 60) reminders.push({ type: 'Vaccination', name: v.name, pet: v.petName, days, date: v.next });
     });
-    getList('medications').filter(m => m.refill && !isArchivedRecord(m)).forEach(m => {
+    getList('medications').filter(m => m.refill && !isArchivedRecord(m) && !m.archived).forEach(m => {
       const days = Math.ceil((new Date(m.refill) - now) / 86400000);
       if(days <= 30) reminders.push({ type: isSupplement(m) ? 'Supplement Reorder' : 'Medication Refill', name: m.name, pet: m.petName, days, date: m.refill });
     });
@@ -6100,7 +6266,7 @@ try {
         var days = Math.ceil((new Date(v.next) - now) / 86400000);
         if(days <= 60) reminders.push({type:'Vaccination', name:v.name, pet:v.petName, days:days, date:v.next, time:'', tab:'vaccinations'});
       });
-      (getList('medications')||[]).filter(function(m){return m.refill && !_isArch(m);}).forEach(function(m){
+      (getList('medications')||[]).filter(function(m){return m.refill && !_isArch(m) && !m.archived;}).forEach(function(m){
         var days = Math.ceil((new Date(m.refill) - now) / 86400000);
         var isSupp = typeof window.isSupplement === 'function' && window.isSupplement(m);
         if(days <= 30) reminders.push({type:isSupp?'Supplement Reorder':'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
@@ -7070,6 +7236,7 @@ try {
     function dateAt9(d){ if(!d) return null; var dt = new Date(d + 'T09:00:00'); return isNaN(dt.getTime()) ? null : dt; }
     function dayLabel(dt){ return dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
     getList('medications').forEach(function(m){
+      if(m.archived) return;
       var dt = dateAt9(m.refill);
       if(!dt) return;
       var supp = typeof window.isSupplement === 'function' && window.isSupplement(m);
@@ -12899,7 +13066,10 @@ try {
     } catch(e){ return 'Owner'; }
   }
 
-  function sigOf(m){ return [timesOf(m).join(','), m.start || '', m.doseEnd || ''].join('|'); }
+  function everyOf(m){ return typeof window.medDoseEvery === 'function' ? window.medDoseEvery(m) : 0; }
+  function missedOf(m){ return typeof window.medMissedText === 'function' ? window.medMissedText(m) : ''; }
+  function archived(m){ return !!(m && m.archived); }
+  function sigOf(m){ return [timesOf(m).join(','), m.start || '', m.doseEnd || '', everyOf(m) || 'fixed', archived(m) ? 'a' : ''].join('|'); }
   function readSigs(){ try { return JSON.parse(localStorage.getItem(KEY_SIG) || '{}'); } catch(e){ return {}; } }
   function writeSigs(v){ try { localStorage.setItem(KEY_SIG, JSON.stringify(v)); } catch(e){} }
 
@@ -12916,16 +13086,21 @@ try {
       var on = doseOn();
       var list = meds().filter(function(m){ return timesOf(m).length; });
       var rows = list.map(function(m){
-        var times = timesOf(m);
+        var times = timesOf(m), every = everyOf(m), live = on && !archived(m);
         return {
           user_id: uid, source_id: m.__id,
           label: m.name || (isSupp(m) ? 'Supplement' : 'Medication'),
           subject_name: m.petName || null,
-          interval_min: intervalMin(times), anchor: 'fixed', fixed_times: times,
+          // Rolling: each dose is due N hours after the last one was given.
+          interval_min: every ? every * 60 : intervalMin(times),
+          anchor: every ? 'from_last_dose' : 'fixed', fixed_times: times,
           starts_on: m.start || null, ends_on: m.doseEnd || null,
-          enabled: on, timezone: tz(),
+          // Archived medications keep their history but stop here.
+          enabled: live, timezone: tz(),
+          missed_rule: m.missedRule || null,
+          missed_note: m.missedRule === 'note' ? (m.missedNote || '').slice(0, 300) || null : null,
           // Pawfolio Complete only: a sitter sees this medication's doses.
-          shared: on && paid() && !!m.doseShared
+          shared: live && paid() && !!m.doseShared
         };
       });
       var keep = list.map(function(m){ return m.__id; });
@@ -12953,14 +13128,15 @@ try {
             var p = Promise.resolve();
             // Times or dates changed (or reminders were switched off): the
             // queued dose belongs to the old plan, so drop it.
-            if(hasPending[sid] && (changed || !on)){
+            var live = on && !archived(m);
+            if(hasPending[sid] && (changed || !live)){
               p = supabase.from('pawfolio_dose_events').delete().eq('id', hasPending[sid]);
               delete hasPending[sid];
             }
             // Queue the next dose now so the card shows it straight away. The
             // server's sweep would do the same within two minutes; a clash
             // with it is harmless (one pending dose per schedule).
-            if(on && !hasPending[sid]){
+            if(live && !hasPending[sid]){
               var next = nextFixed(m, new Date());
               if(next) p = p.then(function(){ return supabase.from('pawfolio_dose_events').insert({ schedule_id: sid, due_at: next.toISOString() }); });
             }
@@ -12991,14 +13167,16 @@ try {
         var bySched = {}; s.data.forEach(function(r){ bySched[r.id] = Number(r.source_id); });
         if(!ids.length){ state = {}; loaded = true; rerender(); return; }
         return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at, logged_at, actor_label, actor_member')
-          .in('schedule_id', ids).in('status', ['pending', 'taken', 'skipped']).order('due_at', { ascending: false }).limit(300)
+          .in('schedule_id', ids).in('status', ['pending', 'taken', 'skipped', 'missed']).order('due_at', { ascending: false }).limit(300)
           .then(function(ev){
             if(ev.error) return;
             var next = {};
-            ids.forEach(function(id){ next[bySched[id]] = { scheduleId: id, pending: null, lastTaken: null, lastLogged: null }; });
+            ids.forEach(function(id){ next[bySched[id]] = { scheduleId: id, pending: null, lastTaken: null, lastLogged: null, lastResolved: null }; });
             (ev.data || []).forEach(function(e){
               var st = next[bySched[e.schedule_id]]; if(!st) return;
               if(e.status === 'pending') { st.pending = e; return; }
+              // Rows arrive newest due first, so the first resolved one is the latest.
+              if(!st.lastResolved) st.lastResolved = e;
               if(e.status === 'taken' && (!st.lastTaken || e.taken_at > st.lastTaken.taken_at)) st.lastTaken = e;
               if(e.logged_at && (!st.lastLogged || e.logged_at > st.lastLogged.logged_at)) st.lastLogged = e;
             });
@@ -13049,6 +13227,13 @@ try {
       var due = new Date(st.pending.due_at);
       var late = due.getTime() <= Date.now();
       var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
+      var lastMissed = st.lastResolved && st.lastResolved.status === 'missed' ? st.lastResolved : null;
+      if(lastMissed){
+        html += '<p class="pf-dose-missed">The last ' + noun + ' wasn\u2019t recorded (due ' + when(new Date(lastMissed.due_at)) + ').' +
+                (missedOf(m) ? ' <strong>If missed:</strong> ' + esc(missedOf(m)) : '') + '</p>';
+      } else if(late && missedOf(m)){
+        html += '<p class="pf-dose-missed"><strong>If missed:</strong> ' + esc(missedOf(m)) + '</p>';
+      }
       html += '<p class="font-body text-sm" style="font-weight:700;' + (late ? 'color:#b45309;' : 'color:var(--text-primary);') + '">' +
               (late ? 'Due now · <span style="white-space:nowrap;">' + clock(due) + '</span>' : 'Next ' + noun + ': <span style="white-space:nowrap;">' + when(due) + '</span>') + '</p>';
       if(open){
@@ -13206,7 +13391,7 @@ try {
   }
   function wireClose(){ var o = document.getElementById('pf-dose-sheet'); if(!o) return; o.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeSheet); }); }
   window.pfDoseOpen = openConfirm;
-  window.pfDoseInternals = { active: active, paid: paid, ownerLabel: ownerLabel, meds: meds, timesOf: timesOf, esc: esc, toast: toast, when: when };
+  window.pfDoseInternals = { active: active, paid: paid, ownerLabel: ownerLabel, meds: function(){ return meds().filter(function(m){ return !archived(m); }); }, timesOf: timesOf, esc: esc, toast: toast, when: when };
 
   function doseIdFrom(url){ var m = /[#&?]dose=([0-9a-f-]{36})/i.exec(url || ''); return m ? m[1] : null; }
 
@@ -13234,6 +13419,8 @@ try {
   .pf-dose-btns button { font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; min-height: 40px; }
   .pf-dose-given { background: #5B5BD6; color: #fff; border: 1px solid #5B5BD6; }
   .pf-dose-skip { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
+  #med-dose-times.pf-rolling .dose-time-remove { display: none; }
+  .pf-dose-missed { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: rgba(180,83,9,0.08); border: 1px solid rgba(180,83,9,0.25); color: #7c2d12; font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.4; }
   .pf-dose-early { display: inline-block; margin-top: 6px; background: none; border: none; padding: 4px 0; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; color: #4338ca; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .pf-dose-undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #1f2937; color: #fff; border-radius: 8px; padding: 6px 6px 6px 12px; margin-bottom: 8px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; }
   .pf-dose-undo button { flex: 0 0 auto; background: none; border: 1px solid rgba(255,255,255,0.5); color: #fff; border-radius: 6px; padding: 5px 14px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }

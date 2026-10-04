@@ -61,6 +61,7 @@
     #sheet .link{ display:block; width:100%; margin-top:4px; }
     @media (min-width:640px){ #sheet{ align-items:center; } #sheet .in{ border-radius:16px; } }
     button:disabled{ opacity:0.6; }
+    .missednote{ margin-top:12px; padding:9px 12px; border-radius:10px; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.25); color:#7c2d12; font-size:14px; line-height:1.4; }
     .early{ background:none; border:none; padding:6px 0 0; color:var(--accent-dark); font-size:15px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
     .undo{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#1f2937; color:#fff; border-radius:10px; padding:7px 7px 7px 14px; margin-bottom:12px; font-size:15px; font-weight:700; }
     .undo button{ flex:0 0 auto; background:none; border:1px solid rgba(255,255,255,0.5); color:#fff; border-radius:8px; padding:6px 16px; font-size:15px; font-weight:700; }
@@ -190,9 +191,17 @@
         html += '<div class="card med">' +
                 (u ? '<div class="undo"><span>' + (u.status === 'taken' ? 'Given ' + esc(clock(new Date(u.taken_at))) : 'Skipped') + '</span><button type="button" data-undo="' + u.id + '">Undo</button></div>' : '') +
                 '<h2>' + esc(m.label) + '</h2>' + (m.pet ? '<div class="pet">for ' + esc(m.pet) + '</div>' : '') +
-                (m.times && m.times.length ? '<div class="times">Doses: ' + m.times.map(fmtTime).map(esc).join(', ') + '</div>' : '');
+                (m.every_hours ? '<div class="times">Every ' + esc(m.every_hours) + ' hour' + (m.every_hours === 1 ? '' : 's') + ' from the last dose</div>'
+                  : m.times && m.times.length ? '<div class="times">Doses: ' + m.times.map(fmtTime).map(esc).join(', ') + '</div>' : '') +
+                (m.missed ? '<div class="times">If missed: ' + esc(m.missed) + '</div>' : '');
         if(m.pending){
           var due = new Date(m.pending.due_at), late = due.getTime() <= Date.now();
+          var lastRes = (m.history || [])[0];
+          if(lastRes && lastRes.status === 'missed'){
+            html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lastRes.due_at))) + ').' + (m.missed ? ' <strong>If missed:</strong> ' + esc(m.missed) : '') + '</div>';
+          } else if(late && m.missed){
+            html += '<div class="missednote"><strong>If missed:</strong> ' + esc(m.missed) + '</div>';
+          }
           var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
           html += '<div class="due' + (late ? ' late' : '') + '">' + (late ? 'Due now \u00b7 <span class="nowrap">' + esc(clock(due)) + '</span>' : 'Next dose: <span class="nowrap">' + esc(when(due)) + '</span>') + '</div>' +
                   (open
