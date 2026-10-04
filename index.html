@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.29.2">
+                          <meta name="app-version" content="3.30.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3035,6 +3035,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
         ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
         ${doseList ? `<p class="font-body text-sm text-secondary mt-1">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
         ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
+        ${typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
       </div>
       <div class="card-actions">
         <button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
@@ -3073,6 +3074,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       el.innerHTML = group('Medications', meds) + group('Supplements', supps);
     }
   }
+
+  window.pfRenderMedications = renderMedications;
 
   window.deleteMed = id => {
     var doDelete = function(){
@@ -7102,38 +7105,10 @@ try {
       var mo = dt.getMonth() + 1, da = dt.getDate();
       return dt.getFullYear() + '-' + (mo < 10 ? '0' : '') + mo + '-' + (da < 10 ? '0' : '') + da;
     }
-    var doseCount = 0;
-    getList('medications').forEach(function(m){
-      var times = (typeof window.medDoseTimes === 'function') ? window.medDoseTimes(m) : [];
-      if(!times.length) return;
-      var supp = typeof window.isSupplement === 'function' && window.isSupplement(m);
-      var noun = supp ? 'Serving' : 'Dose';
-      var pet = m.petName || 'Your pet';
-      var detail = m.dosage || '';
-      for(var day = 0; day <= DOSE_HORIZON_DAYS; day++){
-        if(doseCount >= DOSE_MAX_OCCURRENCES) break;
-        var base = new Date(); base.setHours(0,0,0,0); base.setDate(base.getDate() + day);
-        var ds = ymdLocal(base);
-        if(m.start && ds < m.start) continue;   // course hasn't started yet
-        if(m.doseEnd && ds > m.doseEnd) break;  // course has finished
-        var dayName = dayLabel(base);
-        times.forEach(function(t){
-          if(doseCount >= DOSE_MAX_OCCURRENCES) return;
-          var dt = new Date(ds + 'T' + t + ':00');
-          if(isNaN(dt.getTime()) || dt.getTime() <= now) return;
-          doseCount++;
-          emit('dose', {
-            source: 'medication', sourceId: m.__id, when: dt.getTime(),
-            titleFor: function(lbl, ms){
-              return (supp ? '🌿 ' : '💊 ') + (ms === 0 ? (noun + ' due now') : (noun + ' due in ' + lbl));
-            },
-            body: pet + ' — ' + (m.name || (supp ? 'Supplement' : 'Medication')) + '\n' +
-                  dayName + ' · ' + fmtTime(t) + (detail ? (' · ' + detail) : '')
-          });
-        });
-      }
-    });
-
+    // v3.30.0: doses are no longer queued here. Each medication's dose times
+    // now live on the server as a dose schedule (pfDoseSync), which sends every
+    // dose at its time without a seven-day horizon, and the reminder links
+    // to a one-tap "Given" screen. Emitting them here as well would notify twice.
     return out;
   };
 
@@ -7161,6 +7136,11 @@ try {
 
   function timingHTML(type){
     if(!getNotifOn(type)) return '';
+    if(type === 'dose'){
+      return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border, #e5e7eb);">' +
+               '<p class="font-body text-sm text-secondary">Reminds you at each dose time. Tap the reminder, or use Given on the medication, to record the dose.</p>' +
+             '</div>';
+    }
     var leads = getLeadsFor(type);
     var rows = optionsFor(type).map(function(o){
       var checked = leads.indexOf(o.ms) !== -1 ? ' checked' : '';
@@ -9398,7 +9378,9 @@ try {
         var deviceId = getOrCreateDeviceId();
         return Promise.all([
           supabase.from('pawfolio_devices').delete().eq('device_id', deviceId),
-          supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId)
+          supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId),
+          // Phone reminders off: stop dose schedules so nothing is queued.
+          (typeof window.pfDoseDisableAll === 'function') ? window.pfDoseDisableAll(supabase) : null
         ]);
       });
     }).then(done).catch(function(err){ stampDevice(false, (err&&err.message)||String(err), 'disable'); done(); });
@@ -9414,7 +9396,9 @@ try {
         return ensureAnonAuth(supabase).then(function(){
           var occurrences = (typeof window.pfUpcomingReminders === 'function') ? (window.pfUpcomingReminders() || []) : [];
           var deviceId = getOrCreateDeviceId();
-          return supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId).is('delivered_at', null).then(function(del){
+          // Dose pushes are queued by the server (see pfDoseSync); leave them be.
+          if(typeof window.pfDoseSync === 'function'){ try { window.pfDoseSync(supabase); } catch(e){} }
+          return supabase.from('pawfolio_reminders').delete().eq('device_id', deviceId).is('delivered_at', null).neq('source', 'dose').then(function(del){
             if(del.error) throw new Error('reminder delete failed: ' + del.error.message);
             if(!occurrences.length){ stampReminders(true, 'no upcoming reminders', 0, 'empty'); return; }
             var rows = occurrences.map(function(o){
@@ -12832,3 +12816,360 @@ try {
     }
   })();
 </script>
+<script>
+/* === Pawfolio v3.30.0 — dose tracking ===
+   Each medication with dose times gets a server-side dose schedule
+   (supabase/migrations/0003_pawfolio_dose_schedules.sql). The reminder worker
+   sends each dose at its time, and the notification opens a one-tap
+   "Given at 2:14 PM" screen (iOS ignores notification buttons, so that screen
+   is the main path). Cards show the next dose with Given and Skip.
+
+   Runs only while "Dose reminders" is on and phone reminders are set up, i.e.
+   only where dose times already went to the server before this version. */
+(function(){
+  var KEY_SIG = 'pawfolioDoseSigs';
+  var state = {};          // source_id -> { scheduleId, pending, lastTaken }
+  var loaded = false;
+
+  function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function pushOn(){ try { return localStorage.getItem('pawfolioPushEnabled') === '1'; } catch(e){ return false; } }
+  function doseOn(){ return typeof window.pfGetNotifOn === 'function' && window.pfGetNotifOn('dose'); }
+  function active(){ return pushOn() && doseOn() && typeof window.isSupabaseConfigured === 'function' && !!window.isSupabaseConfigured(); }
+  function tz(){ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch(e){ return 'UTC'; } }
+  function meds(){ return (typeof getList === 'function' ? getList('medications') : []) || []; }
+  function timesOf(m){ return typeof window.medDoseTimes === 'function' ? window.medDoseTimes(m) : []; }
+  function isSupp(m){ return typeof window.isSupplement === 'function' && window.isSupplement(m); }
+
+  function clock(d){ return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function dayWord(d){
+    var a = new Date(); a.setHours(0,0,0,0);
+    var b = new Date(d); b.setHours(0,0,0,0);
+    var diff = Math.round((b - a) / 86400000);
+    if(diff === 0) return 'Today';
+    if(diff === 1) return 'Tomorrow';
+    if(diff === -1) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function when(d){ var w = dayWord(d); return (w === 'Today' ? 'today' : w === 'Tomorrow' ? 'tomorrow' : w === 'Yesterday' ? 'yesterday' : w) + ' at ' + clock(d); }
+
+  // Smallest gap between dose times, so the server's "given too soon" check
+  // (half the gap) fits this medication. One time a day = 24 hours.
+  function intervalMin(times){
+    if(times.length < 2) return 1440;
+    var mins = times.map(function(t){ var p = t.split(':'); return +p[0] * 60 + +p[1]; }).sort(function(a,b){ return a-b; });
+    var best = 1440;
+    for(var i = 0; i < mins.length; i++){
+      var next = i + 1 < mins.length ? mins[i+1] : mins[0] + 1440;
+      best = Math.min(best, next - mins[i]);
+    }
+    return Math.max(15, best);
+  }
+
+  // Next fixed dose time after `from` (local clock), honouring start/end dates.
+  function nextFixed(m, from){
+    var times = timesOf(m); if(!times.length) return null;
+    var base = new Date(from);
+    if(m.start){ var st = new Date(m.start + 'T00:00:00'); if(st > base) base = new Date(st.getTime() - 1000); }
+    for(var day = 0; day < 3; day++){
+      var d = new Date(base); d.setHours(0,0,0,0); d.setDate(d.getDate() + day);
+      for(var i = 0; i < times.length; i++){
+        var p = times[i].split(':');
+        var c = new Date(d); c.setHours(+p[0], +p[1], 0, 0);
+        if(c > base){
+          var ymd = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
+          if(m.doseEnd && ymd > m.doseEnd) return null;
+          return c;
+        }
+      }
+    }
+    return null;
+  }
+
+  function sigOf(m){ return [timesOf(m).join(','), m.start || '', m.doseEnd || ''].join('|'); }
+  function readSigs(){ try { return JSON.parse(localStorage.getItem(KEY_SIG) || '{}'); } catch(e){ return {}; } }
+  function writeSigs(v){ try { localStorage.setItem(KEY_SIG, JSON.stringify(v)); } catch(e){} }
+
+  function userId(supabase){
+    return supabase.auth.getSession().then(function(r){ return r && r.data && r.data.session && r.data.session.user ? r.data.session.user.id : null; });
+  }
+
+  // Bring the server's dose schedules in line with the medication list.
+  var syncing = null;
+  function doseSync(supabase){
+    if(syncing) return syncing;
+    syncing = userId(supabase).then(function(uid){
+      if(!uid) return;
+      var on = doseOn();
+      var list = meds().filter(function(m){ return timesOf(m).length; });
+      var rows = list.map(function(m){
+        var times = timesOf(m);
+        return {
+          user_id: uid, source_id: m.__id,
+          label: m.name || (isSupp(m) ? 'Supplement' : 'Medication'),
+          subject_name: m.petName || null,
+          interval_min: intervalMin(times), anchor: 'fixed', fixed_times: times,
+          starts_on: m.start || null, ends_on: m.doseEnd || null,
+          enabled: on, timezone: tz()
+        };
+      });
+      var keep = list.map(function(m){ return m.__id; });
+      return supabase.from('pawfolio_dose_schedules').select('id, source_id').then(function(cur){
+        if(cur.error) throw cur.error;
+        var gone = (cur.data || []).filter(function(r){ return keep.indexOf(Number(r.source_id)) === -1; }).map(function(r){ return r.id; });
+        var del = gone.length ? supabase.from('pawfolio_dose_schedules').delete().in('id', gone) : Promise.resolve({});
+        var up = rows.length
+          ? supabase.from('pawfolio_dose_schedules').upsert(rows, { onConflict: 'user_id,source_id' }).select('id, source_id')
+          : Promise.resolve({ data: [] });
+        return Promise.all([del, up]);
+      }).then(function(res){
+        var up = res[1]; if(up.error) throw up.error;
+        var bySource = {}; (up.data || []).forEach(function(r){ bySource[Number(r.source_id)] = r.id; });
+        var ids = Object.keys(bySource).map(function(k){ return bySource[k]; });
+        if(!ids.length){ writeSigs({}); return; }
+        return supabase.from('pawfolio_dose_events').select('id, schedule_id').eq('status', 'pending').in('schedule_id', ids).then(function(pend){
+          if(pend.error) throw pend.error;
+          var hasPending = {}; (pend.data || []).forEach(function(e){ hasPending[e.schedule_id] = e.id; });
+          var sigs = readSigs(), nextSigs = {}, work = [];
+          list.forEach(function(m){
+            var sid = bySource[m.__id]; if(!sid) return;
+            var sig = sigOf(m); nextSigs[m.__id] = sig;
+            var changed = sigs[m.__id] !== sig;
+            var p = Promise.resolve();
+            // Times or dates changed (or reminders were switched off): the
+            // queued dose belongs to the old plan, so drop it.
+            if(hasPending[sid] && (changed || !on)){
+              p = supabase.from('pawfolio_dose_events').delete().eq('id', hasPending[sid]);
+              delete hasPending[sid];
+            }
+            // Queue the next dose now so the card shows it straight away. The
+            // server's sweep would do the same within two minutes; a clash
+            // with it is harmless (one pending dose per schedule).
+            if(on && !hasPending[sid]){
+              var next = nextFixed(m, new Date());
+              if(next) p = p.then(function(){ return supabase.from('pawfolio_dose_events').insert({ schedule_id: sid, due_at: next.toISOString() }); });
+            }
+            work.push(p);
+          });
+          return Promise.all(work).then(function(){ writeSigs(nextSigs); });
+        });
+      }).then(function(){ return refresh(supabase); });
+    }).catch(function(err){ try { console.warn('[dose] sync failed', err); } catch(e){} })
+      .then(function(){ syncing = null; });
+    return syncing;
+  }
+  window.pfDoseSync = doseSync;
+
+  window.pfDoseDisableAll = function(supabase){
+    return supabase.from('pawfolio_dose_schedules').update({ enabled: false }).not('id', 'is', null).then(function(){
+      state = {}; loaded = false; rerender();
+    }, function(){});
+  };
+
+  function refresh(supabase){
+    var go = supabase ? Promise.resolve(supabase) : (typeof window.getSupabase === 'function' ? window.getSupabase() : Promise.resolve(null));
+    return go.then(function(sb){
+      if(!sb || !active()) return;
+      return sb.from('pawfolio_dose_schedules').select('id, source_id').eq('enabled', true).then(function(s){
+        if(s.error || !s.data) return;
+        var ids = s.data.map(function(r){ return r.id; });
+        var bySched = {}; s.data.forEach(function(r){ bySched[r.id] = Number(r.source_id); });
+        if(!ids.length){ state = {}; loaded = true; rerender(); return; }
+        return sb.from('pawfolio_dose_events').select('id, schedule_id, due_at, status, taken_at')
+          .in('schedule_id', ids).in('status', ['pending', 'taken']).order('due_at', { ascending: false }).limit(300)
+          .then(function(ev){
+            if(ev.error) return;
+            var next = {};
+            ids.forEach(function(id){ next[bySched[id]] = { scheduleId: id, pending: null, lastTaken: null }; });
+            (ev.data || []).forEach(function(e){
+              var st = next[bySched[e.schedule_id]]; if(!st) return;
+              if(e.status === 'pending') st.pending = e;
+              else if(!st.lastTaken || e.taken_at > st.lastTaken.taken_at) st.lastTaken = e;
+            });
+            state = next; loaded = true; rerender();
+          });
+      });
+    }).catch(function(){});
+  }
+  window.pfDoseRefresh = function(){ return refresh(); };
+
+  function rerender(){ if(typeof window.pfRenderMedications === 'function'){ try { window.pfRenderMedications(); } catch(e){} } }
+
+  // ---- medication card ----
+  window.pfDoseCardHTML = function(m){
+    if(!timesOf(m).length) return '';
+    var noun = isSupp(m) ? 'serving' : 'dose';
+    if(!active()){
+      return '<p class="font-body text-xs text-secondary mt-2">Turn on Dose reminders to check off each ' + noun + ' here.</p>';
+    }
+    var st = state[m.__id];
+    if(!st){ return loaded ? '' : '<p class="font-body text-xs text-secondary mt-2">Loading ' + noun + 's…</p>'; }
+    var html = '<div class="pf-dose-box">';
+    if(st.pending){
+      var due = new Date(st.pending.due_at);
+      var late = due.getTime() <= Date.now();
+      html += '<p class="font-body text-sm" style="font-weight:700;' + (late ? 'color:#b45309;' : 'color:var(--text-primary);') + '">' +
+              (late ? 'Due now · <span style="white-space:nowrap;">' + clock(due) + '</span>' : 'Next ' + noun + ': <span style="white-space:nowrap;">' + when(due) + '</span>') + '</p>' +
+              '<div class="pf-dose-btns">' +
+                '<button type="button" class="pf-dose-given" onclick="pfDoseLog(\'' + st.pending.id + '\', true)">✓ Given</button>' +
+                '<button type="button" class="pf-dose-skip" onclick="pfDoseLog(\'' + st.pending.id + '\', false)">Skip</button>' +
+              '</div>';
+    } else {
+      html += '<p class="font-body text-sm text-secondary">No more ' + noun + 's scheduled.</p>';
+    }
+    if(st.lastTaken && st.lastTaken.taken_at){
+      html += '<p class="font-body text-xs text-secondary" style="margin-top:6px;">Last given ' + when(new Date(st.lastTaken.taken_at)) + '</p>';
+    }
+    return html + '</div>';
+  };
+
+  // ---- logging ----
+  function rpcLog(eventId, taken, force){
+    return window.getSupabase().then(function(sb){
+      return sb.rpc('pawfolio_log_dose', { p_event_id: eventId, p_taken: !!taken, p_force: !!force }).then(function(r){
+        if(r.error) throw r.error;
+        return r.data || {};
+      });
+    });
+  }
+
+  function toast(msg){
+    var t = document.createElement('div');
+    t.className = 'pf-dose-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3200);
+  }
+
+  window.pfDoseLog = function(eventId, taken, force){
+    return rpcLog(eventId, taken, force).then(function(res){
+      if(res.outcome === 'too_soon'){
+        var mins = res.minutes_ago || 0;
+        var ago = mins < 1 ? 'just now' : mins < 60 ? (mins + ' minute' + (mins === 1 ? '' : 's') + ' ago') : (Math.round(mins / 6) / 10 + ' hours ago');
+        window.showConfirmModal({
+          title: 'Already given ' + ago,
+          message: 'The last dose was recorded ' + when(new Date(res.last_taken_at)) + '. Record another one now?',
+          confirmLabel: 'Record anyway', cancelLabel: 'Cancel',
+          onConfirm: function(){ window.pfDoseLog(eventId, taken, true); }
+        });
+        return res;
+      }
+      if(res.outcome === 'already_logged'){
+        toast(res.status === 'taken' && res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
+      } else if(res.outcome === 'logged'){
+        toast(taken ? 'Given ' + clock(new Date(res.taken_at)) : 'Skipped');
+      }
+      return refresh().then(function(){ return res; });
+    }).catch(function(err){
+      toast('Could not record the dose. Check your connection and try again.');
+      throw err;
+    });
+  };
+
+  // ---- one-tap confirm screen, opened from a dose notification ----
+  function closeSheet(){ var o = document.getElementById('pf-dose-sheet'); if(o) o.remove(); }
+  function sheet(inner){
+    closeSheet();
+    var ov = document.createElement('div');
+    ov.id = 'pf-dose-sheet';
+    ov.innerHTML = '<div class="pf-dose-card" role="dialog" aria-modal="true" aria-labelledby="pf-dose-title">' + inner + '</div>';
+    ov.addEventListener('click', function(e){ if(e.target === ov) closeSheet(); });
+    document.body.appendChild(ov);
+    return ov;
+  }
+
+  function openConfirm(eventId){
+    if(!eventId || typeof window.getSupabase !== 'function') return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    if(typeof window.goToTab === 'function'){ try { window.goToTab('medications'); } catch(e){} }
+    sheet('<p class="pf-dose-muted">Loading…</p>');
+    window.getSupabase().then(function(sb){
+      return sb.from('pawfolio_dose_events')
+        .select('id, due_at, status, taken_at, pawfolio_dose_schedules!inner(label, subject_name, source_id)')
+        .eq('id', eventId).maybeSingle().then(function(r){ return r.data; });
+    }).then(function(ev){
+      if(!ev){
+        sheet('<h2 id="pf-dose-title">Dose not found</h2><p class="pf-dose-muted">It may have been changed or removed.</p>' +
+              '<button type="button" class="pf-dose-secondary" data-close>Close</button>');
+        wireClose(); return;
+      }
+      var sch = ev.pawfolio_dose_schedules || {};
+      var head = '<h2 id="pf-dose-title">' + esc(sch.label || 'Medication') + '</h2>' +
+                 (sch.subject_name ? '<p class="pf-dose-pet">for ' + esc(sch.subject_name) + '</p>' : '');
+      var due = new Date(ev.due_at);
+      if(ev.status !== 'pending'){
+        var what = ev.status === 'taken' && ev.taken_at ? 'Already given ' + when(new Date(ev.taken_at)) + '.'
+                 : ev.status === 'skipped' ? 'This dose was skipped.'
+                 : 'This dose was marked missed.';
+        sheet(head + '<p class="pf-dose-status">' + what + '</p><button type="button" class="pf-dose-secondary" data-close>Close</button>');
+        wireClose(); return;
+      }
+      var now = new Date();
+      var ov = sheet(head +
+        '<p class="pf-dose-muted">Due ' + when(due) + '</p>' +
+        '<button type="button" class="pf-dose-primary" data-given>Given at ' + clock(now) + '</button>' +
+        '<button type="button" class="pf-dose-secondary" data-skip>Skip this dose</button>' +
+        '<button type="button" class="pf-dose-link" data-close>Not now</button>');
+      wireClose();
+      function done(taken){
+        ov.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+        window.pfDoseLog(ev.id, taken).then(function(res){
+          if(res.outcome === 'too_soon'){ closeSheet(); return; }
+          var msg = res.outcome === 'already_logged'
+            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) + '.' : 'This dose was already recorded.')
+            : (taken ? 'Given ' + clock(new Date(res.taken_at)) + '.' : 'Skipped.');
+          var nxt = res.next_due_at ? '<p class="pf-dose-muted">Next dose ' + when(new Date(res.next_due_at)) + '</p>' : '';
+          sheet(head + '<p class="pf-dose-status">' + msg + '</p>' + nxt + '<button type="button" class="pf-dose-secondary" data-close>Done</button>');
+          wireClose();
+        }, function(){ ov.querySelectorAll('button').forEach(function(b){ b.disabled = false; }); });
+      }
+      ov.querySelector('[data-given]').addEventListener('click', function(){ done(true); });
+      ov.querySelector('[data-skip]').addEventListener('click', function(){ done(false); });
+    }).catch(function(){
+      sheet('<h2 id="pf-dose-title">Could not load this dose</h2><p class="pf-dose-muted">Check your connection and try again.</p>' +
+            '<button type="button" class="pf-dose-secondary" data-close>Close</button>');
+      wireClose();
+    });
+  }
+  function wireClose(){ var o = document.getElementById('pf-dose-sheet'); if(!o) return; o.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeSheet); }); }
+  window.pfDoseOpen = openConfirm;
+
+  function doseIdFrom(url){ var m = /[#&?]dose=([0-9a-f-]{36})/i.exec(url || ''); return m ? m[1] : null; }
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', function(e){
+      var d = e && e.data;
+      if(d && d.type === 'pawfolio-open'){ var id = doseIdFrom(d.url); if(id) openConfirm(id); else refresh(); }
+    });
+  }
+
+  function boot(){
+    if(!document.getElementById('medications-list')) return setTimeout(boot, 150);
+    var id = doseIdFrom(location.hash);
+    if(id) openConfirm(id);
+    if(active()) refresh();
+    window.addEventListener('hashchange', function(){ var h = doseIdFrom(location.hash); if(h) openConfirm(h); });
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && active()) refresh(); });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<style>
+  .pf-dose-box { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(91,91,214,0.06); border: 1px solid rgba(91,91,214,0.18); }
+  .pf-dose-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pf-dose-btns button { font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; min-height: 40px; }
+  .pf-dose-given { background: #5B5BD6; color: #fff; border: 1px solid #5B5BD6; }
+  .pf-dose-skip { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
+  .pf-dose-toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 10003; max-width: calc(100% - 32px); text-align: center; }
+  #pf-dose-sheet { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10002; display: flex; align-items: flex-end; justify-content: center; }
+  #pf-dose-sheet .pf-dose-card { background: #fff; width: 100%; max-width: 420px; border-radius: 16px 16px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.25); }
+  @media (min-width: 640px) { #pf-dose-sheet { align-items: center; } #pf-dose-sheet .pf-dose-card { border-radius: 16px; } }
+  #pf-dose-sheet h2 { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; color: #1f2937; margin: 0; overflow-wrap: anywhere; }
+  #pf-dose-sheet .pf-dose-pet { font-size: 15px; color: #4b5563; margin: 2px 0 0; }
+  #pf-dose-sheet .pf-dose-muted { font-size: 14px; color: #6b7280; margin: 10px 0 0; }
+  #pf-dose-sheet .pf-dose-status { font-size: 16px; font-weight: 700; color: #1f2937; margin: 14px 0 0; }
+  #pf-dose-sheet button { display: block; width: 100%; font-family: 'Karla', sans-serif; cursor: pointer; }
+  #pf-dose-sheet .pf-dose-primary { margin-top: 18px; background: #5B5BD6; color: #fff; border: none; border-radius: 12px; padding: 15px; font-size: 17px; font-weight: 700; }
+  #pf-dose-sheet .pf-dose-secondary { margin-top: 10px; background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600; }
+  #pf-dose-sheet .pf-dose-link { margin-top: 6px; background: none; border: none; color: #6b7280; padding: 10px; font-size: 14px; font-weight: 600; }
+  #pf-dose-sheet button:disabled { opacity: 0.6; }
+</style>

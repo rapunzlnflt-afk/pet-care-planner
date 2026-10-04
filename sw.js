@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-196';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-197';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -74,7 +74,8 @@ self.addEventListener('push', event => {
     data: {
       url: payload.url || './index.html',
       source: payload.source || null,
-      sourceId: payload.sourceId || null
+      sourceId: payload.sourceId || null,
+      doseEventId: payload.doseEventId || null
     }
   };
   event.waitUntil(self.registration.showNotification(title, options));
