@@ -8,6 +8,7 @@
 //   state     { token, device_id }                        -> shared doses
 //   log       { token, device_id, event_id, taken, force? }
 //   subscribe { token, device_id, subscription, timezone? }
+//   undo      { token, device_id, event_id }  (own doses, 5 minutes)
 //   leave     { token, device_id }
 //
 // Every call slides the link's expiry 30 days forward. Stopping sharing (the
@@ -75,7 +76,9 @@ async function touch(groupId: string, memberId?: string) {
 
 // Shared medications only: label, pet, dose times, the pending dose and
 // recent history with who logged each one.
-async function buildState(group: { id: string; owner_user: string; owner_label: string | null }) {
+const UNDO_MS = 5 * 60000;
+
+async function buildState(group: { id: string; owner_user: string; owner_label: string | null }, memberId: string | null = null) {
   const { data: schedules } = await supabase
     .from("pawfolio_dose_schedules")
     .select("id, label, subject_name, fixed_times, timezone, enabled")
@@ -89,11 +92,16 @@ async function buildState(group: { id: string; owner_user: string; owner_label: 
   if (ids.length) {
     const { data } = await supabase
       .from("pawfolio_dose_events")
-      .select("id, schedule_id, due_at, status, taken_at, logged_at, actor_label")
+      .select("id, schedule_id, due_at, status, taken_at, logged_at, actor_label, actor_member")
       .in("schedule_id", ids)
       .order("due_at", { ascending: false })
       .limit(40 * ids.length);
-    events = (data ?? []) as any[];
+    // Member ids stay on the server; the page only learns "you can undo this".
+    events = ((data ?? []) as any[]).map(({ actor_member, ...e }) => ({
+      ...e,
+      can_undo: !!memberId && actor_member === memberId && e.status !== "pending" && e.status !== "missed" &&
+        !!e.logged_at && Date.now() - new Date(e.logged_at).getTime() < UNDO_MS,
+    }));
   }
   return {
     owner: group.owner_label || null,
@@ -139,7 +147,7 @@ Deno.serve(async (req) => {
       .single();
     if (error) return json({ error: "join_failed" }, 500);
     await touch(group.id);
-    return json({ member: data, state: await buildState(group) });
+    return json({ member: data, state: await buildState(group, data.id) });
   }
 
   const member = await findMember(group.id, body?.device_id);
@@ -147,7 +155,7 @@ Deno.serve(async (req) => {
 
   if (action === "state") {
     await touch(group.id, member.id);
-    return json({ member, state: await buildState(group) });
+    return json({ member, state: await buildState(group, member.id) });
   }
 
   if (action === "log") {
@@ -157,7 +165,17 @@ Deno.serve(async (req) => {
     });
     if (error) return json({ error: "log_failed", message: error.message }, 400);
     await touch(group.id, member.id);
-    return json({ result: data, state: await buildState(group) });
+    return json({ result: data, state: await buildState(group, member.id) });
+  }
+
+  if (action === "undo") {
+    if (typeof body.event_id !== "string") return json({ error: "bad_request" }, 400);
+    const { data, error } = await supabase.rpc("pawfolio_undo_dose_as_member", {
+      p_member_id: member.id, p_event_id: body.event_id,
+    });
+    if (error) return json({ error: "undo_failed", message: error.message }, 400);
+    await touch(group.id, member.id);
+    return json({ result: data, state: await buildState(group, member.id) });
   }
 
   if (action === "subscribe") {

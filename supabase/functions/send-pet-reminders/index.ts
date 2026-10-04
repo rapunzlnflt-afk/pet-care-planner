@@ -250,11 +250,14 @@ async function sendToOwner(ownerUser: string, payload: string): Promise<number> 
  *  replaces it; iOS may show both, and the newer one carries the truth. */
 async function sendFollowUps(): Promise<{ sent: number; errors: string[] }> {
   const since = new Date(Date.now() - 2 * 3600000).toISOString();
+  // Held for the 5-minute undo window, so an undone tap is never announced.
+  const settled = new Date(Date.now() - 5 * 60000).toISOString();
   const { data, error } = await supabase
     .from("pawfolio_dose_events")
     .select("id, status, taken_at, logged_at, actor_label, actor_member, pawfolio_dose_schedules!inner(user_id, label, subject_name, timezone, shared)")
     .is("followup_sent_at", null)
     .gte("logged_at", since)
+    .lte("logged_at", settled)
     .in("status", ["taken", "skipped"])
     .eq("pawfolio_dose_schedules.shared", true)
     .limit(100);
