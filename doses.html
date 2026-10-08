@@ -155,6 +155,23 @@
       };
     }
 
+    // Minutes between doses, worked out as the app does when it shares them.
+    function gapMin(m){
+      if(m.every_hours) return m.every_hours * 60;
+      var t = (m.times || []).map(function(x){ var p = String(x).split(':'); return +p[0] * 60 + +p[1]; }).sort(function(a, b){ return a - b; });
+      if(t.length < 2) return 1440;
+      var best = 1440;
+      for(var i = 0; i < t.length; i++) best = Math.min(best, (i + 1 < t.length ? t[i + 1] : t[0] + 1440) - t[i]);
+      return Math.max(15, best);
+    }
+    function lastTaken(m){ return (m.history || []).filter(function(e){ return e.status === 'taken' && e.taken_at; })[0] || null; }
+    // Until half the gap has passed since the last dose (the server's
+    // double-dose limit), when the next one opens as usual. 0 = not held.
+    function heldUntil(m){
+      var l = lastTaken(m); if(!l) return 0;
+      var t = new Date(l.taken_at).getTime() + gapMin(m) * 30000;
+      return t > Date.now() ? t : 0;
+    }
     // "Daisy · Every 6 hours" or "Daisy · 8:00 AM, 8:00 PM"
     function subline(m){
       var sched = m.every_hours ? 'Every ' + m.every_hours + ' hour' + (m.every_hours === 1 ? '' : 's')
@@ -207,19 +224,23 @@
                 (u ? '<div class="undo"><span>' + (u.status === 'taken' ? 'Given ' + esc(clock(new Date(u.taken_at))) : 'Skipped') + '</span><button type="button" data-undo="' + u.id + '">Undo</button></div>' : '') +
                 '<h2>' + esc(m.label) + '</h2>' + subline(m);
         if(m.pending){
-          var due = new Date(m.pending.due_at), late = due.getTime() <= Date.now();
+          var due = new Date(m.pending.due_at), hold = heldUntil(m);
+          // Just after a dose, the next one waits behind a link, not a button.
+          var late = !hold && due.getTime() <= Date.now();
           var lastRes = (m.history || [])[0];
           if(lastRes && lastRes.status === 'missed'){
             html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lastRes.due_at))) + ').' + (m.missed ? ' <strong>If missed:</strong> ' + esc(m.missed) : '') + '</div>';
           } else if(late && m.missed){
             html += '<div class="missednote"><strong>If missed:</strong> ' + esc(m.missed) + '</div>';
           }
-          var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
+          var open = !hold && Date.now() >= due.getTime() - OPEN_BEFORE_MS;
           html += '<div class="due' + (late ? ' late' : '') + '">' + (late ? 'Due now \u00b7 <span class="nowrap">' + esc(clock(due)) + '</span>' : 'Next dose: <span class="nowrap">' + esc(when(due)) + '</span>') + '</div>' +
                   (open
                     ? '<div class="btns"><button type="button" class="primary" data-log="' + m.pending.id + '" data-taken="1">\u2713 Given</button>' +
                       '<button type="button" class="secondary" data-log="' + m.pending.id + '" data-taken="0">Skip</button></div>'
-                    : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
+                    : hold
+                      ? '<button type="button" class="early" data-held="' + m.pending.id + '" data-last="' + esc(lastTaken(m).taken_at) + '">' + (due.getTime() <= Date.now() ? 'Give now' : 'Give early') + '</button>'
+                      : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
         } else {
           html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
         }
@@ -239,6 +260,13 @@
       document.title = (data.owner ? data.owner + '\u2019s pet doses' : 'Pet doses') + ' — Pawfolio';
       app.querySelectorAll('[data-log]').forEach(function(b){
         b.addEventListener('click', function(){ log(b.getAttribute('data-log'), b.getAttribute('data-taken') === '1', false); });
+      });
+      app.querySelectorAll('[data-held]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var mins = Math.max(0, Math.round((Date.now() - new Date(b.getAttribute('data-last')).getTime()) / 60000));
+          var ago = mins < 1 ? 'just now' : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago' : (Math.round(mins / 6) / 10) + ' hours ago';
+          if(confirm('The last dose was given ' + ago + '. Only give another now if the owner or vet says that\u2019s okay. Give it now?')) log(b.getAttribute('data-held'), true, true);
+        });
       });
       app.querySelectorAll('[data-early]').forEach(function(b){
         b.addEventListener('click', function(){
@@ -266,6 +294,7 @@
       var now = Date.now(), soonest = Infinity;
       (data && data.meds || []).forEach(function(m){
         if(m.pending){ var o = new Date(m.pending.due_at).getTime() - OPEN_BEFORE_MS; if(o > now) soonest = Math.min(soonest, o); }
+        var h = m.pending ? heldUntil(m) : 0; if(h) soonest = Math.min(soonest, h);
         (m.history || []).forEach(function(e){ if(e.can_undo && e.logged_at){ var x = new Date(e.logged_at).getTime() + UNDO_MS; if(x > now) soonest = Math.min(soonest, x); } });
         (m.history || []).forEach(function(e){ if(e.can_change && e.logged_at){ var y = new Date(e.logged_at).getTime() + CHANGE_MS; if(y > now) soonest = Math.min(soonest, y); } });
       });

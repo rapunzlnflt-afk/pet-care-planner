@@ -13201,12 +13201,21 @@ try {
     Object.keys(state).forEach(function(k){
       var st = state[k];
       if(st.pending){ var open = new Date(st.pending.due_at).getTime() - OPEN_BEFORE_MS; if(open > now) soonest = Math.min(soonest, open); }
+      if(st.pending){ var mm = meds().filter(function(x){ return String(x.__id) === String(k); })[0]; var h = mm ? heldUntil(st, mm) : 0; if(h) soonest = Math.min(soonest, h); }
       if(st.lastLogged){
         var end = new Date(st.lastLogged.logged_at).getTime() + UNDO_MS; if(end > now) soonest = Math.min(soonest, end);
         var cend = new Date(st.lastLogged.logged_at).getTime() + CHANGE_MS; if(cend > now) soonest = Math.min(soonest, cend);
       }
     });
     if(soonest < Infinity) tick = setTimeout(rerender, Math.min(soonest - now + 500, 2147000000));
+  }
+  // Until half the gap between doses has passed since the last one given (the
+  // server's double-dose limit), when the next dose opens as usual. 0 = not held.
+  function heldUntil(st, m){
+    if(!st || !st.lastTaken || !st.lastTaken.taken_at) return 0;
+    var every = everyOf(m), gap = every ? every * 60 : intervalMin(timesOf(m));
+    var t = new Date(st.lastTaken.taken_at).getTime() + gap * 30000;
+    return t > Date.now() ? t : 0;
   }
   // The latest given dose, for 30 minutes after it was recorded.
   function changeable(st){
@@ -13234,9 +13243,10 @@ try {
               '<button type="button" onclick="pfDoseUndo(\'' + u.id + '\')">Undo</button></div>';
     }
     if(st.pending){
-      var due = new Date(st.pending.due_at);
-      var late = due.getTime() <= Date.now();
-      var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
+      var due = new Date(st.pending.due_at), hold = heldUntil(st, m);
+      // Just after a dose, the next one waits behind a link, not a button.
+      var late = !hold && due.getTime() <= Date.now();
+      var open = !hold && Date.now() >= due.getTime() - OPEN_BEFORE_MS;
       var lastMissed = st.lastResolved && st.lastResolved.status === 'missed' ? st.lastResolved : null;
       if(lastMissed){
         html += '<p class="pf-dose-missed">The last ' + noun + ' wasn\u2019t recorded (due ' + when(new Date(lastMissed.due_at)) + ').' +
@@ -13251,6 +13261,8 @@ try {
                   '<button type="button" class="pf-dose-given" onclick="pfDoseLog(\'' + st.pending.id + '\', true)">✓ Given</button>' +
                   '<button type="button" class="pf-dose-skip" onclick="pfDoseLog(\'' + st.pending.id + '\', false)">Skip</button>' +
                 '</div>';
+      } else if(hold){
+        html += '<button type="button" class="pf-dose-early" onclick="pfDoseHeld(\'' + st.pending.id + '\', \'' + st.lastTaken.taken_at + '\')">' + (due.getTime() <= Date.now() ? 'Give now' : 'Give early') + '</button>';
       } else {
         html += '<button type="button" class="pf-dose-early" onclick="pfDoseEarly(\'' + st.pending.id + '\', \'' + st.pending.due_at + '\')">Give early</button>';
       }
@@ -13313,6 +13325,16 @@ try {
     });
   };
 
+  window.pfDoseHeld = function(eventId, lastAt){
+    var mins = Math.max(0, Math.round((Date.now() - new Date(lastAt).getTime()) / 60000));
+    var ago = mins < 1 ? 'just now' : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago' : (Math.round(mins / 6) / 10) + ' hours ago';
+    window.showConfirmModal({
+      title: 'Give another dose now?',
+      message: 'The last dose was given ' + ago + '. Only give another now if your vet says that\u2019s okay.',
+      confirmLabel: 'Give now', cancelLabel: 'Cancel',
+      onConfirm: function(){ window.pfDoseLog(eventId, true, true); }
+    });
+  };
   window.pfDoseEarly = function(eventId, dueAt){
     window.showConfirmModal({
       title: 'Give this dose early?',
