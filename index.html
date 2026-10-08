@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.34.1">
+                          <meta name="app-version" content="3.34.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -6273,9 +6273,13 @@ try {
       });
       // Pet insurance renewals (v3.14.0): surface from 60 days out so there is time
       // to shop the policy before it auto-renews.
+      // A policy renews on its own, so a passed date is never "overdue": it
+      // leaves Upcoming after the renewal day (the profile shows "Renewed").
       (getList('pets')||[]).filter(function(p){return p.insRenewal && !p.archived;}).forEach(function(p){
-        var days = Math.ceil((new Date(p.insRenewal) - now) / 86400000);
-        if(days >= -7 && days <= 60){
+        // Whole local days, so it stays listed through the end of the renewal day.
+        var t0 = new Date(); t0.setHours(0,0,0,0);
+        var days = Math.round((new Date(p.insRenewal + 'T00:00:00') - t0) / 86400000);
+        if(days >= 0 && days <= 60){
           reminders.push({type:'Insurance Renewal', name:(p.insurance ? p.insurance + ' policy' : 'Policy renewal'), pet:p.name, days:days, date:p.insRenewal, time:'', tab:'pet-profiles'});
         }
       });
