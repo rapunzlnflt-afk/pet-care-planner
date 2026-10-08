@@ -13275,7 +13275,7 @@ try {
       html += '<p class="font-body text-xs text-secondary" style="margin-top:6px;">Last given' + by + ' ' + when(new Date(st.lastTaken.taken_at)) + '</p>';
     }
     if(changeable(st)){
-      html += '<button type="button" class="pf-dose-early" onclick="pfDoseChangeTime(' + m.__id + ')">Change time given</button>';
+      html += '<button type="button" class="pf-dose-early" style="display:block;" onclick="pfDoseChangeTime(' + m.__id + ')">Change time given</button>';
     }
     if(m.doseShared && paid()){
       html += '<p class="pf-dose-shared">Shared with sitter</p>';
