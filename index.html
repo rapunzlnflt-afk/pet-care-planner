@@ -569,6 +569,11 @@
     .pf-med-more[aria-expanded="true"]::after { transform:rotate(-135deg) translate(-2px,-2px); }
     .pf-med-details { margin-top:4px; }
     .pf-med-details .card-actions { margin-top:10px; }
+    #pf-med-stack { padding:0 !important; overflow:hidden; }
+    #pf-med-stack > .card { margin:0 !important; border:none !important; border-radius:0 !important; box-shadow:none !important; padding:11px 14px !important; }
+    #pf-med-stack > .card + .card { border-top:1px solid var(--border-color) !important; }
+    #pf-med-stack .font-heading.text-sm, #pf-med-stack #med-form-title { font-size:16px !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #pf-med-stack .pf-collapse-chev { font-size:16px !important; color:#64748b; }
     .type-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
     .type-badge.medication { background: rgba(91,91,214,0.1); color: #5B5BD6; }
     .type-badge.supplement { background: rgba(72,187,120,0.15); color: #2f855a; }
@@ -1492,7 +1497,9 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     <!-- MEDICATIONS TAB -->
     <section id="tab-medications" class="tab-content">
      <h2 class="font-heading text-2xl font-bold text-primary mb-4">Medications</h2>
-     <div class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
+     <!-- v3.35.0: refill reminders, dose reminders, sitter sharing and the add form share one compact card. -->
+     <div id="pf-med-stack" class="card mb-5">
+     <div id="pf-med-add" class="card p-5 mb-5" style="border-top:4px solid var(--accent-color);">
       <h3 id="med-form-title" class="font-heading text-base font-bold text-primary mb-4">Add a Medication</h3>
       <div id="med-edit-banner" class="edit-banner">
        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
@@ -1644,6 +1651,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
        <button type="submit" class="btn-primary px-4 py-2">Save Medication</button>
       </form>
      </div>
+     </div><!-- /#pf-med-stack -->
      <div id="med-filter" class="type-filter"></div>
      <div id="medications-list" class="space-y-3"></div>
     </section>
@@ -7515,6 +7523,8 @@ try {
     // doses to the refill card keeps them stacked refill-then-dose rather than
     // both landing directly under the h2 in reverse.
     var anchor = (type === 'dose') ? ($('pf-typectl-med') || h2) : h2;
+    // Medications: the refill row goes first inside the compact stack.
+    if(type === 'med' && $('pf-med-stack')){ $('pf-med-stack').insertAdjacentElement('afterbegin', card); renderBlock(type); return true; }
     if(anchor){ anchor.insertAdjacentElement('afterend', card); }
     else { section.insertAdjacentElement('afterbegin', card); }
     renderBlock(type);
