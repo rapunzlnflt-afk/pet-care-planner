@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.34.2">
+                          <meta name="app-version" content="3.34.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4710,12 +4710,21 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     const snoozed = localStorage.getItem('backupReminderSnoozed');
     if(snoozed === today()) { el.style.display = 'none'; return; }
 
+    // v3.34.3 iPhone/iPad: changes since the last backup day (see the
+    // automated-backup block) bring the bar up the same day.
+    const changedOn = localStorage.getItem('pawfolioChangedOn');
+    const iosPending = !!changedOn && changedOn > (lastExport || '') && localStorage.getItem('pawfolioAutoBackup') !== '0';
+
     // Threshold: show only if 3+ days since baseline
-    if(daysSince < 3) { el.style.display = 'none'; return; }
+    if(daysSince < 3 && !iosPending) { el.style.display = 'none'; return; }
 
     // Color + copy by urgency
     let color, bg, title, body;
-    if(daysSince >= 30) {
+    if(daysSince < 3) {
+      color = '#5B5BD6'; bg = 'rgba(91,91,214,0.06)';
+      title = `Back up today's changes`;
+      body = `Tap Save my data now, then choose Save to Files.`;
+    } else if(daysSince >= 30) {
       color = '#dc2626'; bg = 'rgba(220,38,38,0.08)';
       title = lastExport ? `It's been ${daysSince} days since your last backup` : `You haven't backed up your data yet`;
       body = `Save my data now so you don't lose your records if you uninstall the app or clear browser data.`;
@@ -8551,6 +8560,12 @@ try {
   var PREF_KEY = 'pawfolioAutoBackup';     // '1' on (default), '0' off
   var LAST_AUTO_KEY = 'lastAutoBackup';    // YYYY-MM-DD of last successful auto backup (daily cap)
   var FILE_NAME = 'Pawfolio-Backup.json';
+  // v3.34.3: iPhone/iPad can't save a file quietly. A download there opens a
+  // full-screen file preview, and the file is only kept if the user saves it.
+  // So on iOS the automatic backup never downloads: it flags today's changes
+  // and the backup bar offers "Save my data" (share sheet > Save to Files).
+  var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var CHANGED_KEY = 'pawfolioChangedOn';   // YYYY-MM-DD of the latest change not yet backed up (iOS)
 
   function todayStr(){ return window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10); }
   function autoEnabled(){
@@ -8774,6 +8789,11 @@ try {
     if (!autoEnabled()) return;
     clearTimeout(_debounceTimer);
     _debounceTimer = setTimeout(function(){
+      if (IS_IOS){
+        try { localStorage.setItem(CHANGED_KEY, todayStr()); } catch(e){}
+        if (typeof window.renderBackupReminder === 'function') { try { window.renderBackupReminder(); } catch(e){} }
+        return;
+      }
       // Once-a-day cap: skip the actual write if we already backed up today,
       // but petPlannerLastExport tracking keeps the Tier 2 reminder accurate.
       try {
@@ -8807,7 +8827,9 @@ try {
       toggle.checked = autoEnabled();
       toggle.addEventListener('change', function(){
         try { localStorage.setItem(PREF_KEY, toggle.checked ? '1' : '0'); } catch(e){}
-        setStatus(toggle.checked ? 'Automatic backup is on.' : 'Automatic backup is off.');
+        setStatus(toggle.checked
+          ? (IS_IOS ? 'On. After changes, a reminder offers Save my data.' : 'Automatic backup is on.')
+          : 'Automatic backup is off.');
         // When turning on with FS support and no file chosen yet, offer to pick one now.
         if (toggle.checked && SUPPORTS_FS){
           loadHandle().then(function(h){ if (!h) pickFile().then(updateLocationLabel); });
@@ -8816,6 +8838,12 @@ try {
     }
     if (nowBtn){
       nowBtn.addEventListener('click', function(){
+        // iPhone/iPad: the share sheet (Save to Files), which only counts as a
+        // backup once something is actually saved.
+        if (IS_IOS){
+          var ex = document.getElementById('export-data-btn');
+          if (ex){ setStatus(''); ex.click(); return; }
+        }
         setStatus('Backing up…');
         runBackup({ auto:false, interactive:true }).then(function(res){
           setStatus(res && res.ok ? 'Last backup: just now.' : 'Backup did not complete.');
