@@ -30,8 +30,8 @@
     .wrap{ max-width:560px; margin:0 auto; padding:0 16px 40px; }
     .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
     .med h2{ margin:0; font-size:19px; font-weight:800; overflow-wrap:anywhere; }
-    .pet{ font-size:14px; color:var(--muted); margin-top:1px; }
-    .times{ font-size:13px; color:var(--muted); margin-top:4px; }
+    .pet{ font-size:15px; color:var(--muted); margin-top:2px; }
+    .last{ margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
     .due{ margin-top:12px; font-size:16px; font-weight:800; }
     .due.late{ color:var(--late); }
     .nowrap{ white-space:nowrap; }
@@ -41,9 +41,6 @@
     .secondary{ flex:0 0 auto; background:#fff; color:var(--ink); border:1px solid #d1d5db; border-radius:12px; padding:13px 18px; font-size:15px; font-weight:700; }
     .block{ display:block; width:100%; margin-top:10px; }
     .link{ background:none; border:none; color:var(--muted); font-size:14px; font-weight:700; padding:10px; }
-    .hist{ margin:14px 0 0; padding:0; list-style:none; border-top:1px solid var(--line); }
-    .hist li{ font-size:14px; padding:7px 0; border-bottom:1px solid var(--line); display:flex; gap:8px; justify-content:space-between; }
-    .hist li span:last-child{ color:var(--muted); text-align:right; }
     .missed{ color:var(--late); font-weight:700; }
     label{ display:block; font-size:14px; font-weight:700; margin-top:12px; }
     input{ width:100%; font-size:17px; padding:12px; border:1px solid #cbd5e1; border-radius:10px; margin-top:6px; font-family:inherit; }
@@ -158,11 +155,29 @@
       };
     }
 
-    function histLine(e){
-      var t = new Date(e.taken_at || e.logged_at || e.due_at);
-      if(e.status === 'taken') return '<li><span>Given' + (e.actor_label ? ' by ' + esc(e.actor_label) : '') + '</span><span>' + esc(when(t)) + '</span></li>';
-      if(e.status === 'skipped') return '<li><span>Skipped' + (e.actor_label ? ' by ' + esc(e.actor_label) : '') + '</span><span>' + esc(when(new Date(e.logged_at || e.due_at))) + '</span></li>';
-      return '<li><span class="missed">Not recorded</span><span>due ' + esc(when(new Date(e.due_at))) + '</span></li>';
+    // Minutes between doses, worked out as the app does when it shares them.
+    function gapMin(m){
+      if(m.every_hours) return m.every_hours * 60;
+      var t = (m.times || []).map(function(x){ var p = String(x).split(':'); return +p[0] * 60 + +p[1]; }).sort(function(a, b){ return a - b; });
+      if(t.length < 2) return 1440;
+      var best = 1440;
+      for(var i = 0; i < t.length; i++) best = Math.min(best, (i + 1 < t.length ? t[i + 1] : t[0] + 1440) - t[i]);
+      return Math.max(15, best);
+    }
+    function lastTaken(m){ return (m.history || []).filter(function(e){ return e.status === 'taken' && e.taken_at; })[0] || null; }
+    // Until half the gap has passed since the last dose (the server's
+    // double-dose limit), when the next one opens as usual. 0 = not held.
+    function heldUntil(m){
+      var l = lastTaken(m); if(!l) return 0;
+      var t = new Date(l.taken_at).getTime() + gapMin(m) * 30000;
+      return t > Date.now() ? t : 0;
+    }
+    // "Daisy · Every 6 hours" or "Daisy · 8:00 AM, 8:00 PM"
+    function subline(m){
+      var sched = m.every_hours ? 'Every ' + m.every_hours + ' hour' + (m.every_hours === 1 ? '' : 's')
+                : m.times && m.times.length ? m.times.map(fmtTime).join(', ') : '';
+      var parts = [m.pet, sched].filter(Boolean);
+      return parts.length ? '<div class="pet">' + parts.map(esc).join(' \u00b7 ') + '</div>' : '';
     }
 
     function pushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
@@ -193,37 +208,48 @@
       if(!meds.length){
         html += '<div class="card"><p class="muted" style="margin:0;">No doses are shared right now.</p></div>';
       }
+      // What needs doing first: a dose that's due or open now, then the next due.
+      meds = meds.slice().sort(function(a, b){
+        function key(m){
+          if(!m.pending) return [2, 0];
+          var t = new Date(m.pending.due_at).getTime();
+          return [Date.now() >= t - OPEN_BEFORE_MS ? 0 : 1, t];
+        }
+        var ka = key(a), kb = key(b);
+        return ka[0] - kb[0] || ka[1] - kb[1];
+      });
       meds.forEach(function(m){
         var u = (m.history || []).filter(function(e){ return e.can_undo && e.logged_at && Date.now() - new Date(e.logged_at).getTime() < UNDO_MS; })[0];
         html += '<div class="card med">' +
                 (u ? '<div class="undo"><span>' + (u.status === 'taken' ? 'Given ' + esc(clock(new Date(u.taken_at))) : 'Skipped') + '</span><button type="button" data-undo="' + u.id + '">Undo</button></div>' : '') +
-                '<h2>' + esc(m.label) + '</h2>' + (m.pet ? '<div class="pet">for ' + esc(m.pet) + '</div>' : '') +
-                (m.every_hours ? '<div class="times">Every ' + esc(m.every_hours) + ' hour' + (m.every_hours === 1 ? '' : 's') + ' from the last dose</div>'
-                  : m.times && m.times.length ? '<div class="times">Doses: ' + m.times.map(fmtTime).map(esc).join(', ') + '</div>' : '') +
-                (m.missed ? '<div class="times">If missed: ' + esc(m.missed) + '</div>' : '');
+                '<h2>' + esc(m.label) + '</h2>' + subline(m);
         if(m.pending){
-          var due = new Date(m.pending.due_at), late = due.getTime() <= Date.now();
+          var due = new Date(m.pending.due_at), hold = heldUntil(m);
+          // Just after a dose, the next one waits behind a link, not a button.
+          var late = !hold && due.getTime() <= Date.now();
           var lastRes = (m.history || [])[0];
           if(lastRes && lastRes.status === 'missed'){
             html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lastRes.due_at))) + ').' + (m.missed ? ' <strong>If missed:</strong> ' + esc(m.missed) : '') + '</div>';
           } else if(late && m.missed){
             html += '<div class="missednote"><strong>If missed:</strong> ' + esc(m.missed) + '</div>';
           }
-          var open = Date.now() >= due.getTime() - OPEN_BEFORE_MS;
+          var open = !hold && Date.now() >= due.getTime() - OPEN_BEFORE_MS;
           html += '<div class="due' + (late ? ' late' : '') + '">' + (late ? 'Due now \u00b7 <span class="nowrap">' + esc(clock(due)) + '</span>' : 'Next dose: <span class="nowrap">' + esc(when(due)) + '</span>') + '</div>' +
                   (open
                     ? '<div class="btns"><button type="button" class="primary" data-log="' + m.pending.id + '" data-taken="1">\u2713 Given</button>' +
                       '<button type="button" class="secondary" data-log="' + m.pending.id + '" data-taken="0">Skip</button></div>'
-                    : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
+                    : hold
+                      ? '<button type="button" class="early" data-held="' + m.pending.id + '" data-last="' + esc(lastTaken(m).taken_at) + '">' + (due.getTime() <= Date.now() ? 'Give now' : 'Give early') + '</button>'
+                      : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
         } else {
           html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
         }
+        var lastGiven = (m.history || []).filter(function(e){ return e.status === 'taken' && e.taken_at; })[0];
+        if(lastGiven) html += '<div class="last">Last given ' + esc(when(new Date(lastGiven.taken_at))) + '</div>';
         var c = (m.history || [])[0];
         if(c && c.can_change && c.status === 'taken' && Date.now() - new Date(c.logged_at).getTime() < CHANGE_MS){
           html += '<button type="button" class="chg" data-chg="' + c.id + '">Change time given</button>';
         }
-        var hist = (m.history || []).slice(0, 5);
-        if(hist.length) html += '<ul class="hist">' + hist.map(histLine).join('') + '</ul>';
         html += '</div>';
       });
       html += '<div class="card">' + remindersHTML() + '</div>';
@@ -234,6 +260,13 @@
       document.title = (data.owner ? data.owner + '\u2019s pet doses' : 'Pet doses') + ' — Pawfolio';
       app.querySelectorAll('[data-log]').forEach(function(b){
         b.addEventListener('click', function(){ log(b.getAttribute('data-log'), b.getAttribute('data-taken') === '1', false); });
+      });
+      app.querySelectorAll('[data-held]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var mins = Math.max(0, Math.round((Date.now() - new Date(b.getAttribute('data-last')).getTime()) / 60000));
+          var ago = mins < 1 ? 'just now' : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago' : (Math.round(mins / 6) / 10) + ' hours ago';
+          if(confirm('The last dose was given ' + ago + '. Only give another now if the owner or vet says that\u2019s okay. Give it now?')) log(b.getAttribute('data-held'), true, true);
+        });
       });
       app.querySelectorAll('[data-early]').forEach(function(b){
         b.addEventListener('click', function(){
@@ -261,6 +294,7 @@
       var now = Date.now(), soonest = Infinity;
       (data && data.meds || []).forEach(function(m){
         if(m.pending){ var o = new Date(m.pending.due_at).getTime() - OPEN_BEFORE_MS; if(o > now) soonest = Math.min(soonest, o); }
+        var h = m.pending ? heldUntil(m) : 0; if(h) soonest = Math.min(soonest, h);
         (m.history || []).forEach(function(e){ if(e.can_undo && e.logged_at){ var x = new Date(e.logged_at).getTime() + UNDO_MS; if(x > now) soonest = Math.min(soonest, x); } });
         (m.history || []).forEach(function(e){ if(e.can_change && e.logged_at){ var y = new Date(e.logged_at).getTime() + CHANGE_MS; if(y > now) soonest = Math.min(soonest, y); } });
       });
