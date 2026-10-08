@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.33.0">
+                          <meta name="app-version" content="3.34.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -13000,6 +13000,8 @@ try {
   var OPEN_BEFORE_MS = 90 * 60000;
   // Undo stays available this long after Given or Skip (matches the server).
   var UNDO_MS = 5 * 60000;
+  // "Change time" stays this long after Given (matches pawfolio_set_dose_time).
+  var CHANGE_MS = 30 * 60000;
   var tick = null;
   var loaded = false;
 
@@ -13199,9 +13201,17 @@ try {
     Object.keys(state).forEach(function(k){
       var st = state[k];
       if(st.pending){ var open = new Date(st.pending.due_at).getTime() - OPEN_BEFORE_MS; if(open > now) soonest = Math.min(soonest, open); }
-      if(st.lastLogged){ var end = new Date(st.lastLogged.logged_at).getTime() + UNDO_MS; if(end > now) soonest = Math.min(soonest, end); }
+      if(st.lastLogged){
+        var end = new Date(st.lastLogged.logged_at).getTime() + UNDO_MS; if(end > now) soonest = Math.min(soonest, end);
+        var cend = new Date(st.lastLogged.logged_at).getTime() + CHANGE_MS; if(cend > now) soonest = Math.min(soonest, cend);
+      }
     });
     if(soonest < Infinity) tick = setTimeout(rerender, Math.min(soonest - now + 500, 2147000000));
+  }
+  // The latest given dose, for 30 minutes after it was recorded.
+  function changeable(st){
+    var e = st && st.lastResolved;
+    return e && e.status === 'taken' && e.logged_at && (Date.now() - new Date(e.logged_at).getTime()) < CHANGE_MS ? e : null;
   }
   function undoable(st){
     return st && st.lastLogged && (Date.now() - new Date(st.lastLogged.logged_at).getTime()) < UNDO_MS ? st.lastLogged : null;
@@ -13251,6 +13261,9 @@ try {
       // Name the sitter when they gave it; the owner's own doses stay plain.
       var by = st.lastTaken.actor_member && st.lastTaken.actor_label ? ' by ' + esc(st.lastTaken.actor_label) : '';
       html += '<p class="font-body text-xs text-secondary" style="margin-top:6px;">Last given' + by + ' ' + when(new Date(st.lastTaken.taken_at)) + '</p>';
+    }
+    if(changeable(st)){
+      html += '<button type="button" class="pf-dose-early" onclick="pfDoseChangeTime(' + m.__id + ')">Change time given</button>';
     }
     if(m.doseShared && paid()){
       html += '<p class="pf-dose-shared">Shared with sitter</p>';
@@ -13318,6 +13331,71 @@ try {
       toast(o === 'undone' ? 'Undone' : o === 'too_late' ? 'Too late to undo' : 'Nothing to undo');
       return refresh();
     }).catch(function(){ toast('Could not undo. Check your connection and try again.'); });
+  };
+
+  // ---- change the time a dose was given (latest dose, 30 minutes) ----
+  function hhmm(d){ return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  // A clock time typed in means its most recent occurrence: today, or
+  // yesterday when today's would still be in the future (just after midnight).
+  function pickedTime(v){
+    var m = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!m) return null;
+    var d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
+    if(d.getTime() > Date.now() + 2 * 60000){
+        d.setDate(d.getDate() - 1);
+        // Yesterday's would be too old to mean anything: it's a time still ahead today.
+        if(d.getTime() < Date.now() - 12 * 3600000) return 'future';
+      }
+    return d;
+  }
+  window.pfDoseTimeParts = { pickedTime: pickedTime, hhmm: hhmm };
+  function timeError(res){
+    var o = res && res.outcome;
+    if(o === 'too_late') return 'It\u2019s too late to change this one. Times can be changed for 30 minutes after tapping Given.';
+    if(o === 'not_latest') return 'A later dose has been recorded, so this one can\u2019t be changed.';
+    if(o === 'not_given') return 'This dose isn\u2019t marked as given any more.';
+    if(o === 'bad_time'){
+      if(res.reason === 'future') return 'That time hasn\u2019t happened yet.';
+      if(res.reason === 'too_old') return 'That\u2019s more than 12 hours ago.';
+      if(res.reason === 'before_previous') return 'That\u2019s before the previous dose (' + when(new Date(res.previous_taken_at)) + ').';
+    }
+    return 'Could not change the time. Try again.';
+  }
+  window.pfDoseTimeError = timeError;
+
+  window.pfDoseChangeTime = function(medId){
+    var st = state[medId], e = changeable(st);
+    if(!e){ toast('Times can be changed for 30 minutes after tapping Given.'); return rerender(); }
+    var m = meds().filter(function(x){ return String(x.__id) === String(medId); })[0] || {};
+    var rolling = !!everyOf(m);
+    var ov = sheet(
+      '<h2 id="pf-dose-title">Change time given</h2>' +
+      '<p class="pf-dose-pet">' + esc(m.name || 'Medication') + (m.petName ? ' \u00b7 ' + esc(m.petName) : '') + '</p>' +
+      '<p class="pf-dose-muted">Recorded as given ' + when(new Date(e.taken_at)) + '. When was it actually given?</p>' +
+      '<label for="pf-dose-time" class="pf-dose-muted" style="display:block;font-weight:700;color:#1f2937;">Time given</label>' +
+      '<input type="time" id="pf-dose-time" value="' + hhmm(new Date(e.taken_at)) + '">' +
+      (rolling ? '<p class="pf-dose-muted">The next dose moves to match.</p>' : '') +
+      '<p class="pf-dose-err" id="pf-dose-time-err" role="alert"></p>' +
+      '<button type="button" class="pf-dose-primary" id="pf-dose-time-save">Save time</button>' +
+      '<button type="button" class="pf-dose-link" id="pf-dose-time-cancel">Cancel</button>');
+    ov.querySelector('#pf-dose-time-cancel').onclick = closeSheet;
+    var err = ov.querySelector('#pf-dose-time-err');
+    ov.querySelector('#pf-dose-time').addEventListener('input', function(){ err.textContent = ''; });
+    ov.querySelector('#pf-dose-time-save').onclick = function(){
+      var btn = this, at = pickedTime(ov.querySelector('#pf-dose-time').value);
+          if(at === 'future'){ err.textContent = 'That time hasn\u2019t happened yet.'; return; }
+      if(!at){ err.textContent = 'Enter the time it was given.'; return; }
+      btn.disabled = true; err.textContent = '';
+      window.getSupabase().then(function(sb){
+        return sb.rpc('pawfolio_set_dose_time', { p_event_id: e.id, p_taken_at: at.toISOString() });
+      }).then(function(r){
+        if(r.error) throw r.error;
+        var res = r.data || {};
+        if(res.outcome !== 'changed'){ err.textContent = timeError(res); btn.disabled = false; return; }
+        closeSheet();
+        toast('Time changed to ' + clock(new Date(res.taken_at)) + '.' + (rolling && res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
+        return refresh();
+      }).catch(function(){ err.textContent = 'Could not change the time. Check your connection and try again.'; btn.disabled = false; });
+    };
   };
 
   // ---- one-tap confirm screen, opened from a dose notification ----
@@ -13437,6 +13515,9 @@ try {
   #pf-dose-sheet .pf-dose-secondary { margin-top: 10px; background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600; }
   #pf-dose-sheet .pf-dose-link { margin-top: 6px; background: none; border: none; color: #6b7280; padding: 10px; font-size: 14px; font-weight: 600; }
   #pf-dose-sheet button:disabled { opacity: 0.6; }
+  #pf-dose-sheet input[type="time"] { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; font-size: 18px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; color: #1f2937; }
+  #pf-dose-sheet .pf-dose-err { margin: 8px 0 0; font-size: 14px; color: #b91c1c; }
+  #pf-dose-sheet .pf-dose-err:empty { display: none; }
 </style>
 <script>
 /* === Pawfolio v3.31.0 — share doses with a sitter (Pawfolio Complete) ===

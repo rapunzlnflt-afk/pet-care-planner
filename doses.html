@@ -59,6 +59,11 @@
     #sheet .primary{ display:block; width:100%; margin-top:18px; padding:15px; font-size:17px; }
     #sheet .secondary{ display:block; width:100%; margin-top:10px; }
     #sheet .link{ display:block; width:100%; margin-top:4px; }
+    #sheet label{ display:block; margin-top:14px; font-weight:700; }
+    #sheet input[type=time]{ display:block; width:100%; box-sizing:border-box; margin-top:6px; padding:12px; font-size:18px; border:1px solid #d1d5db; border-radius:12px; background:#fff; color:inherit; }
+    #sheet .err{ margin:8px 0 0; font-size:14px; color:#b91c1c; }
+    #sheet .err:empty{ display:none; }
+    .chg{ display:inline-block; margin-top:8px; background:none; border:none; padding:4px 0; font-size:15px; font-weight:700; color:#4338ca; text-decoration:underline; text-underline-offset:3px; }
     @media (min-width:640px){ #sheet{ align-items:center; } #sheet .in{ border-radius:16px; } }
     button:disabled{ opacity:0.6; }
     .missednote{ margin-top:12px; padding:9px 12px; border-radius:10px; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.25); color:#7c2d12; font-size:14px; line-height:1.4; }
@@ -78,6 +83,8 @@
     var app = document.getElementById('app');
     var data = null, member = null, tick = null;
     var OPEN_BEFORE_MS = 90 * 60000, UNDO_MS = 5 * 60000;
+    // "Change time given" stays this long after Given (matches the server).
+    var CHANGE_MS = 30 * 60000;
 
     function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function ls(k, v){ try { if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch(e){ return null; } }
@@ -211,6 +218,10 @@
         } else {
           html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
         }
+        var c = (m.history || [])[0];
+        if(c && c.can_change && c.status === 'taken' && Date.now() - new Date(c.logged_at).getTime() < CHANGE_MS){
+          html += '<button type="button" class="chg" data-chg="' + c.id + '">Change time given</button>';
+        }
         var hist = (m.history || []).slice(0, 5);
         if(hist.length) html += '<ul class="hist">' + hist.map(histLine).join('') + '</ul>';
         html += '</div>';
@@ -228,6 +239,9 @@
         b.addEventListener('click', function(){
           if(confirm('This dose isn\u2019t due until ' + when(new Date(b.getAttribute('data-due'))) + '. Only give it early if the owner or vet says that\u2019s okay. Give it now?')) log(b.getAttribute('data-early'), true, false);
         });
+      });
+      app.querySelectorAll('[data-chg]').forEach(function(b){
+        b.addEventListener('click', function(){ changeTime(b.getAttribute('data-chg')); });
       });
       app.querySelectorAll('[data-undo]').forEach(function(b){
         b.addEventListener('click', function(){ undo(b.getAttribute('data-undo')); });
@@ -248,8 +262,65 @@
       (data && data.meds || []).forEach(function(m){
         if(m.pending){ var o = new Date(m.pending.due_at).getTime() - OPEN_BEFORE_MS; if(o > now) soonest = Math.min(soonest, o); }
         (m.history || []).forEach(function(e){ if(e.can_undo && e.logged_at){ var x = new Date(e.logged_at).getTime() + UNDO_MS; if(x > now) soonest = Math.min(soonest, x); } });
+        (m.history || []).forEach(function(e){ if(e.can_change && e.logged_at){ var y = new Date(e.logged_at).getTime() + CHANGE_MS; if(y > now) soonest = Math.min(soonest, y); } });
       });
       if(soonest < Infinity) tick = setTimeout(render, Math.min(soonest - now + 500, 2147000000));
+    }
+
+    // ---- change the time a dose was given (own latest dose, 30 minutes) ----
+    function hhmm(d){ return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+    // A typed clock time means its most recent occurrence: today, or
+    // yesterday when today's would still be ahead (just after midnight).
+    function pickedTime(v){
+      var x = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!x) return null;
+      var d = new Date(); d.setHours(+x[1], +x[2], 0, 0);
+      if(d.getTime() > Date.now() + 2 * 60000){
+          d.setDate(d.getDate() - 1);
+          // Yesterday's would be too old to mean anything: it's a time still ahead today.
+          if(d.getTime() < Date.now() - 12 * 3600000) return 'future';
+        }
+      return d;
+    }
+    function timeError(res){
+      var o = res && res.outcome;
+      if(o === 'too_late') return 'It\u2019s too late to change this one. Times can be changed for 30 minutes after tapping Given.';
+      if(o === 'not_latest') return 'A later dose has been recorded, so this one can\u2019t be changed.';
+      if(o === 'not_given') return 'This dose isn\u2019t marked as given any more.';
+      if(o === 'bad_time'){
+        if(res.reason === 'future') return 'That time hasn\u2019t happened yet.';
+        if(res.reason === 'too_old') return 'That\u2019s more than 12 hours ago.';
+        if(res.reason === 'before_previous') return 'That\u2019s before the previous dose (' + when(new Date(res.previous_taken_at)) + ').';
+      }
+      return 'Could not change the time. Try again.';
+    }
+    function changeTime(id){
+      var f = findEvent(id);
+      if(!f || !f.ev.can_change){ toast('Times can be changed for 30 minutes after tapping Given.'); render(); return; }
+      var ev = f.ev, rolling = !!f.med.every_hours;
+      var s = sheet('<h2>Change time given</h2>' + '<div class="pet">' + esc(f.med.label) + (f.med.pet ? ' \u00b7 ' + esc(f.med.pet) : '') + '</div>' +
+        '<p class="muted">Recorded as given ' + esc(when(new Date(ev.taken_at))) + '. When was it actually given?</p>' +
+        '<label for="ctime">Time given</label><input type="time" id="ctime" value="' + hhmm(new Date(ev.taken_at)) + '">' +
+        (rolling ? '<p class="muted small">The next dose moves to match.</p>' : '') +
+        '<p class="err" id="cerr" role="alert"></p>' +
+        '<button type="button" class="primary" id="csave">Save time</button>' +
+        '<button type="button" class="link" data-close>Cancel</button>');
+      var err = s.querySelector('#cerr');
+      s.querySelector('#ctime').addEventListener('input', function(){ err.textContent = ''; });
+      s.querySelector('#csave').onclick = function(){
+        var btn = this, at = pickedTime(s.querySelector('#ctime').value);
+            if(at === 'future'){ err.textContent = 'That time hasn\u2019t happened yet.'; return; }
+        if(!at){ err.textContent = 'Enter the time it was given.'; return; }
+        btn.disabled = true; err.textContent = '';
+        call('settime', { event_id: ev.id, taken_at: at.toISOString() }).then(function(r){
+          if(r.error === 'link_inactive'){ closeSheet(); showInactive(); return; }
+          if(r.state) data = r.state;
+          var res = r.result || {};
+          if(res.outcome !== 'changed'){ err.textContent = timeError(res); btn.disabled = false; return; }
+          closeSheet();
+          toast('Time changed to ' + clock(new Date(res.taken_at)) + '.' + (rolling && res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
+          render();
+        }, function(){ err.textContent = 'Could not change the time. Check your connection.'; btn.disabled = false; });
+      };
     }
 
     function undo(id){

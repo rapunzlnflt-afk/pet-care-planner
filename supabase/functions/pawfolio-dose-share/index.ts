@@ -77,6 +77,8 @@ async function touch(groupId: string, memberId?: string) {
 // Shared medications only: label, pet, dose times, the pending dose and
 // recent history with who logged each one.
 const UNDO_MS = 5 * 60000;
+// "Change time" stays this long after Given (matches pawfolio_set_dose_time).
+const CHANGE_MS = 30 * 60000;
 
 // The owner's missed-dose instruction, as the sentence the sitter sees.
 const MISSED_TEXT: Record<string, string> = {
@@ -112,6 +114,8 @@ async function buildState(group: { id: string; owner_user: string; owner_label: 
       ...e,
       can_undo: !!memberId && actor_member === memberId && e.status !== "pending" && e.status !== "missed" &&
         !!e.logged_at && Date.now() - new Date(e.logged_at).getTime() < UNDO_MS,
+      can_change: !!memberId && actor_member === memberId && e.status === "taken" &&
+        !!e.logged_at && Date.now() - new Date(e.logged_at).getTime() < CHANGE_MS,
     }));
   }
   return {
@@ -187,6 +191,18 @@ Deno.serve(async (req) => {
       p_member_id: member.id, p_event_id: body.event_id,
     });
     if (error) return json({ error: "undo_failed", message: error.message }, 400);
+    await touch(group.id, member.id);
+    return json({ result: data, state: await buildState(group, member.id) });
+  }
+
+  if (action === "settime") {
+    if (typeof body.event_id !== "string" || typeof body.taken_at !== "string" || isNaN(Date.parse(body.taken_at))) {
+      return json({ error: "bad_request" }, 400);
+    }
+    const { data, error } = await supabase.rpc("pawfolio_set_dose_time_as_member", {
+      p_member_id: member.id, p_event_id: body.event_id, p_taken_at: new Date(body.taken_at).toISOString(),
+    });
+    if (error) return json({ error: "settime_failed", message: error.message }, 400);
     await touch(group.id, member.id);
     return json({ result: data, state: await buildState(group, member.id) });
   }
