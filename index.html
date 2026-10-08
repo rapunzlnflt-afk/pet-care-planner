@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.34.3">
+                          <meta name="app-version" content="3.35.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -563,6 +563,12 @@
     .card-actions button:hover { background: rgba(91,91,214,0.08); }
     .card-actions button.danger { border-color: #e53e3e; color: #e53e3e; font-weight: 700; }
     .card-actions button.danger:hover { background: rgba(229,62,62,0.08); }
+    /* v3.35.0: medication cards show the basics; the rest sits under Details. */
+    .pf-med-more { display:inline-flex; align-items:center; gap:4px; margin-top:10px; padding:4px 0; background:none; border:none; color:#5B5BD6; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .pf-med-more::after { content:''; width:7px; height:7px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg) translate(-2px,-2px); transition:transform .15s; }
+    .pf-med-more[aria-expanded="true"]::after { transform:rotate(-135deg) translate(-2px,-2px); }
+    .pf-med-details { margin-top:4px; }
+    .pf-med-details .card-actions { margin-top:10px; }
     .type-badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
     .type-badge.medication { background: rgba(91,91,214,0.1); color: #5B5BD6; }
     .type-badge.supplement { background: rgba(72,187,120,0.15); color: #2f855a; }
@@ -3167,6 +3173,13 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   let medListFilter = 'all';
   window.setMedFilter = f => { medListFilter = f; renderMedications(); };
 
+  // Cards whose Details are open; kept across re-renders.
+  const medDetailsOpen = new Set();
+  window.toggleMedDetails = id => {
+    const k = String(id);
+    if(medDetailsOpen.has(k)) medDetailsOpen.delete(k); else medDetailsOpen.add(k);
+    renderMedications();
+  };
   function medCardHTML(m, editId) {
     const supp = isSupplement(m);
     const daysToRefill = m.refill ? Math.ceil((new Date(m.refill) - new Date()) / 86400000) : null;
@@ -3178,28 +3191,36 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       : medDoseTimes(m).map(fmtDoseTime).join(', ');
     const missed = medMissedText(m);
     const archived = isArchivedMed(m);
+    // Refill shows on the card itself only when it needs attention (under a week or overdue).
+    const refillSoon = daysToRefill !== null && daysToRefill < 7;
+    const refillLine = m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : '';
+    const open = isEditing || medDetailsOpen.has(String(m.__id));
     return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
       <div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
           <span class="font-heading font-bold text-primary">${escHtml(m.name)}</span>
-          <span class="type-badge ${supp ? 'supplement' : 'medication'}">${supp ? 'Supplement' : 'Medication'}</span>
+          ${archived ? `<span class="type-badge ${supp ? 'supplement' : 'medication'}">${supp ? 'Supplement' : 'Medication'}</span>` : ''}
           ${isEditing ? '<span class="type-badge editing">EDITING</span>' : ''}
           ${archived ? '<span class="type-badge editing">ARCHIVED</span>' : ''}
         </div>
         <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
-        ${!supp && m.vet ? `<p class="font-body text-sm text-secondary">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
-        ${m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : ''}
-        ${doseList && medDoseTimes(m).length ? `<p class="font-body text-sm text-secondary mt-1">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
-        ${missed ? `<p class="font-body text-sm text-secondary mt-1">If missed: ${escHtml(missed)}</p>` : ''}
-        ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
+        ${refillLine && refillSoon ? refillLine : ''}
         ${!archived && typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
       </div>
-      <div class="card-actions">
-        ${archived
-          ? `<button type="button" onclick="restoreMed(${m.__id})">↺ Restore</button>`
-          : `<button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
-             <button type="button" onclick="archiveMed(${m.__id})">Archive</button>`}
-        <button type="button" class="danger" onclick="deleteMed(${m.__id})">✕ Delete</button>
+      <button type="button" class="pf-med-more" aria-expanded="${open}" onclick="toggleMedDetails(${m.__id})">${open ? 'Hide details' : 'Details'}</button>
+      <div class="pf-med-details"${open ? '' : ' hidden'}>
+        ${doseList && medDoseTimes(m).length ? `<p class="font-body text-sm text-secondary">${supp ? 'Servings' : 'Doses'}: ${escHtml(doseList)}${m.doseEnd ? ` · until ${fmtDate(m.doseEnd)}` : ''}</p>` : ''}
+        ${missed ? `<p class="font-body text-sm text-secondary mt-1">If missed: ${escHtml(missed)}</p>` : ''}
+        ${!supp && m.vet ? `<p class="font-body text-sm text-secondary mt-1">Prescribed by: ${escHtml(m.vet)}</p>` : ''}
+        ${refillLine && !refillSoon ? refillLine : ''}
+        ${m.notes ? `<p class="font-body text-xs text-secondary mt-1 italic">${escHtml(m.notes)}</p>` : ''}
+        <div class="card-actions">
+          ${archived
+            ? `<button type="button" onclick="restoreMed(${m.__id})">↺ Restore</button>`
+            : `<button type="button" onclick="editMed(${m.__id})">✎ Edit</button>
+               <button type="button" onclick="archiveMed(${m.__id})">Archive</button>`}
+          <button type="button" class="danger" onclick="deleteMed(${m.__id})">✕ Delete</button>
+        </div>
       </div>
     </div>`;
   }
