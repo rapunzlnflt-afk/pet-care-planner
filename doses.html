@@ -229,7 +229,8 @@
           var late = !hold && due.getTime() <= Date.now();
           var lastRes = (m.history || [])[0];
           if(lastRes && lastRes.status === 'missed'){
-            html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lastRes.due_at))) + ').' + (m.missed ? ' <strong>If missed:</strong> ' + esc(m.missed) : '') + '</div>';
+            html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lastRes.due_at))) + ').' + (m.missed ? ' <strong>If missed:</strong> ' + esc(m.missed) : '') + '</div>' +
+                    (lastRes.can_record ? '<button type="button" class="chg" style="margin-top:0;" data-rec="' + lastRes.id + '">It was given \u2014 record the time</button>' : '');
           } else if(late && m.missed){
             html += '<div class="missednote"><strong>If missed:</strong> ' + esc(m.missed) + '</div>';
           }
@@ -242,6 +243,11 @@
                       ? '<button type="button" class="early" data-held="' + m.pending.id + '" data-last="' + esc(lastTaken(m).taken_at) + '">' + (due.getTime() <= Date.now() ? 'Give now' : 'Give early') + '</button>'
                       : '<button type="button" class="early" data-early="' + m.pending.id + '" data-due="' + esc(m.pending.due_at) + '">Give early</button>');
         } else {
+          var lr = (m.history || [])[0];
+          if(lr && lr.can_record){
+            html += '<div class="missednote">The last dose wasn\u2019t recorded (due ' + esc(when(new Date(lr.due_at))) + ').</div>' +
+                    '<button type="button" class="chg" style="margin-top:0;" data-rec="' + lr.id + '">It was given \u2014 record the time</button>';
+          }
           html += '<div class="due" style="color:var(--muted);font-weight:700;">No more doses scheduled</div>';
         }
         var lastGiven = (m.history || []).filter(function(e){ return e.status === 'taken' && e.taken_at; })[0];
@@ -275,6 +281,9 @@
       });
       app.querySelectorAll('[data-chg]').forEach(function(b){
         b.addEventListener('click', function(){ changeTime(b.getAttribute('data-chg')); });
+      });
+      app.querySelectorAll('[data-rec]').forEach(function(b){
+        b.addEventListener('click', function(){ recordMissed(b.getAttribute('data-rec')); });
       });
       app.querySelectorAll('[data-undo]').forEach(function(b){
         b.addEventListener('click', function(){ undo(b.getAttribute('data-undo')); });
@@ -357,6 +366,64 @@
       };
     }
 
+    // ---- record a missed dose as given (24 hours after it was due) ----
+    function pickedPast(v){
+      var x = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!x) return null;
+      var d = new Date(); d.setHours(+x[1], +x[2], 0, 0);
+      if(d.getTime() > Date.now() + 2 * 60000) d.setDate(d.getDate() - 1);
+      return d;
+    }
+    function recordError(res){
+      var o = res && res.outcome;
+      if(o === 'too_late') return 'This dose was due more than 24 hours ago, so it can\u2019t be recorded now.';
+      if(o === 'not_latest') return 'A later dose has already been recorded, so this one can\u2019t be changed.';
+      if(o === 'not_missed') return 'This dose has already been recorded.';
+      if(o === 'bad_time'){
+        if(res.reason === 'future') return 'That time hasn\u2019t happened yet.';
+        if(res.reason === 'too_old') return 'That\u2019s more than 24 hours ago.';
+        if(res.reason === 'before_due') return 'That\u2019s well before this dose was due (' + when(new Date(res.due_at)) + ').';
+        if(res.reason === 'before_previous') return 'That\u2019s before the previous dose (' + when(new Date(res.previous_taken_at)) + ').';
+      }
+      return 'Could not record the dose. Try again.';
+    }
+    function recordMissed(id){
+      var f = findEvent(id);
+      if(!f || !f.ev.can_record){ toast('Missed doses can be recorded for 24 hours after they were due.'); render(); return; }
+      var ev = f.ev, rolling = !!f.med.every_hours, due = new Date(ev.due_at);
+      var s = sheet('<h2>Record a missed dose</h2>' + '<div class="pet">' + esc(f.med.label) + (f.med.pet ? ' \u00b7 ' + esc(f.med.pet) : '') + '</div>' +
+        '<p class="muted">Due ' + esc(when(due)) + ' and not recorded. If it was given, when?</p>' +
+        '<label for="ctime">Time given</label><input type="time" id="ctime" value="' + hhmm(due) + '">' +
+        (rolling ? '<p class="muted small">The next dose moves to match, if it\u2019s still ahead.</p>' : '') +
+        '<p class="err" id="cerr" role="alert"></p>' +
+        '<button type="button" class="primary" id="csave">Record as given</button>' +
+        '<button type="button" class="link" data-close>Cancel</button>');
+      var err = s.querySelector('#cerr');
+      s.querySelector('#ctime').addEventListener('input', function(){ err.textContent = ''; });
+      function save(force){
+        var btn = s.querySelector('#csave'), at = pickedPast(s.querySelector('#ctime').value);
+        if(!at){ err.textContent = 'Enter the time it was given.'; return; }
+        if(at.getTime() < due.getTime() - OPEN_BEFORE_MS){ err.textContent = 'That\u2019s well before this dose was due (' + when(due) + ').'; return; }
+        btn.disabled = true; err.textContent = '';
+        call('record', { event_id: ev.id, taken_at: at.toISOString(), force: !!force }).then(function(r){
+          if(r.error === 'link_inactive'){ closeSheet(); showInactive(); return; }
+          if(r.state) data = r.state;
+          var res = r.result || {};
+          if(res.outcome === 'too_soon'){
+            btn.disabled = false;
+            var mins = res.minutes_ago || 0;
+            var gap = mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') : (Math.round(mins / 6) / 10) + ' hours';
+            if(confirm('That\u2019s only ' + gap + ' after the previous dose (' + when(new Date(res.last_taken_at)) + '). Record it as given anyway?')) save(true);
+            return;
+          }
+          if(res.outcome !== 'recorded'){ err.textContent = recordError(res); btn.disabled = false; return; }
+          closeSheet();
+          toast('Recorded as given ' + when(new Date(res.taken_at)) + '.' + (rolling && res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
+          render();
+        }, function(){ err.textContent = 'Could not record the dose. Check your connection.'; btn.disabled = false; });
+      }
+      s.querySelector('#csave').onclick = function(){ save(false); };
+    }
+
     function undo(id){
       return call('undo', { event_id: id }).then(function(r){
         if(r.error === 'link_inactive') { showInactive(); return; }
@@ -411,7 +478,10 @@
       if(ev.status && ev.status !== 'pending'){
         var what = ev.status === 'taken' ? 'Already given' + (ev.actor_label ? ' by ' + esc(ev.actor_label) : '') + ' ' + esc(when(new Date(ev.taken_at))) + '.'
                  : ev.status === 'skipped' ? 'This dose was skipped' + (ev.actor_label ? ' by ' + esc(ev.actor_label) : '') + '.' : 'This dose wasn\u2019t recorded in time.';
-        sheet(head + '<p class="status">' + what + '</p><button type="button" class="secondary" data-close>Close</button>');
+        var rs = sheet(head + '<p class="status">' + what + '</p>' +
+          (ev.status === 'missed' && ev.can_record ? '<button type="button" class="primary" data-recnow>It was given \u2014 record the time</button>' : '') +
+          '<button type="button" class="secondary" data-close>Close</button>');
+        var rb = rs.querySelector('[data-recnow]'); if(rb) rb.onclick = function(){ recordMissed(ev.id); };
         return;
       }
       var s = sheet(head + '<p class="muted">Due ' + esc(when(new Date(ev.due_at))) + '</p>' +

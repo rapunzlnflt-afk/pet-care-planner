@@ -79,6 +79,7 @@ async function touch(groupId: string, memberId?: string) {
 const UNDO_MS = 5 * 60000;
 // "Change time" stays this long after Given (matches pawfolio_set_dose_time).
 const CHANGE_MS = 30 * 60000;
+const LATE_MS = 24 * 3600000; // matches pawfolio_record_missed_dose
 
 // The owner's missed-dose instruction, as the sentence the sitter sees.
 const MISSED_TEXT: Record<string, string> = {
@@ -130,7 +131,12 @@ async function buildState(group: { id: string; owner_user: string; owner_label: 
         every_hours: s.anchor === "from_last_dose" ? Math.round(s.interval_min / 60) : null,
         missed: missedText(s),
         pending: mine.find((e) => e.status === "pending") ?? null,
-        history: mine.filter((e) => e.status !== "pending").slice(0, 10),
+        // The latest recorded dose, when it was missed in the last 24 hours,
+        // can still be recorded as given (pawfolio_record_missed_dose).
+        history: mine.filter((e) => e.status !== "pending").slice(0, 10).map((e, i) => ({
+          ...e,
+          can_record: i === 0 && e.status === "missed" && Date.now() - new Date(e.due_at).getTime() < LATE_MS,
+        })),
       };
     }),
   };
@@ -203,6 +209,18 @@ Deno.serve(async (req) => {
       p_member_id: member.id, p_event_id: body.event_id, p_taken_at: new Date(body.taken_at).toISOString(),
     });
     if (error) return json({ error: "settime_failed", message: error.message }, 400);
+    await touch(group.id, member.id);
+    return json({ result: data, state: await buildState(group, member.id) });
+  }
+
+  if (action === "record") {
+    if (typeof body.event_id !== "string" || typeof body.taken_at !== "string" || isNaN(Date.parse(body.taken_at))) {
+      return json({ error: "bad_request" }, 400);
+    }
+    const { data, error } = await supabase.rpc("pawfolio_record_missed_dose_as_member", {
+      p_member_id: member.id, p_event_id: body.event_id, p_taken_at: new Date(body.taken_at).toISOString(), p_force: !!body.force,
+    });
+    if (error) return json({ error: "record_failed", message: error.message }, 400);
     await touch(group.id, member.id);
     return json({ result: data, state: await buildState(group, member.id) });
   }
