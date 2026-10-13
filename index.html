@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.35.0">
+                          <meta name="app-version" content="3.36.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -2951,7 +2951,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       hint.textContent = !(h >= 1 && h <= 72)
         ? `Enter how many hours apart each ${noun} should be.`
         : n
-          ? `Each ${noun} is due ${h} hour${h === 1 ? '' : 's'} after the last one was given. Turn on Dose reminders at the top of this tab to receive them.`
+          ? `Each ${noun} is due ${h} hour${h === 1 ? '' : 's'} after the last one was given. Already gave the first one today? Enter that time, then record it on the card. Turn on Dose reminders at the top of this tab to receive them.`
           : `Add when the first ${noun} is due. After that, each one is due ${h} hour${h === 1 ? '' : 's'} after the last.`;
       return;
     }
@@ -3202,6 +3202,11 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     // Refill shows on the card itself only when it needs attention (under a week or overdue).
     const refillSoon = daysToRefill !== null && daysToRefill < 7;
     const refillLine = m.refill ? `<p class="font-body text-sm mt-1" style="${refillUrgency}">${supp ? 'Reorder' : 'Refill'}: ${fmtDate(m.refill)}${daysToRefill !== null ? (daysToRefill < 0 ? ' (overdue)' : ` (${daysToRefill} days)`) : ''}</p>` : '';
+    // v3.36.0: a passed date used to stay "overdue" until the medication was
+    // edited. "Refilled" records it and sets the next date in one step.
+    const refillBtn = !archived && refillSoon
+      ? `<button type="button" class="pf-dose-early" style="display:block;margin-top:2px;" onclick="markRefilled(${m.__id})">${supp ? '✓ Reordered — set next date' : '✓ Refilled — set next date'}</button>`
+      : '';
     const open = isEditing || medDetailsOpen.has(String(m.__id));
     return `<div class="card p-4"${isEditing ? ' style="box-shadow:0 0 0 2px #5B5BD6;border-color:#5B5BD6;"' : ''}>
       <div>
@@ -3212,7 +3217,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
           ${archived ? '<span class="type-badge editing">ARCHIVED</span>' : ''}
         </div>
         <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
-        ${refillLine && refillSoon ? refillLine : ''}
+        ${refillLine && refillSoon ? refillLine + refillBtn : ''}
         ${!archived && typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
       </div>
       <button type="button" class="pf-med-more" aria-expanded="${open}" onclick="toggleMedDetails(${m.__id})">${open ? 'Hide details' : 'Details'}</button>
@@ -3233,10 +3238,77 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     </div>`;
   }
 
+  // ---- Refilled / Reordered (v3.36.0) ----
+  function localISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function isoDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+  // How long one supply lasts: the last cycle the user set, else the gap
+  // between the last refill and this due date, else 30 days.
+  function refillCycleDays(m) {
+    if(m.refillEvery >= 1 && m.refillEvery <= 366) return m.refillEvery;
+    if(m.refillLast && m.refill) { const d = isoDays(m.refillLast, m.refill); if(d >= 1 && d <= 366) return d; }
+    return 0;
+  }
+  window.markRefilled = id => {
+    const list = getList('medications');
+    const m = list.find(x => String(x.__id) === String(id));
+    if(!m) return;
+    const supp = isSupplement(m);
+    const today = localISO(new Date());
+    const known = refillCycleDays(m);
+    const days = known || 30;
+    const next = new Date(); next.setDate(next.getDate() + days);
+    const old = document.getElementById('pf-refill-sheet'); if(old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'pf-refill-sheet';
+    ov.innerHTML = `<div class="pf-dose-card" role="dialog" aria-modal="true" aria-labelledby="pf-refill-title">
+      <h2 id="pf-refill-title">${supp ? 'Reordered' : 'Refilled'} ${escHtml(m.name)}</h2>
+      ${m.petName ? `<p class="pf-dose-pet">${escHtml(m.petName)}</p>` : ''}
+      <label for="pf-refill-next" class="pf-dose-muted" style="display:block;font-weight:700;color:#1f2937;margin-top:14px;">Next ${supp ? 'reorder' : 'refill'} date</label>
+      <input type="date" id="pf-refill-next" min="${today}" value="${localISO(next)}">
+      <p class="pf-dose-muted">${known ? `${days} days from today, the same as last time. Change it if this supply lasts a different time.` : `${days} days from today. Change it to when this supply runs out.`}</p>
+      <p class="pf-dose-err" id="pf-refill-err" role="alert"></p>
+      <button type="button" class="pf-dose-primary" data-save>Save</button>
+      <button type="button" class="pf-dose-secondary" data-none>No more ${supp ? 'reorders' : 'refills'}</button>
+      <button type="button" class="pf-dose-link" data-cancel>Cancel</button>
+    </div>`;
+    const close = () => ov.remove();
+    ov.addEventListener('click', e => { if(e.target === ov) close(); });
+    document.body.appendChild(ov);
+    const err = ov.querySelector('#pf-refill-err');
+    const finish = () => { saveList('medications', list); close(); refreshAll(); };
+    ov.querySelector('[data-cancel]').onclick = close;
+    ov.querySelector('[data-save]').onclick = () => {
+      const v = ov.querySelector('#pf-refill-next').value;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) { err.textContent = 'Choose the next date.'; return; }
+      if(v <= today) { err.textContent = 'Choose a date after today.'; return; }
+      m.refillLast = today;
+      m.refillEvery = isoDays(today, v);
+      m.refill = v;
+      finish();
+    };
+    ov.querySelector('[data-none]').onclick = () => {
+      m.refillLast = today;
+      m.refill = '';
+      finish();
+    };
+  };
+
+  // v3.36.0: the medication due next comes first. Uses the live dose when
+  // dose tracking is on, otherwise the next set time; no dose times go last.
+  function sortByNextDose(list) {
+    const at = m => {
+      const t = typeof window.pfDoseNextAt === 'function' ? window.pfDoseNextAt(m) : null;
+      return t == null ? Infinity : t;
+    };
+    return list.map((m, i) => ({ m, i, t: at(m) }))
+      .sort((a, b) => (a.t - b.t) || (a.i - b.i))
+      .map(x => x.m);
+  }
+
   function renderMedications() {
     const everything = getList('medications');
     const archivedList = everything.filter(isArchivedMed);
-    const all = everything.filter(m => !isArchivedMed(m));
+    const all = sortByNextDose(everything.filter(m => !isArchivedMed(m)));
     const meds = all.filter(m => !isSupplement(m));
     const supps = all.filter(isSupplement);
     if(medListFilter === 'archived' && !archivedList.length) medListFilter = 'all';
@@ -13131,9 +13203,20 @@ try {
     return Math.max(15, best);
   }
 
+  function ymdOf(c){ return c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0'); }
   // Next fixed dose time after `from` (local clock), honouring start/end dates.
-  function nextFixed(m, from){
+  // v3.36.0: for "every N hours", a first-dose time earlier today still counts
+  // while it's less than N hours ago (firstPast) — set up at 2:30 AM with a
+  // 2:00 AM first dose, that dose is due now (and the next one 2:00 PM once
+  // it's recorded), not at 2:00 AM tomorrow.
+  function nextFixed(m, from, firstPast){
     var times = timesOf(m); if(!times.length) return null;
+    var every = everyOf(m);
+    if(every && firstPast){
+      var fp = times[0].split(':'), c0 = new Date(from); c0.setHours(+fp[0], +fp[1], 0, 0);
+      var y0 = ymdOf(c0);
+      if(c0 <= from && from - c0 < every * 3600000 && (!m.start || y0 >= m.start) && (!m.doseEnd || y0 <= m.doseEnd)) return c0;
+    }
     var base = new Date(from);
     if(m.start){ var st = new Date(m.start + 'T00:00:00'); if(st > base) base = new Date(st.getTime() - 1000); }
     for(var day = 0; day < 3; day++){
@@ -13231,7 +13314,8 @@ try {
             // server's sweep would do the same within two minutes; a clash
             // with it is harmless (one pending dose per schedule).
             if(live && !hasPending[sid]){
-              var next = nextFixed(m, new Date());
+              // A new or re-timed medication may start with a dose already due.
+              var next = nextFixed(m, new Date(), changed);
               if(next) p = p.then(function(){ return supabase.from('pawfolio_dose_events').insert({ schedule_id: sid, due_at: next.toISOString() }); });
             }
             work.push(p);
@@ -13275,6 +13359,7 @@ try {
               if(e.logged_at && (!st.lastLogged || e.logged_at > st.lastLogged.logged_at)) st.lastLogged = e;
             });
             state = next; loaded = true; rerender();
+            maybeDuePopup();
           });
       });
     }).catch(function(){});
@@ -13318,6 +13403,27 @@ try {
     return st && st.lastLogged && (Date.now() - new Date(st.lastLogged.logged_at).getTime()) < UNDO_MS ? st.lastLogged : null;
   }
 
+  // v3.36.0: when this medication's next dose is due (ms), for putting the
+  // one due next at the top of the list. The live dose when tracking is on,
+  // otherwise the next set time. null = nothing scheduled.
+  window.pfDoseNextAt = function(m){
+    if(!m || archived(m) || !timesOf(m).length) return null;
+    var st = active() && loaded ? state[m.__id] : null;
+    if(st) return st.pending ? new Date(st.pending.due_at).getTime() : null;
+    var n = nextFixed(m, new Date());
+    return n ? n.getTime() : null;
+  };
+  // A missed dose can be recorded as given for 24 hours after it was due
+  // (matches pawfolio_record_missed_dose).
+  var LATE_MS = 24 * 3600000;
+  function recordableMissed(st){
+    var e = st && st.lastResolved;
+    return e && e.status === 'missed' && (Date.now() - new Date(e.due_at).getTime()) < LATE_MS ? e : null;
+  }
+  function recordBtn(m){
+    return '<button type="button" class="pf-dose-early" style="display:block;margin-top:0;" onclick="pfDoseRecordMissed(' + m.__id + ')">It was given \u2014 record the time</button>';
+  }
+
   // ---- medication card ----
   window.pfDoseCardHTML = function(m){
     if(!timesOf(m).length) return '';
@@ -13330,7 +13436,9 @@ try {
     var html = '<div class="pf-dose-box">';
     var u = undoable(st);
     if(u){
-      var uw = u.status === 'taken' ? 'Given ' + clock(new Date(u.taken_at)) : 'Skipped';
+      var ut = u.status === 'taken' ? new Date(u.taken_at) : null;
+      // A missed dose recorded later may have been given yesterday.
+      var uw = ut ? 'Given ' + (dayWord(ut) === 'Today' ? clock(ut) : when(ut)) : 'Skipped';
       html += '<div class="pf-dose-undo"><span>' + uw + '</span>' +
               '<button type="button" onclick="pfDoseUndo(\'' + u.id + '\')">Undo</button></div>';
     }
@@ -13342,7 +13450,8 @@ try {
       var lastMissed = st.lastResolved && st.lastResolved.status === 'missed' ? st.lastResolved : null;
       if(lastMissed){
         html += '<p class="pf-dose-missed">The last ' + noun + ' wasn\u2019t recorded (due ' + when(new Date(lastMissed.due_at)) + ').' +
-                (missedOf(m) ? ' <strong>If missed:</strong> ' + esc(missedOf(m)) : '') + '</p>';
+                (missedOf(m) ? ' <strong>If missed:</strong> ' + esc(missedOf(m)) : '') + '</p>' +
+                (recordableMissed(st) ? recordBtn(m) : '');
       } else if(late && missedOf(m)){
         html += '<p class="pf-dose-missed"><strong>If missed:</strong> ' + esc(missedOf(m)) + '</p>';
       }
@@ -13352,13 +13461,18 @@ try {
         html += '<div class="pf-dose-btns">' +
                   '<button type="button" class="pf-dose-given" onclick="pfDoseLog(\'' + st.pending.id + '\', true)">✓ Given</button>' +
                   '<button type="button" class="pf-dose-skip" onclick="pfDoseLog(\'' + st.pending.id + '\', false)">Skip</button>' +
-                '</div>';
+                '</div>' +
+                (late ? '<button type="button" class="pf-dose-early" style="display:block;" onclick="pfDoseGivenAt(' + m.__id + ')">Given at a different time</button>' : '');
       } else if(hold){
         html += '<button type="button" class="pf-dose-early" onclick="pfDoseHeld(\'' + st.pending.id + '\', \'' + st.lastTaken.taken_at + '\')">' + (due.getTime() <= Date.now() ? 'Give now' : 'Give early') + '</button>';
       } else {
         html += '<button type="button" class="pf-dose-early" onclick="pfDoseEarly(\'' + st.pending.id + '\', \'' + st.pending.due_at + '\')">Give early</button>';
       }
     } else {
+      // The course ended on a dose nobody recorded: it can still be recorded.
+      if(recordableMissed(st)){
+        html += '<p class="pf-dose-missed">The last ' + noun + ' wasn\u2019t recorded (due ' + when(new Date(st.lastResolved.due_at)) + ').</p>' + recordBtn(m);
+      }
       html += '<p class="font-body text-sm text-secondary">No more ' + noun + 's scheduled.</p>';
     }
     if(st.lastTaken && st.lastTaken.taken_at){
@@ -13512,6 +13626,214 @@ try {
     };
   };
 
+  // ---- log a due dose with the time it was really given (v3.36.0) ----
+  // For a dose that is due or late: it was given at 2:00 but is being tapped
+  // at 2:30. Rolling schedules count the next dose from the time entered.
+  function givenAtSheet(ev, name, pet, rolling, onDone){
+    var due = new Date(ev.due_at);
+    var ov = sheet(
+      '<h2 id="pf-dose-title">When was it given?</h2>' +
+      '<p class="pf-dose-pet">' + esc(name || 'Medication') + (pet ? ' \u00b7 ' + esc(pet) : '') + '</p>' +
+      '<p class="pf-dose-muted">Due ' + when(due) + '.</p>' +
+      '<label for="pf-dose-time" class="pf-dose-muted" style="display:block;font-weight:700;color:#1f2937;">Time given</label>' +
+      '<input type="time" id="pf-dose-time" value="' + hhmm(due.getTime() <= Date.now() ? due : new Date()) + '">' +
+      (rolling ? '<p class="pf-dose-muted">The next dose is counted from this time.</p>' : '') +
+      '<p class="pf-dose-err" id="pf-dose-time-err" role="alert"></p>' +
+      '<button type="button" class="pf-dose-primary" id="pf-dose-time-save">Record as given</button>' +
+      '<button type="button" class="pf-dose-link" id="pf-dose-time-cancel">Cancel</button>');
+    ov.querySelector('#pf-dose-time-cancel').onclick = closeSheet;
+    var err = ov.querySelector('#pf-dose-time-err');
+    ov.querySelector('#pf-dose-time').addEventListener('input', function(){ err.textContent = ''; });
+    function save(force){
+      var btn = ov.querySelector('#pf-dose-time-save'), at = pickedPast(ov.querySelector('#pf-dose-time').value);
+      if(!at){ err.textContent = 'Enter the time it was given.'; return; }
+      if(at.getTime() < Date.now() - 12 * 3600000){ err.textContent = 'That\u2019s more than 12 hours ago.'; return; }
+      btn.disabled = true; err.textContent = '';
+      window.getSupabase().then(function(sb){
+        return sb.rpc('pawfolio_log_dose', { p_event_id: ev.id, p_taken: true, p_at: at.toISOString(), p_force: !!force, p_actor_label: ownerLabel() });
+      }).then(function(r){
+        if(r.error) throw r.error;
+        var res = r.data || {};
+        if(res.outcome === 'too_soon'){
+          btn.disabled = false;
+          var mins = res.minutes_ago || 0;
+          var gap = mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') : (Math.round(mins / 6) / 10) + ' hours';
+          window.showConfirmModal({
+            title: 'Only ' + gap + ' after the last dose',
+            message: 'The previous dose was given ' + when(new Date(res.last_taken_at)) + '. Record this one as given anyway?',
+            confirmLabel: 'Record anyway', cancelLabel: 'Cancel',
+            onConfirm: function(){ save(true); }
+          });
+          return;
+        }
+        if(res.outcome === 'already_logged'){ err.textContent = res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) + '.' : 'This dose was already recorded.'; return; }
+        closeSheet();
+        toast('Given ' + when(new Date(res.taken_at)) + '.' + (res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
+        if(onDone) onDone(res);
+        return refresh();
+      }).catch(function(){ err.textContent = 'Could not record the dose. Check your connection and try again.'; btn.disabled = false; });
+    }
+    ov.querySelector('#pf-dose-time-save').onclick = function(){ save(false); };
+  }
+  window.pfDoseGivenAt = function(medId){
+    var st = state[medId];
+    if(!st || !st.pending){ return rerender(); }
+    var m = meds().filter(function(x){ return String(x.__id) === String(medId); })[0] || {};
+    givenAtSheet(st.pending, m.name, m.petName, !!everyOf(m));
+  };
+
+  // ---- record a missed dose as given (v3.36.0) ----
+  // For a dose that was given but not tapped before it was marked missed.
+  function recordError(res){
+    var o = res && res.outcome;
+    if(o === 'too_late') return 'This dose was due more than 24 hours ago, so it can\u2019t be recorded now.';
+    if(o === 'not_latest') return 'A later dose has already been recorded, so this one can\u2019t be changed.';
+    if(o === 'not_missed') return 'This dose has already been recorded.';
+    if(o === 'bad_time'){
+      if(res.reason === 'future') return 'That time hasn\u2019t happened yet.';
+      if(res.reason === 'too_old') return 'That\u2019s more than 24 hours ago.';
+      if(res.reason === 'before_due') return 'That\u2019s well before this dose was due (' + when(new Date(res.due_at)) + ').';
+      if(res.reason === 'before_previous') return 'That\u2019s before the previous dose (' + when(new Date(res.previous_taken_at)) + ').';
+    }
+    return 'Could not record the dose. Try again.';
+  }
+  window.pfDoseRecordError = recordError;
+  // The time typed in means its most recent occurrence: today, or yesterday
+  // when today's is still ahead.
+  function pickedPast(v){
+    var m = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!m) return null;
+    var d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
+    if(d.getTime() > Date.now() + 2 * 60000) d.setDate(d.getDate() - 1);
+    return d;
+  }
+  window.pfDoseTimeParts.pickedPast = pickedPast;
+
+  function recordMissedSheet(ev, name, pet, rolling){
+    var due = new Date(ev.due_at);
+    var ov = sheet(
+      '<h2 id="pf-dose-title">Record a missed dose</h2>' +
+      '<p class="pf-dose-pet">' + esc(name || 'Medication') + (pet ? ' \u00b7 ' + esc(pet) : '') + '</p>' +
+      '<p class="pf-dose-muted">Due ' + when(due) + ' and not recorded. If it was given, when?</p>' +
+      '<label for="pf-dose-time" class="pf-dose-muted" style="display:block;font-weight:700;color:#1f2937;">Time given</label>' +
+      '<input type="time" id="pf-dose-time" value="' + hhmm(due) + '">' +
+      (rolling ? '<p class="pf-dose-muted">The next dose moves to match, if it\u2019s still ahead.</p>' : '') +
+      '<p class="pf-dose-err" id="pf-dose-time-err" role="alert"></p>' +
+      '<button type="button" class="pf-dose-primary" id="pf-dose-time-save">Record as given</button>' +
+      '<button type="button" class="pf-dose-link" id="pf-dose-time-cancel">Cancel</button>');
+    ov.querySelector('#pf-dose-time-cancel').onclick = closeSheet;
+    var err = ov.querySelector('#pf-dose-time-err');
+    ov.querySelector('#pf-dose-time').addEventListener('input', function(){ err.textContent = ''; });
+    function save(force){
+      var btn = ov.querySelector('#pf-dose-time-save'), at = pickedPast(ov.querySelector('#pf-dose-time').value);
+      if(!at){ err.textContent = 'Enter the time it was given.'; return; }
+      if(at.getTime() < due.getTime() - OPEN_BEFORE_MS){ err.textContent = 'That\u2019s well before this dose was due (' + when(due) + ').'; return; }
+      btn.disabled = true; err.textContent = '';
+      window.getSupabase().then(function(sb){
+        return sb.rpc('pawfolio_record_missed_dose', { p_event_id: ev.id, p_taken_at: at.toISOString(), p_actor_label: ownerLabel(), p_force: !!force });
+      }).then(function(r){
+        if(r.error) throw r.error;
+        var res = r.data || {};
+        if(res.outcome === 'too_soon'){
+          btn.disabled = false;
+          var mins = res.minutes_ago || 0;
+          var gap = mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') : (Math.round(mins / 6) / 10) + ' hours';
+          window.showConfirmModal({
+            title: 'Only ' + gap + ' after the last dose',
+            message: 'The previous dose was given ' + when(new Date(res.last_taken_at)) + '. Record this one as given anyway?',
+            confirmLabel: 'Record anyway', cancelLabel: 'Cancel',
+            onConfirm: function(){ save(true); }
+          });
+          return;
+        }
+        if(res.outcome !== 'recorded'){ err.textContent = recordError(res); btn.disabled = false; return; }
+        closeSheet();
+        toast('Recorded as given ' + when(new Date(res.taken_at)) + '.' + (rolling && res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
+        return refresh();
+      }).catch(function(){ err.textContent = 'Could not record the dose. Check your connection and try again.'; btn.disabled = false; });
+    }
+    ov.querySelector('#pf-dose-time-save').onclick = function(){ save(false); };
+  }
+
+  window.pfDoseRecordMissed = function(medId){
+    var st = state[medId], e = recordableMissed(st);
+    if(!e){ toast('Missed doses can be recorded for 24 hours after they were due.'); return rerender(); }
+    var m = meds().filter(function(x){ return String(x.__id) === String(medId); })[0] || {};
+    recordMissedSheet(e, m.name, m.petName, !!everyOf(m));
+  };
+
+  // ---- "doses due" popup when the app opens (v3.36.0) ----
+  // Doses due within 15 minutes or already due, not held back by the
+  // double-dose limit. Each dose pops up once per app session.
+  var KEY_SEEN = 'pawfolioDuePopupSeen';
+  var popupWanted = false;
+  function dueList(){
+    var out = [], now = Date.now();
+    meds().forEach(function(m){
+      if(archived(m) || !timesOf(m).length) return;
+      var st = state[m.__id]; if(!st || !st.pending || heldUntil(st, m)) return;
+      var due = new Date(st.pending.due_at).getTime();
+      if(due <= now + 15 * 60000) out.push({ m: m, ev: st.pending, due: due });
+    });
+    return out.sort(function(a, b){ return a.due - b.due; });
+  }
+  function maybeDuePopup(){
+    if(!popupWanted) return;
+    popupWanted = false;
+    if(document.getElementById('pf-dose-sheet') || document.getElementById('pf-refill-sheet') || doseIdFrom(location.hash)) return;
+    var list = dueList(); if(!list.length) return;
+    var seen = [];
+    try { seen = JSON.parse(sessionStorage.getItem(KEY_SEEN) || '[]'); } catch(e){}
+    if(list.every(function(x){ return seen.indexOf(x.ev.id) !== -1; })) return;
+    try { sessionStorage.setItem(KEY_SEEN, JSON.stringify(seen.concat(list.map(function(x){ return x.ev.id; })).slice(-50))); } catch(e){}
+    showDuePopup(list);
+  }
+  function showDuePopup(list){
+    var anyMed = list.some(function(x){ return !isSupp(x.m); });
+    var title = list.length === 1 ? (anyMed ? 'Dose due' : 'Serving due') : list.length + ' doses due';
+    var rows = list.map(function(x, i){
+      var late = x.due <= Date.now();
+      return '<div class="pf-due-row" data-row="' + i + '">' +
+        '<p class="pf-due-name">' + esc(x.m.name || 'Medication') + '</p>' +
+        '<p class="pf-dose-pet">' + (x.m.petName ? esc(x.m.petName) + ' \u00b7 ' : '') + (late ? 'Due ' + when(new Date(x.due)) : 'Due at ' + clock(new Date(x.due))) + '</p>' +
+        '<div data-btns><div class="pf-dose-btns"><button type="button" class="pf-dose-given" data-g>\u2713 Given</button><button type="button" class="pf-dose-skip" data-s>Skip</button></div>' +
+        (late ? '<button type="button" class="pf-due-other" data-at>Given at a different time</button>' : '') + '</div>' +
+        '</div>';
+    }).join('');
+    var ov = sheet('<h2 id="pf-dose-title">' + title + '</h2>' + rows +
+      '<button type="button" class="pf-dose-secondary" data-meds>Open Medications</button>' +
+      '<button type="button" class="pf-dose-link" data-close>Not now</button>');
+    ov.querySelector('.pf-dose-card').classList.add('pf-due-card');
+    wireClose();
+    ov.querySelector('[data-meds]').onclick = function(){
+      closeSheet();
+      if(typeof window.goToTab === 'function'){ try { window.goToTab('medications'); } catch(e){} }
+    };
+    var left = list.length;
+    list.forEach(function(x, i){
+      var row = ov.querySelector('[data-row="' + i + '"]'), btns = row.querySelector('[data-btns]');
+      function go(taken){
+        btns.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+        window.pfDoseLog(x.ev.id, taken).then(function(res){
+          if(res.outcome === 'too_soon'){ closeSheet(); return; }
+          var msg = res.outcome === 'already_logged'
+            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : 'Already recorded')
+            : (taken ? '\u2713 Given ' + clock(new Date(res.taken_at)) : 'Skipped');
+          btns.outerHTML = '<p class="pf-dose-status" style="margin-top:6px;">' + msg + '</p>';
+          left--;
+          if(!left){
+            var mb = ov.querySelector('[data-meds]');
+            if(mb) mb.insertAdjacentHTML('beforebegin', '<p class="pf-dose-muted">Undo is on the Medications page for 5 minutes.</p>');
+            var nb = ov.querySelector('[data-close]'); if(nb) nb.textContent = 'Done';
+          }
+        }, function(){ btns.querySelectorAll('button').forEach(function(b){ b.disabled = false; }); });
+      }
+      row.querySelector('[data-g]').onclick = function(){ go(true); };
+      row.querySelector('[data-s]').onclick = function(){ go(false); };
+      var at = row.querySelector('[data-at]');
+      if(at) at.onclick = function(){ givenAtSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m)); };
+    });
+  }
+
   // ---- one-tap confirm screen, opened from a dose notification ----
   function closeSheet(){ var o = document.getElementById('pf-dose-sheet'); if(o) o.remove(); }
   function sheet(inner){
@@ -13547,16 +13869,31 @@ try {
         var what = ev.status === 'taken' && ev.taken_at ? 'Already given ' + when(new Date(ev.taken_at)) + '.'
                  : ev.status === 'skipped' ? 'This dose was skipped.'
                  : 'This dose was marked missed.';
-        sheet(head + '<p class="pf-dose-status">' + what + '</p><button type="button" class="pf-dose-secondary" data-close>Close</button>');
-        wireClose(); return;
+        var late = ev.status === 'missed' && (Date.now() - due.getTime()) < LATE_MS;
+        var ovm = sheet(head + '<p class="pf-dose-status">' + what + '</p>' +
+          (late ? '<button type="button" class="pf-dose-primary" data-late>It was given \u2014 record the time</button>' : '') +
+          '<button type="button" class="pf-dose-secondary" data-close>Close</button>');
+        wireClose();
+        var lb = ovm.querySelector('[data-late]');
+        if(lb) lb.addEventListener('click', function(){
+          var mm = meds().filter(function(x){ return String(x.__id) === String(sch.source_id); })[0];
+          recordMissedSheet(ev, sch.label, sch.subject_name, !!(mm && everyOf(mm)));
+        });
+        return;
       }
       var now = new Date();
       var ov = sheet(head +
         '<p class="pf-dose-muted">Due ' + when(due) + '</p>' +
         '<button type="button" class="pf-dose-primary" data-given>Given at ' + clock(now) + '</button>' +
         '<button type="button" class="pf-dose-secondary" data-skip>Skip this dose</button>' +
+        (due.getTime() <= now.getTime() ? '<button type="button" class="pf-dose-secondary" data-at>Given at a different time</button>' : '') +
         '<button type="button" class="pf-dose-link" data-close>Not now</button>');
       wireClose();
+      var atb = ov.querySelector('[data-at]');
+      if(atb) atb.addEventListener('click', function(){
+        var mm = meds().filter(function(x){ return String(x.__id) === String(sch.source_id); })[0];
+        givenAtSheet(ev, sch.label, sch.subject_name, !!(mm && everyOf(mm)));
+      });
       function done(taken){
         ov.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
         window.pfDoseLog(ev.id, taken).then(function(res){
@@ -13583,7 +13920,7 @@ try {
   }
   function wireClose(){ var o = document.getElementById('pf-dose-sheet'); if(!o) return; o.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeSheet); }); }
   window.pfDoseOpen = openConfirm;
-  window.pfDoseInternals = { active: active, paid: paid, ownerLabel: ownerLabel, meds: function(){ return meds().filter(function(m){ return !archived(m); }); }, timesOf: timesOf, esc: esc, toast: toast, when: when };
+  window.pfDoseInternals = { nextFixed: nextFixed, active: active, paid: paid, ownerLabel: ownerLabel, meds: function(){ return meds().filter(function(m){ return !archived(m); }); }, timesOf: timesOf, esc: esc, toast: toast, when: when };
 
   function doseIdFrom(url){ var m = /[#&?]dose=([0-9a-f-]{36})/i.exec(url || ''); return m ? m[1] : null; }
 
@@ -13598,9 +13935,10 @@ try {
     if(!document.getElementById('medications-list')) return setTimeout(boot, 150);
     var id = doseIdFrom(location.hash);
     if(id) openConfirm(id);
+    popupWanted = !id;
     if(active()) refresh();
     window.addEventListener('hashchange', function(){ var h = doseIdFrom(location.hash); if(h) openConfirm(h); });
-    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && active()) refresh(); });
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && active()){ popupWanted = true; refresh(); } });
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
@@ -13632,6 +13970,29 @@ try {
   #pf-dose-sheet input[type="time"] { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; font-size: 18px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; color: #1f2937; }
   #pf-dose-sheet .pf-dose-err { margin: 8px 0 0; font-size: 14px; color: #b91c1c; }
   #pf-dose-sheet .pf-dose-err:empty { display: none; }
+  /* v3.36.0: doses-due popup */
+  #pf-dose-sheet .pf-due-card { max-height: 88vh; overflow-y: auto; }
+  #pf-dose-sheet .pf-due-row { margin-top: 14px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px; }
+  #pf-dose-sheet .pf-due-name { font-size: 17px; font-weight: 700; color: #1f2937; margin: 0; overflow-wrap: anywhere; }
+  #pf-dose-sheet .pf-due-row .pf-dose-pet { font-size: 14px; }
+  #pf-dose-sheet .pf-dose-btns button { width: auto; flex: 1 1 0; }
+  #pf-dose-sheet .pf-dose-skip { color: #1f2937; border-color: #d1d5db; background: #fff; }
+  #pf-dose-sheet .pf-due-row .pf-dose-status { font-size: 15px; }
+  #pf-dose-sheet .pf-due-other { width: auto; margin-top: 8px; background: none; border: none; padding: 4px 0; font-size: 14px; font-weight: 700; color: #4338ca; text-decoration: underline; text-underline-offset: 3px; }
+  /* v3.36.0: Refilled sheet shares the dose sheet's look */
+  #pf-refill-sheet { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10002; display: flex; align-items: flex-end; justify-content: center; }
+  #pf-refill-sheet .pf-dose-card { background: #fff; width: 100%; max-width: 420px; border-radius: 16px 16px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,0.25); }
+  @media (min-width: 640px) { #pf-refill-sheet { align-items: center; } #pf-refill-sheet .pf-dose-card { border-radius: 16px; } }
+  #pf-refill-sheet h2 { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; color: #1f2937; margin: 0; overflow-wrap: anywhere; }
+  #pf-refill-sheet .pf-dose-pet { font-size: 15px; color: #4b5563; margin: 2px 0 0; }
+  #pf-refill-sheet .pf-dose-muted { font-size: 14px; color: #6b7280; margin: 10px 0 0; }
+  #pf-refill-sheet button { display: block; width: 100%; font-family: 'Karla', sans-serif; cursor: pointer; }
+  #pf-refill-sheet .pf-dose-primary { margin-top: 18px; background: #5B5BD6; color: #fff; border: none; border-radius: 12px; padding: 15px; font-size: 17px; font-weight: 700; }
+  #pf-refill-sheet .pf-dose-secondary { margin-top: 10px; background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600; }
+  #pf-refill-sheet .pf-dose-link { margin-top: 6px; background: none; border: none; color: #6b7280; padding: 10px; font-size: 14px; font-weight: 600; }
+  #pf-refill-sheet input[type="date"] { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; font-size: 18px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; color: #1f2937; }
+  #pf-refill-sheet .pf-dose-err { margin: 8px 0 0; font-size: 14px; color: #b91c1c; }
+  #pf-refill-sheet .pf-dose-err:empty { display: none; }
 </style>
 <script>
 /* === Pawfolio v3.31.0 — share doses with a sitter (Pawfolio Complete) ===
