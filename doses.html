@@ -65,6 +65,13 @@
     button:disabled{ opacity:0.6; }
     .missednote{ margin-top:12px; padding:9px 12px; border-radius:10px; background:rgba(180,83,9,0.08); border:1px solid rgba(180,83,9,0.25); color:#7c2d12; font-size:14px; line-height:1.4; }
     .early{ background:none; border:none; padding:6px 0 0; color:var(--accent-dark); font-size:15px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
+    /* Pet tabs: one per pet when a link shares doses for more than one. */
+    .tabs{ display:flex; gap:8px; overflow-x:auto; padding:14px 2px 2px; margin:0 -2px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .tabs::-webkit-scrollbar{ display:none; }
+    .tab{ flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--ink); border:1px solid #d1d5db; border-radius:999px; padding:9px 16px; font-size:15px; font-weight:700; }
+    .tab[aria-selected="true"]{ background:var(--accent); border-color:var(--accent); color:#fff; }
+    .tab .dot{ width:9px; height:9px; border-radius:50%; background:var(--late); box-shadow:0 0 0 2px #fff; }
+    .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
     .undo{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#1f2937; color:#fff; border-radius:10px; padding:7px 7px 7px 14px; margin-bottom:12px; font-size:15px; font-weight:700; }
     .undo button{ flex:0 0 auto; background:none; border:1px solid rgba(255,255,255,0.5); color:#fff; border-radius:8px; padding:6px 16px; font-size:15px; font-weight:700; }
   </style>
@@ -199,12 +206,36 @@
       return '<p style="margin:0;font-weight:800;">Get a reminder when a dose is due</p><button type="button" class="primary block" id="pushon">Turn on reminders</button><p class="err" id="perr"></p>';
     }
 
+    var KEY_TAB = 'pawfolioSitterTab';
+    var activePet = ls(KEY_TAB);
+    // True when a pet has a dose that's due (or overdue) and can be given now.
+    function dueNowFor(p){
+      return ((data && data.meds) || []).some(function(m){
+        return (m.pet || 'Other') === p && m.pending && new Date(m.pending.due_at).getTime() <= Date.now() && !heldUntil(m);
+      });
+    }
+
     function render(){
       if(!data) return;
       var meds = data.meds || [];
-      var who = data.owner ? esc(data.owner) + '\u2019s pets' : 'Pet doses';
-      var html = header(who, member ? 'Signed in as ' + esc(member.label) : '');
+      // One tab per pet ("Daisy", "Max") when the link shares doses for more
+      // than one, so a sitter only sees one pet's medications at a time. A red
+      // dot marks any other pet with a dose due now. (Same as MedRecords.)
+      var pets = [];
+      meds.forEach(function(m){ var p = m.pet || 'Other'; if(pets.indexOf(p) < 0) pets.push(p); });
+      if(pets.indexOf(activePet) < 0) activePet = pets.filter(dueNowFor)[0] || pets[0] || null;
+      if(pets.length > 1) meds = meds.filter(function(m){ return (m.pet || 'Other') === activePet; });
+      // "Doses for Daisy" / "Shared by Shauna": who the doses are for comes first.
+      var html = header(activePet && activePet !== 'Other' ? 'Doses for ' + esc(activePet) : 'Pet doses',
+                        data.owner ? 'Shared by ' + esc(data.owner) : 'Shared with you');
       html += '<div class="wrap">';
+      if(pets.length > 1){
+        html += '<div class="tabs" role="tablist" aria-label="Pets">' + pets.map(function(p){
+          var on = p === activePet, due = dueNowFor(p);
+          return '<button type="button" class="tab" role="tab" aria-selected="' + on + '" data-pet="' + esc(p) + '">' + esc(p) +
+                 (due ? '<span class="dot" aria-hidden="true"></span><span class="sr"> (dose due now)</span>' : '') + '</button>';
+        }).join('') + '</div>';
+      }
       if(!meds.length){
         html += '<div class="card"><p class="muted" style="margin:0;">No doses are shared right now.</p></div>';
       }
@@ -264,6 +295,11 @@
       html += '</div>';
       app.innerHTML = html;
       document.title = (data.owner ? data.owner + '\u2019s pet doses' : 'Pet doses') + ' — Pawfolio';
+      app.querySelectorAll('[data-pet]').forEach(function(b){
+        b.addEventListener('click', function(){
+          activePet = b.getAttribute('data-pet'); ls(KEY_TAB, activePet); render(); window.scrollTo(0, 0);
+        });
+      });
       app.querySelectorAll('[data-log]').forEach(function(b){
         b.addEventListener('click', function(){ log(b.getAttribute('data-log'), b.getAttribute('data-taken') === '1', false); });
       });
@@ -303,6 +339,8 @@
       var now = Date.now(), soonest = Infinity;
       (data && data.meds || []).forEach(function(m){
         if(m.pending){ var o = new Date(m.pending.due_at).getTime() - OPEN_BEFORE_MS; if(o > now) soonest = Math.min(soonest, o); }
+        // Also at the due time itself, so "Due now" and the tab's red dot appear on time.
+        if(m.pending){ var dt = new Date(m.pending.due_at).getTime(); if(dt > now) soonest = Math.min(soonest, dt); }
         var h = m.pending ? heldUntil(m) : 0; if(h) soonest = Math.min(soonest, h);
         (m.history || []).forEach(function(e){ if(e.can_undo && e.logged_at){ var x = new Date(e.logged_at).getTime() + UNDO_MS; if(x > now) soonest = Math.min(soonest, x); } });
         (m.history || []).forEach(function(e){ if(e.can_change && e.logged_at){ var y = new Date(e.logged_at).getTime() + CHANGE_MS; if(y > now) soonest = Math.min(soonest, y); } });
@@ -472,6 +510,8 @@
     function openConfirm(id){
       try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
       var f = findEvent(id);
+      // A reminder for Max opens Max's tab behind the sheet.
+      if(f && (f.med.pet || 'Other') !== activePet){ activePet = f.med.pet || 'Other'; ls(KEY_TAB, activePet); render(); }
       if(!f){ sheet('<h2>Dose not found</h2><p class="muted">It may have been changed.</p><button type="button" class="secondary" data-close>Close</button>'); return; }
       var head = '<h2>' + esc(f.med.label) + '</h2>' + (f.med.pet ? '<div class="pet">for ' + esc(f.med.pet) + '</div>' : '');
       var ev = f.ev;
