@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.38.0">
+                          <meta name="app-version" content="3.39.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -13774,17 +13774,25 @@ try {
   };
 
   // ---- "doses due" popup when the app opens (v3.36.0) ----
-  // Doses due within 15 minutes or already due, not held back by the
-  // double-dose limit. Each dose pops up once per app session.
+  // Doses due within 30 minutes or already due, not held back by the
+  // double-dose limit (v3.39.0: was 15 minutes, now matches the phone
+  // reminder, which also arrives 30 minutes early).
+  // v3.39.0: also doses that were missed in the last 24 hours and never
+  // recorded, so a dose given late can still be recorded from here.
+  // A dose pops up again if 30 minutes have passed since it was last shown.
   var KEY_SEEN = 'pawfolioDuePopupSeen';
+  var EARLY_MS = 30 * 60000, RESHOW_MS = 30 * 60000;
   var popupWanted = false;
   function dueList(){
     var out = [], now = Date.now();
     meds().forEach(function(m){
       if(archived(m) || !timesOf(m).length) return;
-      var st = state[m.__id]; if(!st || !st.pending || heldUntil(st, m)) return;
+      var st = state[m.__id]; if(!st) return;
+      var miss = recordableMissed(st);
+      if(miss) out.push({ m: m, ev: miss, due: new Date(miss.due_at).getTime(), missed: true });
+      if(!st.pending || heldUntil(st, m)) return;
       var due = new Date(st.pending.due_at).getTime();
-      if(due <= now + 15 * 60000) out.push({ m: m, ev: st.pending, due: due });
+      if(due <= now + EARLY_MS) out.push({ m: m, ev: st.pending, due: due });
     });
     return out.sort(function(a, b){ return a.due - b.due; });
   }
@@ -13793,16 +13801,29 @@ try {
     popupWanted = false;
     if(document.getElementById('pf-dose-sheet') || document.getElementById('pf-refill-sheet') || doseIdFrom(location.hash)) return;
     var list = dueList(); if(!list.length) return;
-    var seen = [];
-    try { seen = JSON.parse(sessionStorage.getItem(KEY_SEEN) || '[]'); } catch(e){}
-    if(list.every(function(x){ return seen.indexOf(x.ev.id) !== -1; })) return;
-    try { sessionStorage.setItem(KEY_SEEN, JSON.stringify(seen.concat(list.map(function(x){ return x.ev.id; })).slice(-50))); } catch(e){}
+    var seen = {}, now = Date.now();
+    try { seen = JSON.parse(sessionStorage.getItem(KEY_SEEN) || '{}'); } catch(e){}
+    if(!seen || typeof seen !== 'object' || Array.isArray(seen)) seen = {};
+    if(list.every(function(x){ return seen[x.ev.id] && now - seen[x.ev.id] < RESHOW_MS; })) return;
+    list.forEach(function(x){ seen[x.ev.id] = now; });
+    var keys = Object.keys(seen); if(keys.length > 50) keys.slice(0, keys.length - 50).forEach(function(k){ delete seen[k]; });
+    try { sessionStorage.setItem(KEY_SEEN, JSON.stringify(seen)); } catch(e){}
     showDuePopup(list);
   }
   function showDuePopup(list){
     var anyMed = list.some(function(x){ return !isSupp(x.m); });
-    var title = list.length === 1 ? (anyMed ? 'Dose due' : 'Serving due') : list.length + ' doses due';
+    var anyMissed = list.some(function(x){ return x.missed; });
+    var title = list.length === 1
+      ? (list[0].missed ? (anyMed ? 'Missed dose' : 'Missed serving') : (anyMed ? 'Dose due' : 'Serving due'))
+      : list.length + (anyMissed ? ' doses need attention' : ' doses due');
     var rows = list.map(function(x, i){
+      if(x.missed){
+        return '<div class="pf-due-row" data-row="' + i + '">' +
+          '<p class="pf-due-name">' + esc(x.m.name || 'Medication') + '</p>' +
+          '<p class="pf-dose-pet">' + (x.m.petName ? esc(x.m.petName) + ' \u00b7 ' : '') + 'Missed \u00b7 was due ' + when(new Date(x.due)) + '</p>' +
+          '<div data-btns><button type="button" class="pf-due-other" data-rec>It was given \u2014 record the time</button></div>' +
+          '</div>';
+      }
       var late = x.due <= Date.now();
       return '<div class="pf-due-row" data-row="' + i + '">' +
         '<p class="pf-due-name">' + esc(x.m.name || 'Medication') + '</p>' +
@@ -13823,6 +13844,10 @@ try {
     var left = list.length;
     list.forEach(function(x, i){
       var row = ov.querySelector('[data-row="' + i + '"]'), btns = row.querySelector('[data-btns]');
+      if(x.missed){
+        row.querySelector('[data-rec]').onclick = function(){ recordMissedSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m)); };
+        return;
+      }
       function go(taken){
         btns.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
         window.pfDoseLog(x.ev.id, taken).then(function(res){

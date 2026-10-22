@@ -98,6 +98,10 @@ async function sweepDoses(): Promise<Record<string, unknown>> {
   return (data ?? {}) as Record<string, unknown>;
 }
 
+// v3.39.0: dose reminders go out this long before the dose is due. The text
+// still reads "Due 6:00 PM". Doses can be given up to 90 minutes early.
+const DOSE_EARLY_MS = 30 * 60 * 1000;
+
 async function materializeDoseReminders(now: Date): Promise<{ created: number; skipped: number; errors: string[] }> {
   const errors: string[] = [];
   let created = 0;
@@ -108,7 +112,7 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
     .select("id, due_at, pawfolio_dose_schedules!inner(user_id, source_id, label, subject_name, timezone, shared)")
     .eq("status", "pending")
     .is("notified_at", null)
-    .lte("due_at", now.toISOString())
+    .lte("due_at", new Date(now.getTime() + DOSE_EARLY_MS).toISOString())
     .eq("pawfolio_dose_schedules.enabled", true)
     .order("due_at", { ascending: true })
     .limit(200);
@@ -166,7 +170,7 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
       pet_name: schedule.subject_name,
       title: schedule.label,
       body: `Due ${formatLocalClock(new Date(row.due_at), timeZone)}`,
-      fire_at: row.due_at,
+      fire_at: new Date(new Date(row.due_at).getTime() - DOSE_EARLY_MS).toISOString(),
       dose_event_id: row.id,
     });
     if (insErr) {
