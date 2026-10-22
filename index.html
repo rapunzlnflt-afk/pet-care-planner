@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.39.1">
+                          <meta name="app-version" content="3.39.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4442,7 +4442,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     const data = {};
     keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
     const json = JSON.stringify(data, null, 2);
-    const fname = 'pet-planner-backup-' + today() + '.json';
+    const fname = 'Pawfolio-Backup.json';
     const recordSaved = () => {
       localStorage.setItem('petPlannerLastExport', today());
       localStorage.removeItem('backupReminderSnoozed');
@@ -8564,13 +8564,12 @@ try {
     return buildFullBackup().then(function(payload){
       var json = JSON.stringify(payload);
       var stamp = (window.pfLocalISO ? window.pfLocalISO() : new Date().toISOString().slice(0,10));
-      // Include the local time of day. A date-only name collides with an earlier
-      // save from the same day, and iOS then interrupts Save to Files with a
-      // "replace the existing file?" confirmation — an extra tap for something
-      // the user never asked to overwrite.
-      var _now = new Date();
-      var _hhmm = String(_now.getHours()).padStart(2, '0') + String(_now.getMinutes()).padStart(2, '0');
-      var filename = 'pawfolio-full-backup-' + stamp + '-' + _hhmm + '.json';
+      // v3.39.2: one fixed name. Saving to the same folder again makes iOS
+      // offer to replace the old backup, so outdated copies don't pile up in
+      // iCloud Drive / Google Drive / Dropbox. (Before this, a date-and-time
+      // name made every save a new file.) Load My Data still writes its own
+      // dated safety copy before it overwrites anything.
+      var filename = 'Pawfolio-Backup.json';
       var photoCount = payload.photos ? Object.keys(payload.photos).length : 0;
       function recordSaved(){
         try { localStorage.setItem('petPlannerLastExport', stamp); localStorage.removeItem('backupReminderSnoozed'); } catch(e){}
