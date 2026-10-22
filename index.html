@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.39.0">
+                          <meta name="app-version" content="3.39.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1002,10 +1002,10 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
        <!-- Automatic backup controls (v3.9.5) -->
        <div id="auto-backup-settings" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
         <label for="auto-backup-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#5B5BD6;">
-         <span>Automatic backup</span>
+         <span id="auto-backup-title">Automatic backup</span>
          <input type="checkbox" id="auto-backup-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:#5B5BD6;">
         </label>
-        <p style="font-size:12px;color:#64748b;margin-top:4px;line-height:1.5;">Saves a backup of your data so you don't lose it. Stays on your device / your chosen file &mdash; nothing is uploaded.</p>
+        <p id="auto-backup-desc" style="font-size:12px;color:#64748b;margin-top:4px;line-height:1.5;">Saves a backup of your data so you don't lose it. Stays on your device / your chosen file &mdash; nothing is uploaded.</p>
         <button id="auto-backup-now-btn" style="margin-top:6px;width:100%;padding:7px 10px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
          <span>Back up now</span>
@@ -8927,6 +8927,13 @@ try {
   }
 
   function wireSettings(){
+    // v3.39.1: iPhone/iPad can't save a backup by itself, only remind, so say so.
+    if (IS_IOS){
+      var t = document.getElementById('auto-backup-title');
+      var d = document.getElementById('auto-backup-desc');
+      if (t) t.textContent = 'Backup reminder';
+      if (d) d.textContent = 'After you make changes, a reminder offers Save My Data so you can save a copy to Files. Stays on your device \u2014 nothing is uploaded.';
+    }
     var toggle = document.getElementById('auto-backup-toggle');
     var nowBtn = document.getElementById('auto-backup-now-btn');
     var locBtn = document.getElementById('auto-backup-location-btn');
@@ -8935,8 +8942,8 @@ try {
       toggle.addEventListener('change', function(){
         try { localStorage.setItem(PREF_KEY, toggle.checked ? '1' : '0'); } catch(e){}
         setStatus(toggle.checked
-          ? (IS_IOS ? 'On. After changes, a reminder offers Save my data.' : 'Automatic backup is on.')
-          : 'Automatic backup is off.');
+          ? (IS_IOS ? 'Backup reminder is on.' : 'Automatic backup is on.')
+          : (IS_IOS ? 'Backup reminder is off.' : 'Automatic backup is off.'));
         // When turning on with FS support and no file chosen yet, offer to pick one now.
         if (toggle.checked && SUPPORTS_FS){
           loadHandle().then(function(h){ if (!h) pickFile().then(updateLocationLabel); });
