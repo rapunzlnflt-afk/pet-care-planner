@@ -43,9 +43,9 @@ async function sha256Hex(s: string): Promise<string> {
 }
 
 // Limits (keep in sync with SPEC.md, intake-crypto.js and mock_server.py).
-const MAX_CT = 4_500_000;          // ciphertext chars per form -> 413 too_large
-const MAX_BODY = 4_800_000;        // whole request, bytes
-const MAX_PENDING = 200;           // forms waiting per inbox -> 429 inbox_full
+const MAX_CT = 1_500_000;          // ciphertext chars per form -> 413 too_large
+const MAX_BODY = 1_800_000;        // whole request, bytes
+const MAX_PENDING = 100;           // forms waiting per inbox -> 429 inbox_full
 const LIST_MAX = 50;               // forms per list call
 const LIST_BUDGET = 12_000_000;    // ciphertext chars per list call (always at least one form)
 const ACK_MAX = 50;                // ids per ack call

@@ -67,8 +67,8 @@ const goodEnv = await P.encryptFor(keys.publicKey, { hi: 1 });
 for (const [name, env] of [['no ct', { ...goodEnv, ct: undefined }], ['v2', { ...goodEnv, v: 2 }], ['bad epk', { ...goodEnv, epk: 'x' }], ['bad iv', { ...goodEnv, iv: 'x' }], ['bad ct chars', { ...goodEnv, ct: '$'.repeat(40) }], ['array', [1]]]) {
   const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: env }); t('submit ' + name + ' 400', r.s === 400 && r.j.error === 'bad_envelope', JSON.stringify(r));
 }
-{ const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: { ...goodEnv, ct: 'A'.repeat(4500001) } }); t('submit too_large 413', r.s === 413 && r.j.error === 'too_large', JSON.stringify(r)); }
-{ const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: { ...goodEnv, ct: 'A'.repeat(4800000) } }); t('body too_large 413', r.s === 413 && r.j.error === 'too_large', r.s); }
+{ const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: { ...goodEnv, ct: 'A'.repeat(1500001) } }); t('submit too_large 413', r.s === 413 && r.j.error === 'too_large', JSON.stringify(r)); }
+{ const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: { ...goodEnv, ct: 'A'.repeat(1800000) } }); t('body too_large 413', r.s === 413 && r.j.error === 'too_large', r.s); }
 
 await expectErr('list bad token 403', P.list(thief), 403, 'forbidden');
 await expectErr('list other inbox token 403', P.list({ ...keys2, inboxId: keys.inboxId }), 403, 'forbidden');
@@ -96,19 +96,19 @@ const L2 = await P.list(keys);
 t('purge >60d on list', L2.items.length === 1 && L2.items[0].id === fresh.id, JSON.stringify(L2.items.map(i => i.id)));
 await P.ack(keys, [fresh.id]);
 
-// limits: 200 pending, list max 50
+// limits: 100 pending, list max 50
 const small = await P.encryptFor(keys.publicKey, { s: 1 });
-for (let i = 0; i < 200; i++) { const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: small }); if (r.s !== 200) { t('fill ' + i, false, JSON.stringify(r)); break; } }
+for (let i = 0; i < 100; i++) { const r = await raw({ action: 'submit', inbox: keys.inboxId, envelope: small }); if (r.s !== 200) { t('fill ' + i, false, JSON.stringify(r)); break; } }
 await expectErr('inbox_full 429', P.submit(tgt, payload(5)), 429, 'inbox_full');
 const L3 = await P.list(keys);
 t('list max 50 + more', L3.items.length === 50 && L3.more === true, L3.items.length);
 let total = 0; for (;;) { const l = await P.list(keys); if (!l.items.length) break; total += (await P.ack(keys, l.items.map(i => i.id))).deleted; }
-t('drain 200 via list/ack loop', total === 200, total);
+t('drain 100 via list/ack loop', total === 100, total);
 
-// list response size budget (12M chars): 3 x 4.5M -> 2 then 1
-const big = { ...small, ct: 'A'.repeat(4500000) };
-for (let i = 0; i < 3; i++) await raw({ action: 'submit', inbox: keys.inboxId, envelope: big });
-const B1 = await P.list(keys); t('budget first page 2', B1.items.length === 2 && B1.more === true, B1.items.length);
+// list response size budget (12M chars): 9 x 1.5M -> 8 then 1
+const big = { ...small, ct: 'A'.repeat(1500000) };
+for (let i = 0; i < 9; i++) await raw({ action: 'submit', inbox: keys.inboxId, envelope: big });
+const B1 = await P.list(keys); t('budget first page 8', B1.items.length === 8 && B1.more === true, B1.items.length);
 await P.ack(keys, B1.items.map(i => i.id));
 const B2 = await P.list(keys); t('budget second page 1', B2.items.length === 1 && B2.more === false);
 await P.ack(keys, B2.items.map(i => i.id));

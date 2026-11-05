@@ -7,6 +7,7 @@
 #   INTAKE_CRYPTO=/path/to/intake-crypto.js [MOCK=/path/to/mock_server.py] ./run.sh
 # Needs: deno, node 20+, npm (installs @electric-sql/pglite into this folder).
 set -euo pipefail
+FN_PORT="${FN_PORT:-8798}"; MOCK_PORT="${MOCK_PORT:-8797}"  # off 8787 so a dev mock can keep running
 cd "$(dirname "$0")"
 : "${INTAKE_CRYPTO:?set INTAKE_CRYPTO to intake-crypto.js}"
 export INTAKE_CRYPTO
@@ -17,12 +18,12 @@ J
 PIDS=()
 trap 'kill ${PIDS[@]} 2>/dev/null || true; rm -f deno.json' EXIT
 SUPABASE_URL=http://local SUPABASE_SERVICE_ROLE_KEY=test \
-  MIGRATION=../../migrations/0009_pawfolio_sitter_inbox.sql PORT=8788 \
+  MIGRATION=../../migrations/0009_pawfolio_sitter_inbox.sql PORT="$FN_PORT" \
   deno run -A --import-map=import_map.json serve.ts > fn.log 2>&1 & PIDS+=($!)
 for _ in $(seq 60); do grep -q "fn up" fn.log 2>/dev/null && break; sleep 1; done
-node e2e.mjs http://127.0.0.1:8788/functions/v1/pawfolio-sitter-inbox fn http://127.0.0.1:8788
+node e2e.mjs "http://127.0.0.1:$FN_PORT/functions/v1/pawfolio-sitter-inbox" fn "http://127.0.0.1:$FN_PORT"
 if [ -n "${MOCK:-}" ]; then
-  python3 "$MOCK" 8787 > mock.log 2>&1 & PIDS+=($!)
+  python3 "$MOCK" "$MOCK_PORT" > mock.log 2>&1 & PIDS+=($!)
   sleep 1
-  node e2e.mjs http://127.0.0.1:8787/functions/v1/pawfolio-sitter-inbox mock http://127.0.0.1:8787
+  node e2e.mjs "http://127.0.0.1:$MOCK_PORT/functions/v1/pawfolio-sitter-inbox" mock "http://127.0.0.1:$MOCK_PORT"
 fi

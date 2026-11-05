@@ -52,10 +52,10 @@ create table if not exists public.pawfolio_sitter_submissions (
   -- { v, z, epk, iv, ct }, all opaque to the server.
   envelope   jsonb not null
              check (jsonb_typeof(envelope) = 'object'
-                    and octet_length(envelope::text) <= 4600000),
+                    and octet_length(envelope::text) <= 1600000),
   -- Ciphertext length, so list can cap response size without loading rows.
   ct_len     integer generated always as (char_length(envelope->>'ct')) stored
-             check (ct_len is not null and ct_len between 1 and 4500000),
+             check (ct_len is not null and ct_len between 1 and 1500000),
   created_at timestamptz not null default now()
 );
 

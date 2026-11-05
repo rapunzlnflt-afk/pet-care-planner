@@ -18,7 +18,7 @@ picks it up, and it can't read it.
 |--------|------|-------|
 | `register` | `{inbox, token_hash, public_key, code, label}` | `{ok, code}`; 403 `forbidden` if the inbox exists with another secret; 409 `code_taken` |
 | `lookup` | `{code}` (dash optional) | `{inbox, public_key, label}`; 404 `not_found` |
-| `submit` | `{inbox, envelope}` | `{ok, id}`; 404 `not_found`, 400 `bad_envelope`, 413 `too_large` (ct over 4,500,000 chars), 429 `inbox_full` (200 waiting) |
+| `submit` | `{inbox, envelope}` | `{ok, id}`; 404 `not_found`, 400 `bad_envelope`, 413 `too_large` (ct over 1,500,000 chars), 429 `inbox_full` (100 waiting) |
 | `list` | `{inbox, token}` | `{items:[{id, created_at, envelope}], more}` oldest first, at most 50 and about 12M ciphertext chars per call; 403 `forbidden`. Purges that inbox's forms older than 60 days and sets `last_seen_at`. |
 | `ack` | `{inbox, token, ids}` (up to 50 uuids) | `{ok, deleted}`; 403 `forbidden`, 400 `bad_request` |
 
@@ -48,3 +48,15 @@ migration 0009 applied) and drives it with `intake-crypto.js` under Node:
 register, lookup by code, submit an encrypted form, list, decrypt, ack, plus
 every limit and error. With `MOCK` set, the same test runs against the
 in-memory mock used by the app builds, so the two stay in step.
+
+## Follow-ups
+
+- **Rate limiting (deferred).** `register`, `lookup` and `submit` need no
+  secret. Anyone who has a sitter's link or code can fill that inbox to the
+  100-form limit, so new forms get 429 `inbox_full` until the sitter acks or
+  the 60-day purge runs. `lookup` can also be used to guess codes (31^8
+  possibilities). Add per-IP or per-inbox limits before wide release.
+- The 100-form check is count-then-insert, so two submits at the same moment
+  can slightly overshoot it. A DB trigger would make it strict.
+- Inboxes that are never used again are kept forever. A cron job could remove
+  inboxes not seen in a long time.
