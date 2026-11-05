@@ -1,0 +1,5 @@
+node_modules/
+fn.log
+mock.log
+deno.json
+package-lock.json

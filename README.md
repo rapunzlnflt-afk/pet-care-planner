@@ -26,6 +26,10 @@ This product has **two separate GitHub repos**. They are NOT linked — a commit
 | `manifest.json` | PWA install manifest |
 | `icon-192.png`, `icon-512.png` | App icons |
 
+## Sitter inbox backend
+
+Supabase migration 0009 + Edge Function `pawfolio-sitter-inbox` for Sitter mode and "Send to a sitter". Setup, deploy steps and local tests: [SITTER_INBOX.md](SITTER_INBOX.md).
+
 ## Releasing a new version
 
 When making a change that the user should see:
