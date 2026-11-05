@@ -14806,7 +14806,7 @@ try {
   }
   function errText(e, ctx){
     var code = (e && (e.code || e.message)) || '';
-    if (code === 'too_large') return 'This is too big to send because of the photos. Try again with fewer pets, or use smaller photos in Pet Profiles.';
+    if (code === 'too_large') return 'This is too big to send. Use fewer or smaller photos, or send fewer pets at a time.';
     if (code === 'not_found') return ctx === 'lookup' ? 'No sitter has that code. Check it with your sitter and try again.' : 'This sitter link no longer works. Ask your sitter for a new link or code.';
     if (code === 'inbox_full') return 'Your sitter\'s inbox is full right now. Ask them to open Pawfolio, then try again.';
     if (code === 'forbidden') return 'This phone could not open the inbox. If you moved to a new phone, restore your Pawfolio backup.';
