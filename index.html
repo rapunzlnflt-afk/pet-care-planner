@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.41.0">
+                          <meta name="app-version" content="3.42.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -14681,7 +14681,7 @@ try {
   else setTimeout(watch, 600);
 })();
 </script>
-<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link) -->
+<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link; v3.42.0 Clients map) -->
 <style id="pf-sitter-mode-css">
 /* === Pawfolio v3.40.0: Send to a sitter + Sitter mode (Clients) === */
 .pf-sm-muted { color: var(--text-secondary); }
@@ -14770,6 +14770,53 @@ try {
 [data-theme="dark"] .pf-sm-danger { color: #fc8181; }
 [data-theme="dark"] .pf-sm-avatar { background: rgba(139,124,248,.2); color: #c7c5ff; }
 [data-theme="dark"] #pf-sitter-mode-row { border-top-color: rgba(139,124,248,.15) !important; }
+/* === Pawfolio v3.42.0: Clients map (Sitter mode) === */
+.pf-map-overlay { position: fixed; inset: 0; z-index: 9980; background: var(--bg-light); display: flex; flex-direction: column; }
+.pf-map-overlay .pf-sm-sheet-head { flex: 0 0 auto; }
+.pf-map-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.pf-map-wrap { position: relative; flex: 1 1 auto; min-height: 46%; background: #e8ecf1; }
+#pf-map-canvas { position: absolute; inset: 0; }
+.pf-map-panel { flex: 0 0 auto; max-height: 44%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color); background: var(--bg-light); }
+@media (min-width: 900px) {
+  .pf-map-body { flex-direction: row; }
+  .pf-map-wrap { min-height: 0; }
+  .pf-map-panel { flex: 0 0 360px; max-height: none; border-top: none; border-left: 1px solid var(--border-color); padding: 14px 16px; }
+}
+.pf-map-msg { position: absolute; left: 10px; right: 10px; top: 10px; z-index: 1001; pointer-events: none; }
+.pf-map-msg > * { pointer-events: auto; margin: 0 auto; max-width: 520px; box-shadow: 0 4px 16px rgba(15,23,42,.18); }
+.pf-map-msg .pf-sm-note { background: #fff; }
+.pf-map-sec { margin-top: 12px; }
+.pf-map-sec:first-child { margin-top: 2px; }
+.pf-map-sec > .pf-sm-h4 { margin: 6px 0 4px; }
+.pf-map-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border-color); font-family: 'Karla', sans-serif; color: var(--text-primary); }
+.pf-map-item:first-of-type { border-top: none; }
+.pf-map-item .pf-sm-cname { font-size: 14.5px; display: block; }
+.pf-map-item .pf-sm-small { display: block; }
+.pf-map-tap { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; min-height: 44px; }
+.pf-map-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pf-map-acts .pf-sm-btn2 { min-height: 38px; padding: 6px 12px; font-size: 13.5px; }
+.pf-map-num { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; background: #5B5BD6; color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 13px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.pf-map-num.off { background: #fff; color: #5B5BD6; border-color: #5B5BD6; box-shadow: none; }
+.pf-map-numicon { background: none; border: none; }
+.pf-map-numicon .pf-map-num { width: 30px; height: 30px; font-size: 14px; }
+.pf-map-pop { font-family: 'Karla', sans-serif; min-width: 200px; max-width: 250px; }
+.pf-map-pop .pf-sm-cname { display: block; font-size: 15px; color: #1e293b; }
+.pf-map-pop .pf-map-pets { font-size: 13px; color: #475569; margin-top: 2px; }
+.pf-map-pop .pf-map-addr { font-size: 13px; color: #334155; margin-top: 6px; line-height: 1.4; }
+.pf-map-pop .pf-map-acts a.pf-sm-btn, .pf-map-pop .pf-map-acts a.pf-sm-btn2 { color: inherit; }
+.pf-map-pop .pf-map-acts .pf-sm-btn { min-height: 38px; padding: 6px 12px; font-size: 13.5px; color: #fff; }
+.pf-map-pop .pf-map-acts .pf-sm-btn2 { color: #334155; background: #f1f5f9; border-color: #e2e8f0; }
+.pf-map-pop .pf-sm-link { font-size: 13px; padding: 6px 0 0; }
+.pf-map-routehead { position: sticky; top: -10px; z-index: 2; background: var(--bg-light); padding: 4px 0 8px; margin-top: -4px !important; border-bottom: 1px solid var(--border-color); }
+@media (min-width: 900px) { .pf-map-routehead { top: -14px; } }
+[data-theme="dark"] .pf-map-routehead { background: #15202b; }
+.pf-map-search { display: flex; gap: 6px; margin-top: 6px; }
+.pf-map-search input { flex: 1 1 auto; min-width: 0; }
+.pf-map-overlay .leaflet-container { font-family: 'Karla', sans-serif; }
+.pf-map-overlay .leaflet-control-attribution { font-size: 11px; }
+[data-theme="dark"] .pf-map-overlay, [data-theme="dark"] .pf-map-panel { background: #15202b; }
+[data-theme="dark"] .pf-map-msg .pf-sm-note { background: #1e2732; }
+[data-theme="dark"] .pf-map-num.off { background: #1e2732; color: #c7c5ff; border-color: #8b7cf8; }
 </style>
 <script src="intake-crypto.js"></script>
 <script>
@@ -14783,7 +14830,8 @@ try {
      pawfolioMySitters     [{id,label,code,inboxId,publicKey,clientId,lastSentAt,petIds,phone,email}]
      pawfolioSendExtras    {client,emergency,vet,emergencyVet,home,auth,pets:{<petId>:{f:{},medsOff:[],medHow:{}}}}
      pawfolioSitterMode    {on, profile:{name,phone,email}, keys:{inboxId,inboxSecret,publicKey,privateJwk,code}, setupAt}
-     pawfolioSitterClients [{id,clientId,source,firstAt,updatedAt,versions,unseen,rowIds,payload,history:[{at,source,payload}]}]
+     pawfolioSitterClients [{id,clientId,source,firstAt,updatedAt,versions,unseen,rowIds,payload,history:[{at,source,payload}],
+                            geo:{lat,lng,addr,status,manual,q,at} (v3.42.0 Clients map)}]
    IndexedDB pawfolioVault/docImages: client pet photos as 'sitterpet-<clientRecId>-<n>'
    (window.pawfolioVaultStore), so full backups carry them like document photos. */
 (function(){
@@ -15735,7 +15783,8 @@ try {
     }).join('');
     root.innerHTML = linkCardHTML(m, open) +
       '<div class="pf-sm-banner" id="pf-cl-banner">' + ui.banner + '</div>' +
-      '<div class="card p-5 mb-4"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">My clients' + (all.length ? ' (' + all.length + ')' : '') + '</h3></div>' +
+      '<div class="card p-5 mb-4"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">My clients' + (all.length ? ' (' + all.length + ')' : '') + '</h3>' +
+      (all.length ? '<button type="button" class="pf-sm-btn2" id="pf-cl-map" aria-label="Show all clients on a map">Map</button>' : '') + '</div>' +
       '<button type="button" class="pf-sm-btn block" id="pf-cl-check" style="margin-top:10px;">Check for new forms</button>' +
       (m.lastCheckAt ? '<p class="pf-sm-small" style="margin-top:6px;">Last checked ' + esc(fmtDayTime(m.lastCheckAt)) + '</p>' : '') +
       (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, phone, or address" value="' + esc(ui.query) + '">' : '') +
@@ -15757,9 +15806,10 @@ try {
     };
     var ep = root.querySelector('#pf-cl-editprof'); if (ep) ep.onclick = function(){ ui.editProfile = true; renderClients(); };
     root.querySelector('#pf-cl-check').onclick = function(){ checkInbox(true); };
+    var mb = root.querySelector('#pf-cl-map'); if (mb) mb.onclick = openClientsMap;   // v3.42.0
     var se = root.querySelector('#pf-cl-search');
     if (se) se.oninput = function(){ ui.query = se.value; var pos = se.selectionStart; renderClients(); var n = document.getElementById('pf-cl-search'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch(e){} } };
-    root.querySelectorAll('[data-cid]').forEach(function(b){ b.onclick = function(){ ui.view = 'detail'; ui.id = b.getAttribute('data-cid'); ui.version = -1; renderClients(); window.scrollTo(0, 0); }; });
+    root.querySelectorAll('[data-cid]').forEach(function(b){ b.onclick = function(){ ui.view = 'detail'; ui.id = b.getAttribute('data-cid'); ui.version = -1; ui.fromMap = false; renderClients(); window.scrollTo(0, 0); }; });
     loadPhotos(root);
   }
   // v3.41.0: the client's live dose link (they have Pawfolio Complete; free for the sitter).
@@ -15774,6 +15824,7 @@ try {
     var p = viewing ? viewing.payload : rec.payload, cl = (p && p.client) || {};
     var src = function(s){ return s === 'pawfolio' ? 'from Pawfolio' : 'from the web form'; };
     var head = '<div class="card p-5 mb-4"><button type="button" class="pf-sm-link" id="pf-cd-back">All clients</button>' +
+      (ui.fromMap ? '<button type="button" class="pf-sm-link" id="pf-cd-backmap" style="margin-left:16px;">Back to map</button>' : '') +
       '<div class="pf-sm-row" style="margin-top:6px;"><h3 class="pf-sm-h3 pf-sm-grow" style="font-size:1.25rem;">' + esc(cl.name || 'Client') + '</h3>' +
       (rec.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(rec.updatedAt)) + '</span>' : '') + '</div>' +
       '<p class="pf-sm-small">' + (rec.versions > 1 ? 'First sent ' + esc(fmtDay(rec.firstAt)) + '. Latest ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.' : 'Sent ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.') + '</p>' +
@@ -15786,7 +15837,8 @@ try {
     root.innerHTML = head + payloadHTML(p, { sitter: true }) + versions +
       '<div class="pf-sm-section"><button type="button" class="pf-sm-btn block" id="pf-cd-print">Print</button>' +
       '<button type="button" class="pf-sm-danger" id="pf-cd-del" style="display:block;width:100%;margin-top:8px;">Delete client</button></div>';
-    root.querySelector('#pf-cd-back').onclick = function(){ ui.view = 'list'; ui.version = -1; renderClients(); };
+    root.querySelector('#pf-cd-back').onclick = function(){ ui.view = 'list'; ui.version = -1; ui.fromMap = false; renderClients(); };
+    var bm = root.querySelector('#pf-cd-backmap'); if (bm) bm.onclick = function(){ ui.view = 'list'; ui.version = -1; ui.fromMap = false; renderClients(); openClientsMap(); };
     var lt = root.querySelector('#pf-cd-latest'); if (lt) lt.onclick = function(){ ui.version = -1; renderClients(); };
     root.querySelectorAll('[data-ver]').forEach(function(b){ b.onclick = function(){ ui.version = +b.getAttribute('data-ver'); renderClients(); window.scrollTo(0, 0); }; });
     root.querySelectorAll('[data-reveal]').forEach(function(b){ b.onclick = function(){ var s = document.createElement('span'); s.textContent = b.getAttribute('data-reveal'); s.style.fontWeight = '700'; b.parentNode.replaceChild(s, b); }; });
@@ -15826,6 +15878,384 @@ try {
     else window.print();
   }
 
+  /* ---------- v3.42.0: Clients map (Sitter mode, free) ----------
+     One map with a pin for every client that has an address, for planning visits.
+     Leaflet is vendored in vendor/leaflet/ (no CDN) and only loaded when the map opens.
+     Tiles: OpenStreetMap. Addresses are placed with OpenStreetMap Nominatim, one request
+     at a time and at most one per second, only for clients without saved coordinates.
+     Coordinates live on the client record (so Save My Data backups carry them):
+       rec.geo = { lat, lng, addr, status: 'ok' | 'none', manual, q, at }
+     addr is the one-line address the spot was worked out from. A client is looked up
+     again only when their address changes. A pin the sitter moved by hand is marked
+     manual and is kept until the address changes. */
+  var MAP_JS = 'vendor/leaflet/leaflet.js', MAP_CSS = 'vendor/leaflet/leaflet.css', MAP_IMG = 'vendor/leaflet/images/';
+  var GEO_URL = 'https://nominatim.openstreetmap.org/search';
+  var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  var ROUTE_MAX_G = 10, ROUTE_MAX_A = 14;   // Google Maps: 9 on the way + last stop. Apple Maps: 13 + last stop.
+  // iPhone/iPad open routes in Apple Maps (unified directions URL, iOS 18.4+), with Google Maps as
+  // a fallback. If the iOS version can be read and is older than 18.4, Google Maps leads instead.
+  function iosVersion(){
+    var ua = navigator.userAgent || '', m = /OS (\d+)[_.](\d+)/.exec(ua);
+    if (!m && appleMaps()) m = /Version\/(\d+)\.(\d+)/.exec(ua);
+    return m ? [+m[1], +m[2]] : null;
+  }
+  function appleRoutes(){
+    if (!appleMaps()) return false;
+    var v = iosVersion(); return !v || v[0] > 18 || (v[0] === 18 && v[1] >= 4);
+  }
+  function routeMax(){ return appleRoutes() ? ROUTE_MAX_A : ROUTE_MAX_G; }
+  var MAP_NOTICE = 'Client addresses are looked up with OpenStreetMap to place pins. Nothing else is sent.';
+  var MAP_OFFLINE = 'The map needs an internet connection. Your clients are still listed below.';
+  var mp = null, leafletP = null, geoLast = 0;
+  function loadLeaflet(){
+    if (window.L && window.L.map) return Promise.resolve(window.L);
+    if (leafletP) return leafletP;
+    leafletP = new Promise(function(res, rej){
+      if (!document.getElementById('pf-leaflet-css')) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = MAP_CSS; l.id = 'pf-leaflet-css'; document.head.appendChild(l); }
+      var s = document.createElement('script'); s.src = MAP_JS; s.async = true;
+      s.onload = function(){ if (window.L && window.L.map) res(window.L); else rej(new Error('leaflet')); };
+      s.onerror = function(){ leafletP = null; if (s.parentNode) s.parentNode.removeChild(s); rej(new Error('leaflet')); };
+      document.head.appendChild(s);
+    });
+    return leafletP;
+  }
+  function recAddr(rec){ return oneLine(((rec.payload || {}).client || {}).address); }
+  function goodLL(g){ return !!g && g.status === 'ok' && isFinite(g.lat) && isFinite(g.lng) && Math.abs(g.lat) <= 90 && Math.abs(g.lng) <= 180; }
+  // 'noaddr' | 'ok' | 'none' (looked up, no match) | 'pending' (needs a lookup)
+  function geoState(rec){
+    var a = recAddr(rec); if (!a) return 'noaddr';
+    var g = rec.geo; if (!g || g.addr !== a) return 'pending';
+    return goodLL(g) ? 'ok' : g.status === 'none' ? 'none' : 'pending';
+  }
+  function saveGeo(id, geo){
+    var l = clients(), r = l.find(function(c){ return c.id === id; }); if (!r) return false;
+    r.geo = geo; return saveClients(l);
+  }
+  function petNames(rec){ return ((rec.payload || {}).pets || []).map(function(x){ return trim(x.name); }).filter(Boolean); }
+  function ownerName(rec){ return trim(((rec.payload || {}).client || {}).name) || 'Client'; }
+  // One Nominatim lookup. Resolves {lat,lng} or null (no match); rejects when it can't be reached.
+  function geocode(q){
+    var wait = Math.max(0, geoLast + 1100 - Date.now());
+    return new Promise(function(r){ setTimeout(r, wait); }).then(function(){
+      geoLast = Date.now();
+      var u = GEO_URL + '?format=jsonv2&limit=1&addressdetails=0&q=' + encodeURIComponent(q);
+      return fetch(u, { headers: { 'Accept': 'application/json' }, credentials: 'omit' });
+    }).then(function(res){
+      if (!res.ok) throw new Error('geo ' + res.status);
+      return res.json();
+    }).then(function(j){
+      var h = Array.isArray(j) && j[0]; if (!h) return null;
+      var lat = parseFloat(h.lat), lng = parseFloat(h.lon);
+      return isFinite(lat) && isFinite(lng) ? { lat: lat, lng: lng } : null;
+    });
+  }
+  window.__pawfolioGeocode = geocode;   // the demo swaps in preset spots for its sample addresses
+
+  function openClientsMap(){
+    closeClientsMap();
+    var el = document.createElement('div');
+    el.className = 'pf-map-overlay'; el.id = 'pf-map';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Clients map');
+    el.innerHTML = '<div class="pf-sm-sheet-head"><h2>Clients map</h2><button type="button" data-mp="close" aria-label="Close map">Close</button></div>' +
+      '<div class="pf-map-body"><div class="pf-map-wrap"><div id="pf-map-canvas"></div><div class="pf-map-msg" id="pf-map-msg" aria-live="polite"></div></div>' +
+      '<div class="pf-map-panel" id="pf-map-panel"></div></div>';
+    document.body.appendChild(el);
+    document.documentElement.style.overflow = 'hidden';
+    mp = { el: el, map: null, L: null, markers: {}, route: [], routeMode: false, moving: null, busy: false, progress: '', geoErr: false,
+           tileOk: 0, tileErr: 0, offline: false, searchId: null, note: '', fitted: false };
+    el.querySelector('[data-mp="close"]').onclick = closeClientsMap;
+    el.addEventListener('click', onMapClick);
+    paintPanel();
+    if (navigator.onLine === false) mp.offline = true;
+    var me = mp;
+    loadLeaflet().then(function(L){
+      if (mp !== me) return;
+      mp.L = L;
+      L.Icon.Default.imagePath = MAP_IMG;
+      var map = mp.map = L.map('pf-map-canvas', { zoomControl: true, attributionControl: true });
+      map.attributionControl.setPrefix(false);
+      var tiles = L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTR, crossOrigin: false });
+      tiles.on('tileload', function(){ me.tileOk++; if (me.offline && mp === me && navigator.onLine !== false) { me.offline = false; paintMsg(); } });
+      tiles.on('tileerror', function(){ me.tileErr++; if (!me.tileOk && me.tileErr >= 2 && mp === me) { me.offline = true; paintMsg(); } });
+      tiles.addTo(map);
+      map.on('popupopen', function(e){ wirePopup(e.popup.getElement()); });
+      paintMarkers(true);
+      paintMsg();
+      setTimeout(function(){ if (mp === me) map.invalidateSize(); }, 60);
+      autoPlace();
+    }, function(){
+      if (mp !== me) return;
+      mp.offline = true; paintMsg();
+    });
+  }
+  function closeClientsMap(){
+    if (!mp) return;
+    var m = mp; mp = null;
+    try { if (m.map) m.map.remove(); } catch(e){}
+    if (m.el.parentNode) m.el.parentNode.removeChild(m.el);
+    if (!sheet) document.documentElement.style.overflow = '';
+  }
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && mp && !sheet) closeClientsMap(); });
+
+  function popupHTML(rec){
+    var a = recAddr(rec), pets = petNames(rec), g = rec.geo || {};
+    return '<div class="pf-map-pop" data-mp-pop="' + esc(rec.id) + '"><span class="pf-sm-cname">' + esc(ownerName(rec)) + '</span>' +
+      (pets.length ? '<div class="pf-map-pets">' + esc(nameList(pets)) + '</div>' : '') +
+      '<div class="pf-map-addr">' + esc(a) + '</div>' +
+      (g.manual ? '<div class="pf-sm-small" style="margin-top:4px;">Pin placed by hand</div>' : '') +
+      '<div class="pf-map-acts"><button type="button" class="pf-sm-btn" data-mp-open="' + esc(rec.id) + '">Open client</button>' +
+      '<a class="pf-sm-btn2" data-mp-dir="1" href="' + esc(directionsHref(a)) + '" target="_blank" rel="noopener">Directions</a></div>' +
+      '<button type="button" class="pf-sm-link" data-mp-move="' + esc(rec.id) + '">Move pin</button></div>';
+  }
+  function wirePopup(node){
+    if (!node) return;
+    node.querySelectorAll('[data-mp-open]').forEach(function(b){ b.onclick = function(){ openFromMap(b.getAttribute('data-mp-open')); }; });
+    node.querySelectorAll('[data-mp-move]').forEach(function(b){ b.onclick = function(){ startMove(b.getAttribute('data-mp-move'), false); }; });
+  }
+  function numIcon(n){ return mp.L.divIcon({ className: 'pf-map-numicon', html: '<span class="pf-map-num">' + n + '</span>', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14] }); }
+  function paintMarkers(fit){
+    if (!mp || !mp.map) return;
+    var L = mp.L, map = mp.map;
+    Object.keys(mp.markers).forEach(function(id){ map.removeLayer(mp.markers[id]); });
+    mp.markers = {};
+    var pts = [];
+    clients().forEach(function(rec){
+      if (geoState(rec) !== 'ok') return;
+      var ll = [rec.geo.lat, rec.geo.lng], n = mp.route.indexOf(rec.id) + 1;
+      var mk = L.marker(ll, n ? { icon: numIcon(n), title: ownerName(rec), zIndexOffset: 500 } : { title: ownerName(rec), alt: ownerName(rec) });
+      if (mp.routeMode) mk.on('click', function(){ toggleStop(rec.id); });
+      else mk.bindPopup(popupHTML(rec), { maxWidth: 260 });
+      mk.addTo(map); mp.markers[rec.id] = mk; pts.push(ll);
+    });
+    if (fit || !mp.fitted) fitAll(pts);
+  }
+  function fitAll(pts){
+    if (!mp || !mp.map) return;
+    if (!pts) { pts = []; Object.keys(mp.markers).forEach(function(id){ var p = mp.markers[id].getLatLng(); pts.push([p.lat, p.lng]); }); }
+    if (pts.length === 1) mp.map.setView(pts[0], 14);
+    else if (pts.length) mp.map.fitBounds(pts, { padding: [36, 36], maxZoom: 15 });
+    else mp.map.setView([39.5, -98.35], 3);
+    mp.fitted = pts.length > 0;
+  }
+
+  // Place pins for clients that need a lookup: after the one-time notice, one at a time.
+  function autoPlace(){
+    if (!mp || mp.busy) return;
+    var todo = clients().filter(function(r){ return geoState(r) === 'pending'; });
+    if (!todo.length) return;
+    if (!mode().mapNoticeAt) { paintPanel(); return; }   // the notice shows in the panel
+    if (navigator.onLine === false) { mp.offline = true; mp.geoErr = true; paintMsg(); paintPanel(); return; }
+    var me = mp, i = 0; me.busy = true; me.geoErr = false;
+    function next(){
+      if (mp !== me) return;
+      var rec = todo[i]; if (!rec) return done();
+      var fresh = clients().find(function(c){ return c.id === rec.id; });
+      if (!fresh || geoState(fresh) !== 'pending') { i++; return next(); }
+      me.progress = 'Placing pins: ' + (i + 1) + ' of ' + todo.length; paintMsg();
+      var a = recAddr(fresh);
+      geocode(a).then(function(hit){
+        saveGeo(fresh.id, hit ? { lat: hit.lat, lng: hit.lng, addr: a, status: 'ok', manual: false, at: new Date().toISOString() }
+                              : { lat: null, lng: null, addr: a, status: 'none', manual: false, at: new Date().toISOString() });
+        if (mp === me) { paintMarkers(false); paintPanel(); }
+        i++; next();
+      }, function(){ me.geoErr = true; done(); });
+    }
+    function done(){ me.busy = false; me.progress = ''; if (mp === me) { paintMarkers(true); paintMsg(); paintPanel(); } }
+    next();
+  }
+  function acceptNotice(){ var m = mode(); m.mapNoticeAt = new Date().toISOString(); saveModeQuiet(m); }
+
+  function paintMsg(){
+    if (!mp) return;
+    var box = mp.el.querySelector('#pf-map-msg'), h = '';
+    if (mp.offline) h = '<div class="pf-sm-note" id="pf-map-offline">' + esc(MAP_OFFLINE) + '</div>';
+    else if (mp.geoErr) h = '<div class="pf-sm-note" id="pf-map-geoerr">Couldn\'t reach OpenStreetMap to place pins. Check your internet connection and try again. <button type="button" class="pf-sm-link" data-mp-act="retry">Try again</button></div>';
+    else if (mp.progress) h = '<div class="pf-sm-note" id="pf-map-progress">' + esc(mp.progress) + '</div>';
+    if (mp.moving) h = '<div class="pf-sm-note" id="pf-map-movebar"><strong>Drag the pin</strong> to ' + esc(mp.moving.name) + '\'s home, then tap Save spot.' +
+      '<div class="pf-map-acts"><button type="button" class="pf-sm-btn" data-mp-act="move-save">Save spot</button><button type="button" class="pf-sm-btn2" data-mp-act="move-cancel">Cancel</button></div></div>';
+    box.innerHTML = h;
+  }
+  function itemHTML(rec, inner, opts){
+    opts = opts || {};
+    var pets = petNames(rec), a = recAddr(rec);
+    return '<div class="pf-map-item" data-mp-item="' + esc(rec.id) + '">' + (opts.lead || '') + '<div class="pf-sm-grow">' +
+      (opts.tap ? '<button type="button" class="pf-map-tap" data-mp-' + opts.tap + '="' + esc(rec.id) + '"><span class="pf-sm-grow">' : '') +
+      '<span class="pf-sm-cname">' + esc(ownerName(rec)) + '</span>' +
+      (pets.length ? '<span class="pf-sm-small">' + esc(pets.join(', ')) + '</span>' : '') +
+      (a && opts.addr !== false ? '<span class="pf-sm-small pf-sm-addr">' + esc(a) + '</span>' : '') +
+      (opts.tap ? '</span></button>' : '') + (inner || '') + '</div></div>';
+  }
+  function paintPanel(){
+    if (!mp) return;
+    var panel = mp.el.querySelector('#pf-map-panel'), all = clients();
+    var by = { ok: [], none: [], pending: [], noaddr: [] };
+    all.forEach(function(r){ by[geoState(r)].push(r); });
+    var byName = function(a, b){ return ownerName(a).localeCompare(ownerName(b)); };
+    Object.keys(by).forEach(function(k){ by[k].sort(byName); });
+    var h = '';
+    if (mp.routeMode) {
+      var stops = mp.route.map(function(id){ return all.find(function(r){ return r.id === id; }); }).filter(Boolean);
+      var cand = all.filter(function(r){ return !!recAddr(r); }).sort(byName);
+      var apple = appleRoutes(), oldIos = appleMaps() && !apple, max = routeMax(), cnt = stops.length + (stops.length === 1 ? ' stop' : ' stops');
+      // Sticky part stays short so the client list below stays reachable on a phone.
+      var mainBtn = stops.length
+        ? '<a class="pf-sm-btn block" id="pf-map-openroute" data-maps="' + (apple ? 'apple' : 'google') + '" href="' + esc(apple ? routeHrefApple(stops) : routeHref(stops)) + '" target="_blank" rel="noopener" style="margin-top:8px;">' + (apple ? 'Open in Apple Maps' : 'Open in Google Maps') + ' (' + cnt + ')</a>'
+        : '<button type="button" class="pf-sm-btn block" id="pf-map-openroute" disabled style="margin-top:8px;">' + (apple ? 'Open in Apple Maps' : 'Open in Google Maps') + '</button>';
+      var fallback = !stops.length || !apple ? ''
+        : stops.length <= ROUTE_MAX_G ? '<a class="pf-sm-btn2" id="pf-map-openroute-g" data-maps="google" href="' + esc(routeHref(stops)) + '" target="_blank" rel="noopener" style="margin-top:8px;">Open in Google Maps</a>'
+        : '<p class="pf-sm-small" style="margin-top:6px;">Google Maps takes up to ' + ROUTE_MAX_G + ' stops, so it isn\'t offered for this route.</p>';
+      h += '<div class="pf-map-sec pf-map-routehead"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">Plan a route</h3><button type="button" class="pf-sm-btn2" data-mp-act="route-done">Done</button></div>' + mainBtn + '</div>' +
+        '<div class="pf-map-sec">' + (mp.note ? '<div class="pf-sm-note" id="pf-map-routenote" style="margin-top:0;">' + esc(mp.note) + '</div>' : '') +
+        '<p class="pf-sm-small" id="pf-map-routehelp" style="margin-top:6px;">Tap pins or names in the order you\'ll visit. Up to ' + max + ' stops (' + (max - 1) + ' on the way plus the last stop). The route starts from where you are.</p>' +
+        (oldIos ? '<p class="pf-sm-small" id="pf-map-oldios">Routes with several stops in Apple Maps need iOS 18.4 or later, so this opens in Google Maps.</p>' : '') +
+        (fallback || stops.length ? '<div class="pf-map-acts" style="align-items:center;">' + fallback + (stops.length ? '<button type="button" class="pf-sm-link" data-mp-act="route-clear">Clear stops</button>' : '') + '</div>' : '') + '</div>';
+      h += '<div class="pf-map-sec">' + (cand.length ? cand.map(function(r){
+        var n = mp.route.indexOf(r.id) + 1;
+        return itemHTML(r, geoState(r) === 'ok' ? '' : '<span class="pf-sm-small">Not on the map. The route uses the address.</span>',
+          { tap: 'stop', lead: '<span class="pf-map-num' + (n ? '' : ' off') + '" aria-hidden="true">' + (n || '+') + '</span>' });
+      }).join('') : '<p class="pf-sm-p">No clients with an address yet.</p>') + '</div>';
+      panel.innerHTML = h; return;
+    }
+    if (by.pending.length && !mode().mapNoticeAt) {
+      h += '<div class="pf-sm-note" id="pf-map-notice">' + esc(MAP_NOTICE) +
+        '<div class="pf-map-acts"><button type="button" class="pf-sm-btn" data-mp-act="notice-ok">Place pins</button><button type="button" class="pf-sm-btn2" data-mp-act="notice-later">Not now</button></div></div>';
+    }
+    h += '<div class="pf-map-sec"><div class="pf-sm-row"><p class="pf-sm-small pf-sm-grow" id="pf-map-count">' +
+      (by.ok.length ? by.ok.length + (by.ok.length === 1 ? ' client on the map' : ' clients on the map') : 'No clients on the map yet') + '</p>' +
+      (by.ok.length > 1 ? '<button type="button" class="pf-sm-link" data-mp-act="fit">Show all</button>' : '') + '</div>' +
+      '<button type="button" class="pf-sm-btn2 block" data-mp-act="route" id="pf-map-route" style="width:100%;margin-top:4px;">Plan a route</button></div>';
+    if (by.none.length) h += '<div class="pf-map-sec" id="pf-map-none"><h4 class="pf-sm-h4">Couldn\'t place on map</h4>' +
+      '<p class="pf-sm-small">OpenStreetMap didn\'t find these addresses. Search with simpler wording, or place the pin yourself.</p>' +
+      by.none.map(function(r){
+        var open = mp.searchId === r.id;
+        return itemHTML(r, (open ? '<div class="pf-map-search"><input type="search" id="pf-map-q" aria-label="Search for this address" value="' + esc((r.geo && r.geo.q) || recAddr(r)) + '"><button type="button" class="pf-sm-btn2" data-mp-qgo="' + esc(r.id) + '">Search</button></div><div id="pf-map-qmsg" aria-live="polite"></div>' : '') +
+          '<div class="pf-map-acts">' + (open ? '' : '<button type="button" class="pf-sm-btn2" data-mp-search="' + esc(r.id) + '">Search again</button>') +
+          '<button type="button" class="pf-sm-btn2" data-mp-place="' + esc(r.id) + '">Place pin by hand</button>' +
+          '<button type="button" class="pf-sm-link" data-mp-open="' + esc(r.id) + '">Open client</button></div>');
+      }).join('') + '</div>';
+    if (by.pending.length) h += '<div class="pf-map-sec" id="pf-map-pending"><h4 class="pf-sm-h4">Not placed yet</h4>' +
+      (mp.busy ? '' : mode().mapNoticeAt ? '<button type="button" class="pf-sm-btn2" data-mp-act="retry">Place pins</button>' : '') +
+      by.pending.map(function(r){ return itemHTML(r, '<div class="pf-map-acts"><button type="button" class="pf-sm-link" data-mp-open="' + esc(r.id) + '">Open client</button></div>'); }).join('') + '</div>';
+    if (by.noaddr.length) h += '<div class="pf-map-sec" id="pf-map-noaddr"><h4 class="pf-sm-h4">No address yet</h4>' +
+      '<p class="pf-sm-small">Ask these clients to send an update with their address.</p>' +
+      by.noaddr.map(function(r){ return itemHTML(r, '<div class="pf-map-acts"><button type="button" class="pf-sm-link" data-mp-open="' + esc(r.id) + '">Open client</button></div>'); }).join('') + '</div>';
+    if (by.ok.length) h += '<div class="pf-map-sec" id="pf-map-onmap"><h4 class="pf-sm-h4">On the map</h4>' +
+      by.ok.map(function(r){ return itemHTML(r, '', { tap: 'focus' }); }).join('') + '</div>';
+    if (!all.length) h += '<p class="pf-sm-p">No clients yet. When a client sends your intake form, they show up here.</p>';
+    panel.innerHTML = h;
+    var q = panel.querySelector('#pf-map-q');
+    if (q) q.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); searchAgain(mp.searchId, q.value); } };
+  }
+  function onMapClick(e){
+    if (!mp) return;
+    var t = e.target.closest ? e.target.closest('[data-mp-act],[data-mp-open],[data-mp-stop],[data-mp-focus],[data-mp-search],[data-mp-qgo],[data-mp-place]') : null;
+    if (!t || t.closest('.leaflet-popup')) return;   // popup buttons are wired on popupopen
+    var a = t.getAttribute('data-mp-act');
+    if (a === 'notice-ok') { acceptNotice(); paintPanel(); autoPlace(); }
+    else if (a === 'notice-later') { var n = mp.el.querySelector('#pf-map-notice'); if (n) n.parentNode.removeChild(n); }
+    else if (a === 'retry') { if (!mode().mapNoticeAt) { paintPanel(); return; } mp.geoErr = false; if (navigator.onLine !== false && !mp.tileErr) mp.offline = false; paintMsg(); autoPlace(); }
+    else if (a === 'fit') fitAll();
+    else if (a === 'route') { mp.routeMode = true; mp.note = ''; endMove(false); mp.map && mp.map.closePopup(); paintMarkers(true); paintPanel(); mp.el.querySelector('#pf-map-panel').scrollTop = 0; }
+    else if (a === 'route-done') { mp.routeMode = false; mp.note = ''; paintMarkers(false); paintPanel(); }
+    else if (a === 'route-clear') { mp.route = []; mp.note = ''; paintMarkers(false); paintPanel(); }
+    else if (a === 'move-save') endMove(true);
+    else if (a === 'move-cancel') endMove(false);
+    else if (t.hasAttribute('data-mp-open')) openFromMap(t.getAttribute('data-mp-open'));
+    else if (t.hasAttribute('data-mp-stop')) toggleStop(t.getAttribute('data-mp-stop'));
+    else if (t.hasAttribute('data-mp-focus')) {
+      var mk = mp.markers[t.getAttribute('data-mp-focus')];
+      if (mk && mp.map) { mp.map.setView(mk.getLatLng(), Math.max(mp.map.getZoom(), 15)); mk.openPopup(); }
+    }
+    else if (t.hasAttribute('data-mp-search')) { mp.searchId = t.getAttribute('data-mp-search'); paintPanel(); var q = mp.el.querySelector('#pf-map-q'); if (q) q.focus(); }
+    else if (t.hasAttribute('data-mp-qgo')) { var qi = mp.el.querySelector('#pf-map-q'); searchAgain(t.getAttribute('data-mp-qgo'), qi ? qi.value : ''); }
+    else if (t.hasAttribute('data-mp-place')) startMove(t.getAttribute('data-mp-place'), true);
+  }
+  function searchAgain(id, q){
+    q = trim(q); var msg = mp && mp.el.querySelector('#pf-map-qmsg'); if (!mp || !q) return;
+    if (!mode().mapNoticeAt) acceptNotice();   // the sitter is asking for this lookup; the notice is on screen above
+    var rec = clients().find(function(c){ return c.id === id; }); if (!rec) return;
+    var a = recAddr(rec), me = mp;
+    if (msg) msg.innerHTML = '<p class="pf-sm-small">Searching…</p>';
+    geocode(q).then(function(hit){
+      if (hit) {
+        saveGeo(id, { lat: hit.lat, lng: hit.lng, addr: a, q: q, status: 'ok', manual: false, at: new Date().toISOString() });
+        if (mp !== me) return;
+        mp.searchId = null; paintMarkers(false); paintPanel();
+        var mk = mp.markers[id]; if (mk && mp.map) { mp.map.setView(mk.getLatLng(), 15); mk.openPopup(); }
+        toast('Pin placed. If it is not quite right, tap it and choose Move pin.');
+      } else {
+        var g = rec.geo || {}; g.q = q; saveGeo(id, { lat: null, lng: null, addr: a, q: q, status: 'none', manual: false, at: new Date().toISOString() });
+        var m2 = mp && mp.el.querySelector('#pf-map-qmsg'); if (m2) m2.innerHTML = '<p class="pf-sm-small">Still no match. Try just the street and town, or place the pin by hand.</p>';
+      }
+    }, function(){
+      var m3 = mp && mp.el.querySelector('#pf-map-qmsg'); if (m3) m3.innerHTML = '<p class="pf-sm-small">Couldn\'t reach OpenStreetMap. Check your internet connection and try again.</p>';
+    });
+  }
+  // Move a pin by dragging. byHand: the client had no spot yet, so start at the middle of the map.
+  function startMove(id, byHand){
+    if (!mp || !mp.map) return;
+    endMove(false);
+    var rec = clients().find(function(c){ return c.id === id; }); if (!rec) return;
+    var mk = mp.markers[id], orig = null;
+    if (!mk) { mk = mp.L.marker(mp.map.getCenter(), { title: ownerName(rec) }).addTo(mp.map); mp.markers[id] = mk; }
+    else orig = mk.getLatLng();
+    mp.map.closePopup(); mk.unbindPopup();
+    mk.dragging.enable();
+    mp.moving = { id: id, name: ownerName(rec), orig: orig, isNew: !orig };
+    paintMsg();
+    if (byHand) mp.el.querySelector('#pf-map-panel').scrollTop = 0;
+  }
+  function endMove(save){
+    if (!mp || !mp.moving) return;
+    var mv = mp.moving, mk = mp.markers[mv.id]; mp.moving = null;
+    if (mk) {
+      mk.dragging.disable();
+      if (save) {
+        var p = mk.getLatLng(), rec = clients().find(function(c){ return c.id === mv.id; });
+        if (rec) saveGeo(mv.id, { lat: Math.round(p.lat * 1e6) / 1e6, lng: Math.round(p.lng * 1e6) / 1e6, addr: recAddr(rec), status: 'ok', manual: true, q: (rec.geo && rec.geo.q) || '', at: new Date().toISOString() });
+        toast('Pin saved. It stays here unless the address changes.');
+      } else if (mv.orig) mk.setLatLng(mv.orig);
+    }
+    paintMsg(); paintMarkers(false); paintPanel();
+  }
+  function toggleStop(id){
+    if (!mp) return;
+    var i = mp.route.indexOf(id);
+    if (i >= 0) { mp.route.splice(i, 1); mp.note = ''; }
+    else if (mp.route.length >= routeMax()) { var mx = routeMax(); mp.note = (appleRoutes() ? 'Apple Maps' : 'Google Maps') + ' takes up to ' + mx + ' stops at once (' + (mx - 1) + ' on the way plus the last stop). Open this route, then plan the rest as a second route.'; }
+    else { mp.route.push(id); mp.note = ''; }
+    paintMarkers(false); paintPanel();
+  }
+  // Google Maps directions from the current location: the last stop is the destination,
+  // the others are waypoints in order. A pin moved by hand is sent as coordinates.
+  function stopParam(rec){
+    var g = rec.geo;
+    if (g && g.manual && goodLL(g) && g.addr === recAddr(rec)) return (+g.lat).toFixed(6) + ',' + (+g.lng).toFixed(6);
+    return recAddr(rec);
+  }
+  // Apple Maps unified directions URL: destination + repeated waypoint, no source (= current
+  // location). Coordinates are used whenever the client has a pin, since they match the map.
+  function routeHrefApple(recs){
+    var enc = recs.slice(0, ROUTE_MAX_A).map(function(r){
+      var g = r.geo; return encodeURIComponent(goodLL(g) && g.addr === recAddr(r) ? (+g.lat).toFixed(6) + ',' + (+g.lng).toFixed(6) : recAddr(r));
+    });
+    var dest = enc.pop(), u = 'https://maps.apple.com/directions?destination=' + dest;
+    enc.forEach(function(w){ u += '&waypoint=' + w; });
+    return u + '&mode=driving';
+  }
+  function routeHref(recs){
+    var enc = recs.slice(0, ROUTE_MAX_G).map(function(r){ return encodeURIComponent(stopParam(r)); });
+    var dest = enc.pop(), u = 'https://www.google.com/maps/dir/?api=1&destination=' + dest;
+    if (enc.length) u += '&waypoints=' + enc.join('|');
+    return u + '&travelmode=driving';
+  }
+  function openFromMap(id){
+    closeClientsMap();
+    ui.view = 'detail'; ui.id = id; ui.version = -1; ui.fromMap = true;
+    renderClients(); window.scrollTo(0, 0);
+  }
+
   // ---------- wiring ----------
   function init(){
     renderSendCard();
@@ -15856,7 +16286,8 @@ try {
     if (m.on && m.keys) setTimeout(function(){ checkInbox(false); }, 1500);
   }
   // Test/debug hooks (no secrets): lets QA read the computed payload.
-  window.pawfolioSitterMode = { buildPayload: buildPayload, renderClients: renderClients, renderSendCard: renderSendCard, checkInbox: checkInbox, QR: QR };
+  window.pawfolioSitterMode = { buildPayload: buildPayload, renderClients: renderClients, renderSendCard: renderSendCard, checkInbox: checkInbox, QR: QR,
+    openClientsMap: openClientsMap, closeClientsMap: closeClientsMap, routeHref: routeHref, routeHrefApple: routeHrefApple };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
