@@ -1,10 +1,11 @@
-const CACHE_NAME = 'pet-care-planner-212';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-213';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
   './doses.html',
   './doses.webmanifest',
   './tailwind.css',
+  './intake-crypto.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

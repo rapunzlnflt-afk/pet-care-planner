@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.39.3">
+                          <meta name="app-version" content="3.40.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -969,6 +969,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
      <button class="sidebar-item" data-tab="weight-tracker">Weight Tracker</button>
      <button class="sidebar-item" data-tab="expenses">Expense Tracker</button>
      <button class="sidebar-item" data-tab="pet-sitter">Pet Sitter Info</button>
+     <button class="sidebar-item" data-tab="sitter-clients" id="pf-clients-nav" style="display:none;">Clients</button>
      <button class="sidebar-item" data-tab="document-vault">Document Vault</button>
      <button class="sidebar-item" data-tab="important-links">Important Links</button>
      <button class="sidebar-item" data-tab="pet-insurance">Pet Insurance</button>
@@ -983,6 +984,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       <label style="padding:5px 4px;background:transparent;color:#5B5BD6;border:1.5px solid #5B5BD6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;display:block;">&#8679; Load My Data<input type="file" id="import-data-input" accept=".json" style="display:none;"></label>
      </div>
      <p style="font-size:13px;color:#64748b;margin-top:5px;line-height:1.5;"><strong>Save My Data</strong> saves a copy of your records. <strong>Load My Data</strong> puts them back &mdash; use to transfer between devices.</p>
+     <!-- Sitter mode (v3.40.0) -->
+     <div id="pf-sitter-mode-row" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
+      <label for="pf-sitter-mode-toggle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:#5B5BD6;">
+       <span>I'm a pet sitter</span>
+       <input type="checkbox" id="pf-sitter-mode-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:#5B5BD6;">
+      </label>
+      <p style="font-size:12px;color:#64748b;margin-top:4px;line-height:1.5;">Adds a Clients area where your clients' intake forms arrive. Free in Pawfolio Free.</p>
+     </div>
      <div style="margin-top:8px;">
       <button id="advanced-toggle-btn" type="button" aria-expanded="false" aria-controls="advanced-tools" style="width:100%;padding:6px 8px;background:transparent;color:#64748b;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;gap:6px;">
        <span>Advanced</span>
@@ -1757,6 +1766,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       </div>
      </div>
      <p class="font-body text-sm text-secondary mb-4">Everything your pet sitter needs to know — fill this out once and print before any trip (changes save automatically).</p>
+     <!-- Send to a sitter (v3.40.0): rendered by the Sitter mode script -->
+     <div id="pf-send-sitter-card" class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);"></div>
      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-sm font-bold text-primary mb-3">Owner Contact Info</h3>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -1806,6 +1817,14 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
        <span id="sitter-save-status" class="font-body text-sm" style="color:var(--text-secondary);min-height:20px;"></span>
      </div>
          </section>
+
+    <!-- CLIENTS TAB (Sitter mode, v3.40.0) -->
+    <section id="tab-sitter-clients" class="tab-content">
+     <div class="card mb-5" style="background:linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%);padding:18px 24px;">
+      <h2 class="font-heading text-2xl font-bold" style="color:white;">Clients</h2>
+     </div>
+     <div id="pf-clients-root"></div>
+    </section>
 
     <!-- DOCUMENT VAULT TAB -->
     <section id="tab-document-vault" class="tab-content">
@@ -2239,7 +2258,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 
   // Home-screen shortcut deep-links (v3.9.21): ?tab=<name> opens that tab on launch.
   (function openTabFromUrl(){
-    var allowed = ['overview','pet-profiles','vet-visits','notes','timeline','vaccinations','medications','weight-tracker','expenses','pet-sitter','document-vault','important-links'];
+    var allowed = ['overview','pet-profiles','vet-visits','notes','timeline','vaccinations','medications','weight-tracker','expenses','pet-sitter','sitter-clients','document-vault','important-links'];
     var go = function(){
       try {
         var t = new URLSearchParams(window.location.search).get('tab');
@@ -4074,10 +4093,15 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     }
   }
 
-  function openSitterPrintOverlay() {
+  // v3.40.0: optional (html, title) so Sitter mode can print a client card in the
+  // same overlay. Called from the button with an Event, so check the type.
+  function openSitterPrintOverlay(html, title) {
     const overlay = document.getElementById('sitter-print-overlay');
     const content = document.getElementById('sitter-print-content');
-    content.innerHTML = buildSitterPrintableHTML();
+    const titleEl = document.getElementById('sitter-print-title');
+    const custom = typeof html === 'string';
+    if (titleEl) titleEl.textContent = (custom && title) ? title : 'Pet Sitter Instructions';
+    content.innerHTML = custom ? html : buildSitterPrintableHTML();
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     content.scrollTop = 0;
@@ -4094,6 +4118,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   window.addEventListener('popstate', () => {
     if (sitterOverlayOpen) closeSitterPrintOverlay(true);
   });
+  window.pawfolioOpenPrintSheet = openSitterPrintOverlay;
 
   // Print pet sitter info — open the in-app overlay (no window.open).
   document.getElementById('print-sitter-btn').addEventListener('click', openSitterPrintOverlay);
@@ -4438,7 +4463,8 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   // Legacy export: localStorage only (no document photos). Kept as a fallback in case the
   // full-backup helper (defined later, in the vault block) isn't available yet.
   function exportPlannerDataLegacy() {
-    const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme'];
+    // v3.40.0: Send to a sitter + Sitter mode keys (incl. the sitter's inbox keys).
+    const keys = [STORE_KEY, 'petSitterInfo', 'petPlannerTheme', 'pawfolioMySitters', 'pawfolioSendExtras', 'pawfolioSitterMode', 'pawfolioSitterClients'];
     const data = {};
     keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = v; });
     const json = JSON.stringify(data, null, 2);
@@ -4860,7 +4886,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 
   // Known localStorage keys that a backup is allowed to write. Mirrors LS_BACKUP_KEYS
   // in the vault block (different scope), so the legacy import can't write arbitrary keys.
-  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
+  const IMPORT_ALLOWED_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered', 'pawfolioMySitters', 'pawfolioSendExtras', 'pawfolioSitterMode', 'pawfolioSitterClients'];
   // Timestamp like 2026-06-24-1430 for safety-backup filenames.
   function importSafetyStamp(){
     const d = new Date();
@@ -7889,6 +7915,9 @@ try {
       });
     });
   }
+  // v3.40.0: Sitter mode keeps client pet photos here too (keys 'sitterpet-...'),
+  // so they ride along in full backups with the document photos.
+  window.pawfolioVaultStore = { put: idbPut, get: idbGet, del: idbDelete };
 
   // ---------- Image compression ----------
   // Resize so the longest edge <= MAX_EDGE, re-encode as JPEG at QUALITY.
@@ -8484,7 +8513,7 @@ try {
   // A normal export only saves localStorage. Document photos live in IndexedDB, so a true
   // "lose nothing" backup must include them. We read every Blob, turn it into a base64 data
   // URL, and bundle it alongside the localStorage data into one downloadable JSON file.
-  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
+  var LS_BACKUP_KEYS = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered', 'pawfolioMySitters', 'pawfolioSendExtras', 'pawfolioSitterMode', 'pawfolioSitterClients'];
 
   function blobToDataUrl(blob){
     return new Promise(function(resolve, reject){
@@ -8606,7 +8635,9 @@ try {
         try { return idbPut(k, dataUrlToBlob(photos[k])); } catch(e){ return null; }
       });
     });
-    return chain.then(function(){ return { ok: true, photoCount: keys.length }; });
+    // v3.40.0: Sitter mode client photos ('sitterpet-...') are restored too, but the
+    // "document photos" count only counts documents.
+    return chain.then(function(){ return { ok: true, photoCount: keys.filter(function(k){ return k.indexOf('sitterpet-') !== 0; }).length }; });
   }
   window.pawfolioRestoreFullBackup = restoreFullBackup;
 
@@ -8738,7 +8769,7 @@ try {
       return window.pawfolioBuildBackupPayload().then(function(p){ return JSON.stringify(p); });
     }
     // Fallback: localStorage-only snapshot (matches the legacy export shape).
-    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered'];
+    var keys = ['petPlannerData_v1', 'petSitterInfo', 'petPlannerTheme', 'petPlannerLastExport', 'petPlannerFirstSeen', 'petPlannerSeenWelcome', 'pawfolioVisitDocLinks', 'pawfolioGrandfathered', 'pawfolioMySitters', 'pawfolioSendExtras', 'pawfolioSitterMode', 'pawfolioSitterClients'];
     var ls = {};
     keys.forEach(function(k){ try { var v = localStorage.getItem(k); if (v != null) ls[k] = v; } catch(e){} });
     var payload = { __pawfolioBackup: true, version: '0.0', savedAt: new Date().toISOString(), localStorage: ls, photos: {} };
@@ -14615,3 +14646,1067 @@ try {
   else setTimeout(watch, 600);
 })();
 </script>
+<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode) -->
+<style id="pf-sitter-mode-css">
+/* === Pawfolio v3.40.0: Send to a sitter + Sitter mode (Clients) === */
+.pf-sm-muted { color: var(--text-secondary); }
+.pf-sm-h3 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin: 0; }
+.pf-sm-h4 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: .95rem; color: var(--text-primary); margin: 18px 0 8px; }
+.pf-sm-p { font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.5; color: var(--text-secondary); margin: 6px 0 0; }
+.pf-sm-small { font-family: 'Karla', sans-serif; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.pf-sm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, var(--accent-color), var(--accent-color-2)); color: #fff; border: none; border-radius: 10px; padding: 11px 16px; font-family: 'Karla', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 44px; text-decoration: none; }
+.pf-sm-btn[disabled] { opacity: .55; cursor: default; }
+.pf-sm-btn.block { display: flex; width: 100%; }
+.pf-sm-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 44px; text-decoration: none; }
+.pf-sm-link { background: none; border: none; padding: 6px 0; color: var(--accent-color); font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.pf-sm-danger { background: none; border: none; color: #c53030; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; padding: 8px 0; }
+.pf-sm-row { display: flex; align-items: center; gap: 10px; }
+.pf-sm-grow { flex: 1 1 auto; min-width: 0; }
+.pf-sm-label { display: block; font-family: 'Karla', sans-serif; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin: 10px 0 4px; }
+.pf-sm-check { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-family: 'Karla', sans-serif; font-size: 15px; color: var(--text-primary); cursor: pointer; }
+.pf-sm-check input { width: 20px !important; height: 20px; flex: 0 0 auto; accent-color: #5B5BD6; padding: 0; }
+.pf-sm-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: rgba(91,91,214,.12); display: inline-flex; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; font-weight: 700; color: #5B5BD6; font-size: 15px; }
+.pf-sm-err { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #fff5f5; color: #9b2c2c; font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.45; }
+.pf-sm-ok { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f0fff4; color: #276749; font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.45; }
+.pf-sm-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(91,91,214,.08); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 13.5px; line-height: 1.45; }
+.pf-sm-badge { display: inline-block; font-family: 'Karla', sans-serif; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: rgba(91,91,214,.12); color: #4C4CC8; white-space: nowrap; }
+.pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+.pf-sm-divider { border: none; border-top: 1px solid var(--border-color); margin: 14px 0; }
+/* My sitters list (client side) */
+.pf-sm-sitter { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-top: 10px; }
+.pf-sm-sitter-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+/* Sheet (full screen on phones) */
+.pf-sm-overlay { position: fixed; inset: 0; z-index: 9990; background: rgba(15,23,42,.5); display: flex; align-items: flex-end; justify-content: center; }
+.pf-sm-sheet { background: var(--bg-light); width: 100%; max-width: 560px; height: 100%; max-height: 100%; display: flex; flex-direction: column; box-shadow: 0 -8px 40px rgba(0,0,0,.25); }
+@media (min-width: 640px) { .pf-sm-overlay { align-items: center; } .pf-sm-sheet { height: 92vh; border-radius: 16px; overflow: hidden; } }
+.pf-sm-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; padding-top: max(12px, env(safe-area-inset-top)); background: linear-gradient(135deg,#5B5BD6 0%,#4C4CC8 100%); color: #fff; flex: 0 0 auto; }
+.pf-sm-sheet-head h2 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.1rem; margin: 0; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-sm-sheet-head button { background: rgba(255,255,255,.16); border: none; color: #fff; border-radius: 10px; min-width: 44px; height: 40px; font-size: 15px; font-family: 'Karla', sans-serif; font-weight: 700; cursor: pointer; padding: 0 12px; }
+.pf-sm-sheet-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px 24px; }
+.pf-sm-sheet-foot { flex: 0 0 auto; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color); background: var(--bg-light); }
+.pf-sm-section { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-top: 12px; }
+.pf-sm-section > .pf-sm-h3 { margin-bottom: 2px; }
+.pf-sm-pet { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-top: 10px; }
+.pf-sm-pet summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.pf-sm-pet summary::-webkit-details-marker { display: none; }
+.pf-sm-pet summary .pf-sm-chev { margin-left: auto; color: var(--text-secondary); font-size: 13px; font-family: 'Karla', sans-serif; font-weight: 700; }
+.pf-sm-pet[open] summary .pf-sm-chev-closed, .pf-sm-pet:not([open]) summary .pf-sm-chev-open { display: none; }
+.pf-sm-med { border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 8px; }
+.pf-sm-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.pf-sm-kv { display: grid; grid-template-columns: 112px 1fr; gap: 4px 10px; font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.45; margin-top: 6px; }
+.pf-sm-kv dt { color: var(--text-secondary); font-weight: 600; }
+.pf-sm-kv dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; white-space: pre-wrap; }
+.pf-sm-photo { width: 100%; max-height: 260px; object-fit: cover; border-radius: 12px; margin-top: 8px; display: block; }
+/* Clients tab */
+.pf-sm-linkbox { font-family: 'Karla', ui-monospace, monospace; font-size: 13px; line-height: 1.4; padding: 10px 12px; border-radius: 10px; background: rgba(91,91,214,.06); border: 1px solid var(--border-color); color: var(--text-primary); overflow-wrap: anywhere; word-break: break-all; margin-top: 10px; user-select: all; -webkit-user-select: all; }
+.pf-sm-code { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 34px; letter-spacing: 3px; color: var(--text-primary); text-align: center; margin: 4px 0 0; }
+.pf-sm-qr { display: block; width: 220px; max-width: 100%; height: auto; margin: 12px auto 0; background: #fff; border-radius: 10px; padding: 0; }
+.pf-sm-client { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-top: 10px; cursor: pointer; font-family: 'Karla', sans-serif; color: var(--text-primary); }
+.pf-sm-client .pf-sm-faces { display: flex; flex: 0 0 auto; }
+.pf-sm-client .pf-sm-faces > * { margin-left: -10px; border: 2px solid #fff; }
+.pf-sm-client .pf-sm-faces > *:first-child { margin-left: 0; }
+.pf-sm-cname { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15.5px; }
+.pf-sm-callrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pf-sm-mask { background: rgba(91,91,214,.08); border: 1px dashed rgba(91,91,214,.4); color: var(--accent-color); border-radius: 8px; padding: 4px 10px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+.pf-sm-medrow { border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 8px; }
+.pf-sm-medrow .pf-sm-kv { margin-top: 2px; }
+.pf-sm-medname { font-family: 'Karla', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.pf-sm-meddose { font-weight: 600; color: var(--text-secondary); margin-left: 4px; }
+.pf-sm-callrow a { min-width: 92px; }
+.pf-sm-medtable { width: 100%; border-collapse: collapse; margin-top: 6px; font-family: 'Karla', sans-serif; font-size: 13.5px; }
+.pf-sm-medtable th { text-align: left; color: var(--text-secondary); font-weight: 600; padding: 4px 6px 4px 0; border-bottom: 1px solid var(--border-color); }
+.pf-sm-medtable td { padding: 6px 6px 6px 0; vertical-align: top; border-bottom: 1px solid var(--border-color); color: var(--text-primary); overflow-wrap: anywhere; }
+.pf-sm-banner { margin-bottom: 12px; }
+/* Dark mode */
+[data-theme="dark"] .pf-sm-section, [data-theme="dark"] .pf-sm-client { background: #1e2732; border-color: rgba(139,124,248,.15); }
+[data-theme="dark"] .pf-sm-client .pf-sm-faces > * { border-color: #1e2732; }
+[data-theme="dark"] .pf-sm-sheet, [data-theme="dark"] .pf-sm-sheet-foot { background: #15202b; }
+[data-theme="dark"] .pf-sm-btn2 { background: rgba(139,124,248,.12); color: #e8e6f0; border-color: rgba(139,124,248,.3); }
+[data-theme="dark"] .pf-sm-link { color: #a5a3ff; }
+[data-theme="dark"] .pf-sm-mask { color: #a5a3ff; }
+[data-theme="dark"] .pf-sm-badge { background: rgba(139,124,248,.2); color: #c7c5ff; }
+[data-theme="dark"] .pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+[data-theme="dark"] .pf-sm-err { background: rgba(197,48,48,.16); color: #feb2b2; }
+[data-theme="dark"] .pf-sm-ok { background: rgba(72,187,120,.14); color: #9ae6b4; }
+[data-theme="dark"] .pf-sm-danger { color: #fc8181; }
+[data-theme="dark"] .pf-sm-avatar { background: rgba(139,124,248,.2); color: #c7c5ff; }
+[data-theme="dark"] #pf-sitter-mode-row { border-top-color: rgba(139,124,248,.15) !important; }
+</style>
+<script src="intake-crypto.js"></script>
+<script>
+/* === Pawfolio v3.40.0: Send to a sitter (client) + Sitter mode (Clients) ===
+   Both are part of Pawfolio Free and are never gated behind Pawfolio Complete.
+   (Live dose sharing stays Pawfolio Complete; it is a separate feature.)
+   Crypto + inbox calls come from intake-crypto.js (window.PawfolioIntake), shared
+   byte-for-byte with the web intake form. Do not fork its logic here.
+
+   localStorage (all four are in every backup: LS_BACKUP_KEYS / IMPORT_ALLOWED_KEYS):
+     pawfolioMySitters     [{id,label,code,inboxId,publicKey,clientId,lastSentAt,petIds,phone,email}]
+     pawfolioSendExtras    {client,emergency,vet,emergencyVet,home,auth,pets:{<petId>:{f:{},medsOff:[],medHow:{}}}}
+     pawfolioSitterMode    {on, profile:{name,phone,email}, keys:{inboxId,inboxSecret,publicKey,privateJwk,code}, setupAt}
+     pawfolioSitterClients [{id,clientId,source,firstAt,updatedAt,versions,unseen,rowIds,payload,history:[{at,source,payload}]}]
+   IndexedDB pawfolioVault/docImages: client pet photos as 'sitterpet-<clientRecId>-<n>'
+   (window.pawfolioVaultStore), so full backups carry them like document photos. */
+(function(){
+  'use strict';
+  if (window.__pawfolioSitterMode) return; window.__pawfolioSitterMode = true;
+
+  var K_SITTERS = 'pawfolioMySitters', K_EXTRAS = 'pawfolioSendExtras',
+      K_MODE = 'pawfolioSitterMode', K_CLIENTS = 'pawfolioSitterClients';
+  var INTAKE_URL = 'https://cleartrackapps.com/pet-sitter-intake-form/';
+  var PRIVACY = "Encrypted on your phone before it's sent. Only your sitter's phone can open it, and I can't read it.";
+  var PRIVACY_SITTER = "Forms are encrypted on your client's phone before they're sent. Only your phone can open them, and I can't read them.";
+  var AUTH_TEXT = "If my pet needs urgent care and I can't be reached, I authorize my pet sitter to take my pet to my vet or the nearest emergency vet and approve treatment up to the amount below. I agree to pay for that care.";
+  var HISTORY_MAX = 5;
+
+  function PI(){ return window.PawfolioIntake; }
+
+  // ---------- small helpers ----------
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function str(v){ return v == null ? '' : String(v); }
+  function trim(v){ return str(v).trim(); }
+  function readJSON(k, dflt){ try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? dflt : v; } catch(e){ return dflt; } }
+  function writeJSON(k, v){
+    try { localStorage.setItem(k, JSON.stringify(v)); }
+    catch(e){ alert('Storage is full, so this was not saved. Save a backup and remove some document photos, then try again.'); return false; }
+    try { if (typeof window.pawfolioMarkDirty === 'function') window.pawfolioMarkDirty(); } catch(e){}
+    return true;
+  }
+  function toast(msg){ if (typeof window.toast === 'function') window.toast(msg); }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function fmtPhone(v){ v = trim(v); try { return (typeof window.formatPhone === 'function') ? window.formatPhone(v) : v; } catch(e){ return v; } }
+  function telDigits(v){ var d = str(v).replace(/[^\d+]/g, ''); return d.replace(/(?!^)\+/g, ''); }
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDay(iso){
+    if (!iso) return '';
+    var d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T12:00:00') : new Date(iso);
+    if (isNaN(d)) return str(iso);
+    return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  }
+  function fmtDayTime(iso){
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var h = d.getHours(), m = d.getMinutes();
+    return fmtDay(iso) + ' at ' + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m + ' ' + (h < 12 ? 'AM' : 'PM');
+  }
+  function todayISO(){ var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function time12(hhmm){ var m = /^(\d{2}):(\d{2})$/.exec(hhmm || ''); if (!m) return str(hhmm); var h = +m[1]; return ((h % 12) || 12) + ':' + m[2] + ' ' + (h < 12 ? 'AM' : 'PM'); }
+  function safeImg(src){ return /^data:image\/(jpeg|jpg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(str(src)) ? src : ''; }
+  function initial(name){ return esc((trim(name).charAt(0) || '?').toUpperCase()); }
+  function avatar(src, name, size){
+    size = size || 40;
+    var st = 'width:' + size + 'px;height:' + size + 'px;';
+    return safeImg(src) ? '<img class="pf-sm-avatar" style="' + st + '" src="' + src + '" alt="">'
+                        : '<span class="pf-sm-avatar" style="' + st + 'font-size:' + Math.round(size * 0.4) + 'px;">' + initial(name) + '</span>';
+  }
+  function getList(k){ try { return (typeof window.getList === 'function' ? window.getList(k) : []) || []; } catch(e){ return []; } }
+  function confirmBox(opts, onYes){
+    if (typeof window.showConfirmModal === 'function') {
+      window.showConfirmModal({ title: opts.title, message: opts.message, confirmLabel: opts.confirmText, cancelLabel: 'Cancel', danger: !!opts.danger, onConfirm: onYes });
+    } else if (window.confirm(opts.title + '\n\n' + opts.message)) onYes();
+  }
+  function errText(e, ctx){
+    var code = (e && (e.code || e.message)) || '';
+    if (code === 'too_large') return 'This is too big to send. Use fewer or smaller photos, or send fewer pets at a time.';
+    if (code === 'not_found') return ctx === 'lookup' ? 'No sitter has that code. Check it with your sitter and try again.' : 'This sitter link no longer works. Ask your sitter for a new link or code.';
+    if (code === 'inbox_full') return 'Your sitter\'s inbox is full right now. Ask them to open Pawfolio, then try again.';
+    if (code === 'forbidden') return 'This phone could not open the inbox. If you moved to a new phone, restore your Pawfolio backup.';
+    if (code === 'bad_request' || code === 'bad_envelope') return 'Something in this form could not be sent. Check it and try again.';
+    if (code === 'code_taken') return 'Could not make a sitter code. Please try again.';
+    if (!window.PawfolioIntake) return 'This part of Pawfolio did not load. Reload the page and try again.';
+    return 'Could not reach the server. Check your connection and try again.';
+  }
+
+  // ---------- QR code (byte mode, error correction M, versions 1-40) ----------
+  // Small inline encoder so the sitter link card can show a QR without a library.
+  var QR = (function(){
+    var ECC_M = [-1,10,16,26,18,24,16,18,22,22,26,30,22,22,24,24,28,28,26,26,26,26,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28];
+    var BLK_M = [-1,1,1,1,2,2,4,4,4,5,5,5,8,9,9,10,10,11,13,14,16,17,17,18,20,21,23,25,26,28,29,31,33,35,37,38,40,43,45,47,49];
+    function rawModules(v){ var r = (16 * v + 128) * v + 64; if (v >= 2){ var n = Math.floor(v / 7) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; } return r; }
+    function dataCw(v){ return Math.floor(rawModules(v) / 8) - ECC_M[v] * BLK_M[v]; }
+    function gmul(x, y){ var z = 0; for (var i = 7; i >= 0; i--){ z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z & 0xFF; }
+    function rsDiv(deg){ var r = []; for (var i = 0; i < deg - 1; i++) r.push(0); r.push(1); var root = 1;
+      for (i = 0; i < deg; i++){ for (var j = 0; j < r.length; j++){ r[j] = gmul(r[j], root); if (j + 1 < r.length) r[j] ^= r[j + 1]; } root = gmul(root, 2); } return r; }
+    function rsRem(data, div){ var r = div.map(function(){ return 0; });
+      data.forEach(function(b){ var f = b ^ r.shift(); r.push(0); div.forEach(function(c, i){ r[i] ^= gmul(c, f); }); }); return r; }
+    function alignPos(v, size){ if (v === 1) return []; var n = Math.floor(v / 7) + 2; var step = (v === 32) ? 26 : Math.ceil((v * 4 + 4) / (n * 2 - 2)) * 2;
+      var res = [6]; for (var p = size - 7; res.length < n; p -= step) res.splice(1, 0, p); return res; }
+    function encode(text){
+      var bytes = Array.from(new TextEncoder().encode(text));
+      var v, bits;
+      for (v = 1; v <= 40; v++){ var cc = v <= 9 ? 8 : 16; if (4 + cc + bytes.length * 8 <= dataCw(v) * 8) break; }
+      if (v > 40) return null;
+      var bb = []; function put(val, len){ for (var i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1); }
+      put(4, 4); put(bytes.length, v <= 9 ? 8 : 16); bytes.forEach(function(b){ put(b, 8); });
+      var cap = dataCw(v) * 8;
+      put(0, Math.min(4, cap - bb.length)); put(0, (8 - bb.length % 8) % 8);
+      for (var pad = 0xEC; bb.length < cap; pad ^= 0xEC ^ 0x11) put(pad, 8);
+      var data = []; for (var i = 0; i < bb.length; i += 8){ var x = 0; for (var j = 0; j < 8; j++) x = (x << 1) | bb[i + j]; data.push(x); }
+      // error correction + interleave
+      var nb = BLK_M[v], ecl = ECC_M[v], raw = Math.floor(rawModules(v) / 8), nShort = nb - raw % nb, shortLen = Math.floor(raw / nb);
+      var blocks = [], div = rsDiv(ecl), k = 0;
+      for (i = 0; i < nb; i++){ var dat = data.slice(k, k + shortLen - ecl + (i < nShort ? 0 : 1)); k += dat.length;
+        var ec = rsRem(dat, div); if (i < nShort) dat.push(0); blocks.push(dat.concat(ec)); }
+      var all = [];
+      for (i = 0; i < blocks[0].length; i++) for (j = 0; j < blocks.length; j++) if (i !== shortLen - ecl || j >= nShort) all.push(blocks[j][i]);
+      // matrix
+      var size = v * 4 + 17, M = [], F = [];
+      for (i = 0; i < size; i++){ M.push(new Array(size).fill(false)); F.push(new Array(size).fill(false)); }
+      function setF(x, y, d){ M[y][x] = d; F[y][x] = true; }
+      for (i = 0; i < size; i++){ setF(6, i, i % 2 === 0); setF(i, 6, i % 2 === 0); }
+      [[3,3],[size-4,3],[3,size-4]].forEach(function(c){
+        for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++){ var d = Math.max(Math.abs(dx), Math.abs(dy)), xx = c[0] + dx, yy = c[1] + dy;
+          if (xx >= 0 && xx < size && yy >= 0 && yy < size) setF(xx, yy, d !== 2 && d !== 4); } });
+      var ap = alignPos(v, size), na = ap.length;
+      for (i = 0; i < na; i++) for (j = 0; j < na; j++){
+        if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) continue;
+        for (var ay = -2; ay <= 2; ay++) for (var ax = -2; ax <= 2; ax++) setF(ap[i] + ax, ap[j] + ay, Math.max(Math.abs(ax), Math.abs(ay)) !== 1); }
+      function drawFormat(mask){
+        var d = (0 << 3) | mask, rem = d; for (var q = 0; q < 10; q++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        var b = ((d << 10) | rem) ^ 0x5412; function bit(n){ return ((b >>> n) & 1) !== 0; }
+        for (q = 0; q <= 5; q++) setF(8, q, bit(q));
+        setF(8, 7, bit(6)); setF(8, 8, bit(7)); setF(7, 8, bit(8));
+        for (q = 9; q < 15; q++) setF(14 - q, 8, bit(q));
+        for (q = 0; q < 8; q++) setF(size - 1 - q, 8, bit(q));
+        for (q = 8; q < 15; q++) setF(8, size - 15 + q, bit(q));
+        setF(8, size - 8, true);
+      }
+      drawFormat(0);
+      if (v >= 7){ var rem = v; for (i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+        var vb = (v << 12) | rem; for (i = 0; i < 18; i++){ var bt = ((vb >>> i) & 1) !== 0, a = size - 11 + i % 3, b2 = Math.floor(i / 3); setF(a, b2, bt); setF(b2, a, bt); } }
+      var bi = 0;
+      for (var right = size - 1; right >= 1; right -= 2){ if (right === 6) right = 5;
+        for (var vert = 0; vert < size; vert++) for (j = 0; j < 2; j++){ var xq = right - j, up = ((right + 1) & 2) === 0, yq = up ? size - 1 - vert : vert;
+          if (!F[yq][xq] && bi < all.length * 8){ M[yq][xq] = ((all[bi >>> 3] >>> (7 - (bi & 7))) & 1) !== 0; bi++; } } }
+      function maskFn(m, x, y){ switch(m){ case 0: return (x + y) % 2 === 0; case 1: return y % 2 === 0; case 2: return x % 3 === 0; case 3: return (x + y) % 3 === 0;
+        case 4: return (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0; case 5: return x * y % 2 + x * y % 3 === 0; case 6: return (x * y % 2 + x * y % 3) % 2 === 0; default: return ((x + y) % 2 + x * y % 3) % 2 === 0; } }
+      function applyMask(m){ for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) if (!F[y][x] && maskFn(m, x, y)) M[y][x] = !M[y][x]; }
+      function penalty(){ var p = 0, dark = 0, x, y, run, prev;
+        for (y = 0; y < size; y++){ run = 0; prev = null; for (x = 0; x < size; x++){ if (M[y][x] === prev) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else { run = 1; prev = M[y][x]; } if (M[y][x]) dark++; } }
+        for (x = 0; x < size; x++){ run = 0; prev = null; for (y = 0; y < size; y++){ if (M[y][x] === prev) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else { run = 1; prev = M[y][x]; } } }
+        for (y = 0; y < size - 1; y++) for (x = 0; x < size - 1; x++){ var c = M[y][x]; if (c === M[y][x+1] && c === M[y+1][x] && c === M[y+1][x+1]) p += 3; }
+        var total = size * size; p += Math.max(0, Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1) * 10; return p; }
+      var best = 0, bestP = Infinity;
+      for (var m = 0; m < 8; m++){ applyMask(m); drawFormat(m); var pp = penalty(); if (pp < bestP){ bestP = pp; best = m; } applyMask(m); }
+      applyMask(best); drawFormat(best);
+      return { size: size, version: v, modules: M };
+    }
+    function svg(text){
+      var q = encode(text); if (!q) return '';
+      var n = q.size + 8, d = '';
+      for (var y = 0; y < q.size; y++) for (var x = 0; x < q.size; x++) if (q.modules[y][x]) d += 'M' + (x + 4) + ',' + (y + 4) + 'h1v1h-1z';
+      return '<svg class="pf-sm-qr" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + ' ' + n + '" shape-rendering="crispEdges" role="img" aria-label="QR code for your sitter link">' +
+             '<rect width="' + n + '" height="' + n + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+    }
+    return { encode: encode, svg: svg };
+  })();
+  window.pawfolioQR = QR;
+
+  // ---------- full-screen sheet ----------
+  var sheet = null;
+  function openSheet(title, bodyHTML, footHTML, onBack){
+    closeSheet();
+    sheet = document.createElement('div');
+    sheet.className = 'pf-sm-overlay';
+    sheet.id = 'pf-sm-sheet';
+    sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true');
+    sheet.innerHTML = '<div class="pf-sm-sheet"><div class="pf-sm-sheet-head">' +
+      (onBack ? '<button type="button" data-sm="back" aria-label="Back">Back</button>' : '') +
+      '<h2>' + esc(title) + '</h2><button type="button" data-sm="close" aria-label="Close">Close</button></div>' +
+      '<div class="pf-sm-sheet-body">' + bodyHTML + '</div>' + (footHTML ? '<div class="pf-sm-sheet-foot">' + footHTML + '</div>' : '') + '</div>';
+    document.body.appendChild(sheet);
+    document.documentElement.style.overflow = 'hidden';
+    sheet.querySelector('[data-sm="close"]').onclick = closeSheet;
+    if (onBack) sheet.querySelector('[data-sm="back"]').onclick = onBack;
+    return sheet;
+  }
+  function closeSheet(){ if (sheet && sheet.parentNode) sheet.parentNode.removeChild(sheet); sheet = null; document.documentElement.style.overflow = ''; }
+  function setSheet(title, bodyHTML, footHTML, onBack){
+    var s = openSheet(title, bodyHTML, footHTML, onBack);
+    s.querySelector('.pf-sm-sheet-body').scrollTop = 0;
+    return s;
+  }
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && sheet) closeSheet(); });
+
+  /* =====================================================================
+     CLIENT SIDE: "Send to a sitter" (Pawfolio Free)
+     ===================================================================== */
+  function mySitters(){ var l = readJSON(K_SITTERS, []); return Array.isArray(l) ? l : []; }
+  function saveSitters(l){ return writeJSON(K_SITTERS, l); }
+  function extras(){ var x = readJSON(K_EXTRAS, {}); if (!x || typeof x !== 'object') x = {}; if (!x.pets || typeof x.pets !== 'object') x.pets = {}; return x; }
+  function saveExtras(x){ return writeJSON(K_EXTRAS, x); }
+  function petList(){ return getList('pets').filter(function(p){ return p && !p.archived && trim(p.name); }); }
+  function petById(id){ return getList('pets').find(function(p){ return String(p.__id) === String(id); }); }
+
+  function vetAddress(v){ if (!v) return ''; if (trim(v.address)) return trim(v.address);
+    var line2 = [trim(v.city), [trim(v.state), trim(v.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    return [trim(v.street), line2].filter(Boolean).join(', '); }
+  function savedVetByName(name){
+    var n = trim(name).toLowerCase(); if (!n) return null;
+    return getList('vets').find(function(v){ return v && !v.archived && trim(v.name).toLowerCase() === n; }) || null;
+  }
+  function ageText(dob){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str(dob)); if (!m) return '';
+    var b = new Date(+m[1], +m[2] - 1, +m[3]), now = new Date();
+    var months = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth()) - (now.getDate() < b.getDate() ? 1 : 0);
+    if (months < 0) return '';
+    if (months < 12) return months + (months === 1 ? ' month' : ' months');
+    var y = Math.floor(months / 12); return y + (y === 1 ? ' year' : ' years');
+  }
+  function latestWeight(pid){
+    var w = getList('weights').filter(function(x){ return String(x.petId) === String(pid) && x.lbs; })
+      .sort(function(a, b){ return str(b.date).localeCompare(str(a.date)); })[0];
+    return w ? (Math.round(parseFloat(w.lbs) * 10) / 10) + ' lb' : '';
+  }
+  function rabiesText(pid){
+    var v = getList('vaccinations').filter(function(x){ return String(x.petId) === String(pid) && /rabies/i.test(str(x.name)) && !x.archived; })
+      .sort(function(a, b){ return str(b.date).localeCompare(str(a.date)); })[0];
+    if (!v) return '';
+    return [v.date ? 'Given ' + fmtDay(v.date) : '', v.next ? 'due ' + fmtDay(v.next) : ''].filter(Boolean).join(', ') || 'On file';
+  }
+  function insuranceText(p){
+    return [trim(p.insurance), trim(p.policy) ? 'policy ' + trim(p.policy) : '', trim(p.insPhone) ? fmtPhone(p.insPhone) : ''].filter(Boolean).join(', ');
+  }
+  function medActive(m){
+    if (!m || m.archived) return false;
+    if (m.doseEnd && /^\d{4}-\d{2}-\d{2}$/.test(m.doseEnd) && m.doseEnd < todayISO()) return false;
+    return !!trim(m.name);
+  }
+  // Every active medication and supplement for the pet, as payload rows (+ the record id).
+  function derivedMeds(pid){
+    var si = readJSON('petSitterInfo', {});
+    var sel = {}; try { sel = JSON.parse(si['sitter-selmeds-' + pid] || '{}') || {}; } catch(e){}
+    return getList('medications').filter(function(m){ return String(m.petId) === String(pid) && medActive(m); }).map(function(m){
+      var times = Array.isArray(m.doseTimes) ? m.doseTimes.map(time12).join(', ') : '';
+      var s = sel[String(m.__id)] || {};
+      return { id: String(m.__id), name: trim(m.name), dose: trim(m.dosage),
+        time: [trim(m.frequency), times].filter(Boolean).join(', '),
+        how: trim(s.instructions) || trim(m.notes) };
+    });
+  }
+  var PET_FIELDS = ['kind','age','weight','sex','chip','desc','food','treats','health','walk','behave','notes','rabies','insurance'];
+  function derivedPet(p){
+    var si = readJSON('petSitterInfo', {}), id = p.__id;
+    var feed = trim(si['sitter-feed-' + id]), food = trim(si['sitter-food-' + id]);
+    return {
+      name: trim(p.name),
+      kind: [trim(p.species), trim(p.breed)].filter(Boolean).join(', '),
+      age: ageText(p.dob), weight: latestWeight(id), sex: trim(p.sex), chip: trim(p.microchip), desc: trim(p.color),
+      food: [feed, food].filter(Boolean).join('. '), treats: '',
+      health: trim(p.allergies) ? 'Allergies: ' + trim(p.allergies) : '',
+      walk: trim(si['sitter-walk-' + id]), behave: trim(si['sitter-behavior-' + id]), notes: trim(p.notes),
+      rabies: rabiesText(id), insurance: insuranceText(p)
+    };
+  }
+  // Pawfolio records first; what the client typed in the send form wins.
+  function petValues(p){
+    var d = derivedPet(p), o = (extras().pets[String(p.__id)] || {}).f || {};
+    PET_FIELDS.forEach(function(k){ if (Object.prototype.hasOwnProperty.call(o, k)) d[k] = str(o[k]); });
+    return d;
+  }
+  function petMeds(p){
+    var x = extras().pets[String(p.__id)] || {}, off = x.medsOff || [], how = x.medHow || {};
+    return derivedMeds(p.__id).map(function(m){
+      return { id: m.id, name: m.name, dose: m.dose, time: m.time,
+        how: Object.prototype.hasOwnProperty.call(how, m.id) ? str(how[m.id]) : m.how, on: off.indexOf(m.id) < 0 };
+    });
+  }
+  var TOP = {
+    client: ['name','phone','email','address','phone2'],
+    emergency: ['name','rel','phone','hasKey'],
+    vet: ['name','phone','address'],
+    emergencyVet: ['name','phone','address'],
+    home: ['entry','alarm','wifi','parking','supplies','offLimits','extra','notes'],
+    auth: ['amount','signature']
+  };
+  function derivedTop(){
+    var si = readJSON('petSitterInfo', {});
+    var pets = petList(), pv = pets.find(function(p){ return trim(p.vet); });
+    var vetName = trim(si['sitter-vet-name']) || (pv ? trim(pv.vet) : '');
+    var sv = savedVetByName(vetName);
+    return {
+      client: { name: trim(si['sitter-owner-name']), phone: trim(si['sitter-owner-phone']), email: trim(si['sitter-owner-email']), address: '', phone2: '' },
+      emergency: { name: trim(si['sitter-emerg-name']), rel: '', phone: trim(si['sitter-emerg-phone']), hasKey: '' },
+      vet: { name: vetName, phone: trim(si['sitter-vet-phone']) || (sv ? trim(sv.phone) : ''), address: trim(si['sitter-vet-address']) || vetAddress(sv) },
+      emergencyVet: { name: trim(si['sitter-evet-name']), phone: trim(si['sitter-evet-phone']), address: trim(si['sitter-evet-address']) || vetAddress(savedVetByName(si['sitter-evet-name'])) },
+      home: { entry: '', alarm: '', wifi: '', parking: '', supplies: '', offLimits: '', extra: '', notes: trim(si['sitter-instructions']) },
+      auth: { amount: '', signature: '' }
+    };
+  }
+  function topValues(){
+    var d = derivedTop(), x = extras();
+    Object.keys(TOP).forEach(function(sec){ var o = x[sec] || {};
+      TOP[sec].forEach(function(k){ if (Object.prototype.hasOwnProperty.call(o, k)) d[sec][k] = str(o[k]); }); });
+    return d;
+  }
+
+  // Build the payload (schema v1 in SPEC.md). Photos are shrunk to 720px / 0.78.
+  function buildPayload(sitter, petIds, authDate){
+    var top = topValues();
+    var pets = petIds.map(petById).filter(Boolean);
+    return Promise.all(pets.map(function(p){
+      var src = safeImg(p.photo);
+      return src ? PI().shrinkPhoto(src, 720, 0.78).catch(function(){ return ''; }) : Promise.resolve('');
+    })).then(function(photos){
+      return {
+        kind: 'pawfolio-intake', v: 1, sentAt: new Date().toISOString(), source: 'pawfolio', clientId: sitter.clientId,
+        sitter: { name: str(sitter.label), phone: str(sitter.phone), email: str(sitter.email) },
+        client: top.client, emergency: top.emergency, vet: top.vet, emergencyVet: top.emergencyVet, home: top.home,
+        authorization: { amount: top.auth.amount, signature: top.auth.signature, date: authDate || todayISO(), text: AUTH_TEXT },
+        pets: pets.map(function(p, i){
+          var v = petValues(p), out = { name: v.name };
+          PET_FIELDS.forEach(function(k){ out[k] = str(v[k]); });
+          out.meds = petMeds(p).filter(function(m){ return m.on; }).map(function(m){ return { name: m.name, dose: m.dose, time: m.time, how: m.how }; });
+          out.photo = photos[i] || '';
+          return out;
+        })
+      };
+    });
+  }
+
+  // ---- My sitters card in Pet Sitter Info ----
+  function renderSendCard(){
+    var host = document.getElementById('pf-send-sitter-card'); if (!host) return;
+    var list = mySitters();
+    var rows = list.map(function(s){
+      return '<div class="pf-sm-sitter" data-sid="' + esc(s.id) + '">' +
+        '<div class="pf-sm-row"><div class="pf-sm-grow"><div class="pf-sm-cname">' + esc(s.label || 'My sitter') + '</div>' +
+        '<div class="pf-sm-small">' + (s.code ? 'Sitter code ' + esc(PI() ? PI().fmtCode(s.code) : s.code) + ' · ' : '') +
+        (s.lastSentAt ? 'Last sent ' + esc(fmtDay(s.lastSentAt)) : 'Not sent yet') + '</div></div>' +
+        '<button type="button" class="pf-sm-danger" data-act="remove" style="align-self:flex-start;padding:2px 0;">Remove</button></div>' +
+        '<div class="pf-sm-sitter-actions"><button type="button" class="pf-sm-btn pf-sm-grow" data-act="update">Send update</button>' +
+        '<button type="button" class="pf-sm-btn2 pf-sm-grow" data-act="edit">Review and edit</button></div>' +
+        '<div class="pf-sm-status" aria-live="polite"></div></div>';
+    }).join('');
+    host.innerHTML =
+      '<h3 class="pf-sm-h3">Send to a sitter</h3>' +
+      '<p class="pf-sm-p">If your sitter uses Pawfolio, send your pets\' details straight to their phone. Paste the intake link they gave you or type their sitter code. Part of Pawfolio Free.</p>' +
+      (list.length ? '<h4 class="pf-sm-h4" style="margin-top:14px;">My sitters</h4>' + rows : '') +
+      '<button type="button" class="' + (list.length ? 'pf-sm-btn2' : 'pf-sm-btn') + '" id="pf-send-new" style="margin-top:12px;width:100%;">' + (list.length ? 'Add another sitter' : 'Send to a sitter') + '</button>' +
+      '<p class="pf-sm-small" style="margin-top:8px;">' + esc(PRIVACY) + '</p>';
+    host.querySelector('#pf-send-new').onclick = function(){ startAdd(); };
+    host.querySelectorAll('.pf-sm-sitter').forEach(function(row){
+      var sid = row.getAttribute('data-sid');
+      row.querySelector('[data-act="update"]').onclick = function(){ sendUpdate(sid, row); };
+      row.querySelector('[data-act="edit"]').onclick = function(){ var s = mySitters().find(function(x){ return x.id === sid; }); if (s) showDetails(s); };
+      row.querySelector('[data-act="remove"]').onclick = function(){
+        var s = mySitters().find(function(x){ return x.id === sid; }); if (!s) return;
+        confirmBox({ title: 'Remove ' + (s.label || 'this sitter') + '?', message: 'They stay in your sitter\'s Clients list. You can add them again any time with their link or code.', confirmText: 'Remove', danger: true }, function(){
+          saveSitters(mySitters().filter(function(x){ return x.id !== sid; })); renderSendCard();
+        });
+      };
+    });
+  }
+
+  function upsertSitter(t){
+    var list = mySitters();
+    var s = list.find(function(x){ return x.inboxId === t.inboxId; });
+    if (s) { s.publicKey = t.publicKey; if (t.label) s.label = t.label; if (t.code) s.code = t.code; if (t.phone) s.phone = t.phone; if (t.email) s.email = t.email; }
+    else {
+      s = { id: uid(), label: t.label || '', code: t.code || '', inboxId: t.inboxId, publicKey: t.publicKey,
+            clientId: PI().b64u(crypto.getRandomValues(new Uint8Array(16))), lastSentAt: '', petIds: petList().map(function(p){ return String(p.__id); }),
+            phone: t.phone || '', email: t.email || '' };
+      list.push(s);
+    }
+    return { sitter: s, list: list };
+  }
+
+  // Parse a pasted link (…?b=&p=&e=#s=inbox.key) or a typed code (XXXX-XXXX).
+  function resolveTarget(input){
+    input = trim(input);
+    var P = PI();
+    if (!P) return Promise.reject(new Error('not_loaded'));
+    var hashAt = input.indexOf('#');
+    var t = hashAt >= 0 ? P.parseSendTarget(input.slice(hashAt)) : null;
+    if (t) {
+      var q = {}; try { var u = new URL(input.slice(0, hashAt), location.href); q = { b: u.searchParams.get('b'), p: u.searchParams.get('p'), e: u.searchParams.get('e') }; } catch(e){}
+      return Promise.resolve({ inboxId: t.inboxId, publicKey: t.publicKey, label: trim(q.b).slice(0, 80), phone: trim(q.p), email: trim(q.e), code: '' });
+    }
+    var code = P.normCode(input);
+    if (code.length === 8 && !/^https?:/i.test(input)) {
+      return P.lookupCode(code).then(function(r){ return { inboxId: r.inboxId, publicKey: r.publicKey, label: r.label, code: code, phone: '', email: '' }; });
+    }
+    var e = new Error('bad_input'); e.code = 'bad_input'; return Promise.reject(e);
+  }
+
+  function startAdd(){
+    var s = setSheet('Send to a sitter',
+      '<div class="pf-sm-section"><h3 class="pf-sm-h3">Find your sitter</h3>' +
+      '<p class="pf-sm-p">Paste the intake link your sitter sent you, or type their sitter code. It looks like ABCD-EFGH.</p>' +
+      '<label class="pf-sm-label" for="pf-send-target">Sitter link or code</label>' +
+      '<textarea id="pf-send-target" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="https://cleartrackapps.com/pet-sitter-intake-form/… or ABCD-EFGH"></textarea>' +
+      '<div id="pf-send-find-msg" aria-live="polite"></div></div>' +
+      '<p class="pf-sm-small" style="margin-top:12px;">' + esc(PRIVACY) + '</p>',
+      '<button type="button" class="pf-sm-btn block" id="pf-send-find">Find sitter</button>');
+    var ta = s.querySelector('#pf-send-target'), btn = s.querySelector('#pf-send-find'), msg = s.querySelector('#pf-send-find-msg');
+    setTimeout(function(){ try { ta.focus(); } catch(e){} }, 50);
+    btn.onclick = function(){
+      if (!trim(ta.value)) { msg.innerHTML = '<div class="pf-sm-err">Paste your sitter\'s link or type their code first.</div>'; return; }
+      btn.disabled = true; btn.textContent = 'Finding your sitter…'; msg.innerHTML = '';
+      resolveTarget(ta.value).then(function(t){
+        var r = upsertSitter(t);
+        if (!saveSitters(r.list)) throw new Error('storage');
+        renderSendCard();
+        showDetails(r.sitter);
+      }).catch(function(e){
+        btn.disabled = false; btn.textContent = 'Find sitter';
+        if (e && e.message === 'storage') return;
+        msg.innerHTML = '<div class="pf-sm-err">' + esc(e && e.code === 'bad_input' ? 'That doesn\'t look like a sitter link or code. Check it and try again.' : errText(e, 'lookup')) + '</div>';
+      });
+    };
+  }
+
+  // ---- Details form (prefilled; entered once, saved on this phone, reused) ----
+  function inp(id, label, val, opts){
+    opts = opts || {};
+    var type = opts.type || 'text';
+    var common = ' id="' + id + '" data-k="' + esc(opts.k || '') + '"' + (opts.ph ? ' placeholder="' + esc(opts.ph) + '"' : '') + (opts.mode ? ' inputmode="' + opts.mode + '"' : '') + ' autocomplete="off"';
+    var field = type === 'area' ? '<textarea rows="' + (opts.rows || 2) + '"' + common + '>' + esc(val) + '</textarea>'
+      : type === 'select' ? '<select' + common + '>' + opts.options.map(function(o){ return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'
+      : '<input type="' + type + '" value="' + esc(val) + '"' + common + '>';
+    return '<label class="pf-sm-label" for="' + id + '">' + esc(label) + '</label>' + field;
+  }
+  function showDetails(sitter, keepDate){
+    var top = topValues(), pets = petList();
+    var chosen = (sitter.petIds && sitter.petIds.length) ? sitter.petIds.map(String) : pets.map(function(p){ return String(p.__id); });
+    var name = sitter.label || 'your sitter';
+    function sec(k, title, sub, fields){ return '<div class="pf-sm-section"><h3 class="pf-sm-h3">' + esc(title) + '</h3>' + (sub ? '<p class="pf-sm-small">' + esc(sub) + '</p>' : '') + fields + '</div>'; }
+    function t(k, f, label, o){ o = o || {}; o.k = k + '.' + f; return inp('pf-sf-' + k + '-' + f, label, top[k][f], o); }
+    var petsPick = pets.length ? pets.map(function(p){
+      var on = chosen.indexOf(String(p.__id)) >= 0;
+      return '<label class="pf-sm-check"><input type="checkbox" data-pet-pick="' + esc(p.__id) + '"' + (on ? ' checked' : '') + '>' + avatar(p.photo, p.name, 36) + '<span>' + esc(p.name) + '</span></label>';
+    }).join('') : '<p class="pf-sm-p">Add your pets in Pet Profiles first.</p>';
+    var petBlocks = pets.map(function(p){
+      var v = petValues(p), meds = petMeds(p), pid = String(p.__id);
+      function pf(f, label, o){ o = o || {}; o.k = 'pet.' + pid + '.' + f; return inp('pf-sf-p' + pid + '-' + f, label, v[f], o); }
+      var medHTML = meds.length ? meds.map(function(m){
+        return '<div class="pf-sm-med"><label class="pf-sm-check"><input type="checkbox" data-med-on="' + esc(pid) + '|' + esc(m.id) + '"' + (m.on ? ' checked' : '') + '>' +
+          '<span><strong>' + esc(m.name) + '</strong>' + (m.dose ? ' · ' + esc(m.dose) : '') + (m.time ? '<br><span class="pf-sm-small">' + esc(m.time) + '</span>' : '') + '</span></label>' +
+          inp('pf-sf-p' + pid + '-how-' + m.id, 'How to give it', m.how, { k: 'medhow.' + pid + '.' + m.id, type: 'area', ph: 'With food, in a pill pocket…' }) + '</div>';
+      }).join('') : '<p class="pf-sm-small">No current medications in Pawfolio. Add them in Medications and they will be included.</p>';
+      return '<details class="pf-sm-pet" data-pet-block="' + esc(pid) + '"' + (chosen.indexOf(pid) >= 0 ? '' : ' style="display:none;"') + '>' +
+        '<summary>' + avatar(p.photo, p.name, 40) + '<span class="pf-sm-cname">' + esc(p.name) + '</span><span class="pf-sm-chev"><span class="pf-sm-chev-closed">Edit details</span><span class="pf-sm-chev-open">Done</span></span></summary>' +
+        '<p class="pf-sm-small" style="margin-top:8px;">Filled in from your Pawfolio records. Changes here are only for sitters.</p>' +
+        pf('kind', 'Kind and breed') + '<div class="pf-sm-grid2"><div>' + pf('age', 'Age') + '</div><div>' + pf('weight', 'Weight') + '</div></div>' + pf('sex', 'Sex') +
+        pf('chip', 'Microchip') + pf('desc', 'Color and markings') +
+        pf('food', 'Food and feeding', { type: 'area' }) + pf('treats', 'Treats', { type: 'area', ph: 'What they can have and how many' }) +
+        pf('health', 'Health and allergies', { type: 'area' }) + pf('walk', 'Walks and potty', { type: 'area' }) +
+        pf('behave', 'Behavior and quirks', { type: 'area' }) + pf('notes', 'Notes', { type: 'area' }) +
+        pf('rabies', 'Rabies vaccine', { ph: 'Given and due dates' }) + pf('insurance', 'Pet insurance') +
+        '<h4 class="pf-sm-h4">Medications</h4>' + medHTML + '</details>';
+    }).join('');
+    var body =
+      '<div class="pf-sm-note">Sending to <strong>' + esc(name) + '</strong>. Check each section, then review before you send.</div>' +
+      sec('pets', 'Pets to include', '', petsPick) +
+      (pets.length ? sec('petinfo', 'Pet details', 'Tap a pet to check or add details for your sitter.', petBlocks) : '') +
+      sec('client', 'Your contact info', '', t('client','name','Your name') + t('client','phone','Phone', { type: 'tel', mode: 'tel' }) + t('client','email','Email', { type: 'email', mode: 'email' }) + t('client','address','Home address', { type: 'area' }) + t('client','phone2','Second phone', { type: 'tel', mode: 'tel' })) +
+      sec('emergency', 'Emergency contact', 'Someone nearby who can help if your sitter can\'t reach you.', t('emergency','name','Name') + t('emergency','rel','Relationship') + t('emergency','phone','Phone', { type: 'tel', mode: 'tel' }) +
+        t('emergency','hasKey','Do they have a key?', { type: 'select', options: [['', 'Choose'], ['Yes', 'Yes'], ['No', 'No']] })) +
+      sec('vet', 'Vet', '', t('vet','name','Clinic') + t('vet','phone','Phone', { type: 'tel', mode: 'tel' }) + t('vet','address','Address', { type: 'area' })) +
+      sec('emergencyVet', 'Emergency vet', '', t('emergencyVet','name','Clinic') + t('emergencyVet','phone','Phone', { type: 'tel', mode: 'tel' }) + t('emergencyVet','address','Address', { type: 'area' })) +
+      sec('home', 'Home access', 'Your sitter sees codes hidden until they tap them.', t('home','entry','Door, key, or lockbox code') + t('home','alarm','Alarm code') + t('home','wifi','Wi-Fi name and password') +
+        t('home','parking','Parking') + t('home','supplies','Where supplies are', { type: 'area' }) + t('home','offLimits','Off-limits areas', { type: 'area' }) +
+        t('home','extra','Plants, mail, trash, other tasks', { type: 'area' }) + t('home','notes','Other notes', { type: 'area' })) +
+      sec('auth', 'Emergency care authorization', '', '<p class="pf-sm-p" style="color:var(--text-primary);">' + esc(AUTH_TEXT) + '</p>' +
+        t('auth','amount','Up to this amount', { ph: '$500', mode: 'decimal' }) + t('auth','signature','Type your full name to sign') +
+        inp('pf-sf-auth-date', 'Date', keepDate || todayISO(), { type: 'date' }));
+    var s = setSheet('Send to ' + name, body, '<button type="button" class="pf-sm-btn block" id="pf-send-review">Review</button>', null);
+    s.querySelectorAll('input[type="tel"]').forEach(function(el){ if (typeof window.attachLiveFormat === 'function' && typeof window.formatPhone === 'function') { try { window.attachLiveFormat(el, window.formatPhone); } catch(e){} } });
+    s.querySelectorAll('[data-pet-pick]').forEach(function(cb){
+      cb.onchange = function(){ var b = s.querySelector('[data-pet-block="' + cb.getAttribute('data-pet-pick') + '"]'); if (b) b.style.display = cb.checked ? '' : 'none'; };
+    });
+    s.querySelector('#pf-send-review').onclick = function(){
+      var ids = Array.from(s.querySelectorAll('[data-pet-pick]:checked')).map(function(c){ return c.getAttribute('data-pet-pick'); });
+      if (!ids.length) { alert('Choose at least one pet to send.'); return; }
+      var date = (s.querySelector('#pf-sf-auth-date') || {}).value || todayISO();
+      if (!saveForm(s, sitter, ids)) return;
+      showReview(mySitters().find(function(x){ return x.id === sitter.id; }) || sitter, date);
+    };
+  }
+  // Save what the client typed. Only values that differ from the Pawfolio records are
+  // kept as overrides, so later changes to records still flow into "Send update".
+  function saveForm(s, sitter, ids){
+    var x = extras(), dTop = derivedTop();
+    s.querySelectorAll('[data-k]').forEach(function(el){
+      var k = el.getAttribute('data-k'); if (!k) return;
+      var parts = k.split('.'), val = el.value;
+      if (parts[0] === 'pet' || parts[0] === 'medhow') {
+        var pid = parts[1], p = petById(pid); if (!p) return;
+        var px = x.pets[pid] = x.pets[pid] || {};
+        if (parts[0] === 'pet') {
+          px.f = px.f || {}; var dv = derivedPet(p)[parts[2]];
+          if (trim(val) === trim(dv)) delete px.f[parts[2]]; else px.f[parts[2]] = val;
+        } else {
+          px.medHow = px.medHow || {}; var dm = derivedMeds(pid).find(function(m){ return m.id === parts[2]; });
+          if (dm && trim(val) === trim(dm.how)) delete px.medHow[parts[2]]; else px.medHow[parts[2]] = val;
+        }
+      } else if (TOP[parts[0]]) {
+        x[parts[0]] = x[parts[0]] || {};
+        if (trim(val) === trim(dTop[parts[0]][parts[1]])) delete x[parts[0]][parts[1]]; else x[parts[0]][parts[1]] = val;
+      }
+    });
+    s.querySelectorAll('[data-med-on]').forEach(function(cb){
+      var a = cb.getAttribute('data-med-on').split('|'), px = x.pets[a[0]] = x.pets[a[0]] || {};
+      px.medsOff = (px.medsOff || []).filter(function(id){ return id !== a[1]; });
+      if (!cb.checked) px.medsOff.push(a[1]);
+    });
+    if (!saveExtras(x)) return false;
+    var list = mySitters(), me = list.find(function(y){ return y.id === sitter.id; });
+    if (me) { me.petIds = ids.map(String); if (!saveSitters(list)) return false; }
+    return true;
+  }
+
+  function kv(rows){
+    rows = rows.filter(function(r){ return trim(r[1]); });
+    if (!rows.length) return '';
+    return '<dl class="pf-sm-kv">' + rows.map(function(r){ return '<dt>' + esc(r[0]) + '</dt><dd>' + (r[2] ? r[1] : esc(r[1])) + '</dd>'; }).join('') + '</dl>';
+  }
+  function showReview(sitter, authDate){
+    var name = sitter.label || 'your sitter';
+    var s = setSheet('Review', '<p class="pf-sm-p">Getting your pets\' details ready…</p>', '', function(){ showDetails(sitter, authDate); });
+    buildPayload(sitter, sitter.petIds || [], authDate).then(function(payload){
+      if (!sheet || sheet !== s) return;
+      var body = '<div class="pf-sm-note">This is what <strong>' + esc(name) + '</strong> will get.</div>' + payloadHTML(payload, { review: true }) +
+        '<p class="pf-sm-small" style="margin-top:14px;">' + esc(PRIVACY) + '</p><div id="pf-send-msg" aria-live="polite"></div>';
+      s.querySelector('.pf-sm-sheet-body').innerHTML = body;
+      var foot = document.createElement('div'); foot.className = 'pf-sm-sheet-foot';
+      foot.innerHTML = '<button type="button" class="pf-sm-btn block" id="pf-send-go">Send to ' + esc(name) + '</button>';
+      s.querySelector('.pf-sm-sheet').appendChild(foot);
+      var go = foot.querySelector('#pf-send-go');
+      go.onclick = function(){
+        go.disabled = true; go.textContent = 'Sending…';
+        doSend(sitter, payload).then(function(){
+          closeSheet(); renderSendCard();
+          toast('Sent to ' + name + '. They\'ll see it next time they open Pawfolio.');
+        }).catch(function(e){
+          go.disabled = false; go.textContent = 'Send to ' + name;
+          s.querySelector('#pf-send-msg').innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'send')) + '</div>';
+        });
+      };
+    }).catch(function(e){
+      s.querySelector('.pf-sm-sheet-body').innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'send')) + '</div>';
+    });
+  }
+  function doSend(sitter, payload){
+    return PI().submit({ inboxId: sitter.inboxId, publicKey: sitter.publicKey }, payload).then(function(){
+      var list = mySitters(), me = list.find(function(x){ return x.id === sitter.id; });
+      if (me) { me.lastSentAt = new Date().toISOString(); saveSitters(list); }
+    });
+  }
+  // "Send update": one tap, current records + saved extras, same pets as last time.
+  function sendUpdate(sid, row){
+    var sitter = mySitters().find(function(x){ return x.id === sid; }); if (!sitter) return;
+    var btn = row.querySelector('[data-act="update"]'), st = row.querySelector('.pf-sm-status');
+    var ids = (sitter.petIds || []).filter(function(id){ return !!petById(id); });
+    if (!ids.length) { showDetails(sitter); return; }
+    btn.disabled = true; btn.textContent = 'Sending…'; st.innerHTML = '';
+    buildPayload(sitter, ids).then(function(p){ return doSend(sitter, p); }).then(function(){
+      renderSendCard();
+      toast('Update sent to ' + (sitter.label || 'your sitter') + '.');
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Send update';
+      st.innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'send')) + '</div>';
+    });
+  }
+
+  /* =====================================================================
+     Shared: render a payload (client review, sitter client detail)
+     opts.review: the client checking their own form (nothing masked, no buttons)
+     opts.sitter: tap-to-call/text and masked codes; photos come from IndexedDB
+     ===================================================================== */
+  function callBtns(phone, text){
+    var d = telDigits(phone); if (!d) return '';
+    return '<div class="pf-sm-callrow"><a class="pf-sm-btn2" href="tel:' + esc(d) + '">Call</a>' + (text ? '<a class="pf-sm-btn2" href="sms:' + esc(d) + '">Text</a>' : '') + '</div>';
+  }
+  function masked(val, label){
+    if (!trim(val)) return '';
+    return '<button type="button" class="pf-sm-mask" data-reveal="' + esc(val) + '" aria-label="Show ' + esc(label) + '">Tap to show</button>';
+  }
+  function petPhotoTag(pet, cls){
+    if (pet.photoKey) return '<img class="' + cls + '" data-photo-key="' + esc(pet.photoKey) + '" alt="" style="display:none;">';
+    var src = safeImg(pet.photo);
+    return src ? '<img class="' + cls + '" src="' + src + '" alt="">' : '';
+  }
+  function payloadHTML(p, opts){
+    opts = opts || {};
+    var S = !!opts.sitter;
+    var c = p.client || {}, e = p.emergency || {}, v = p.vet || {}, ev = p.emergencyVet || {}, h = p.home || {}, a = p.authorization || {};
+    function section(title, inner){ return inner ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">' + esc(title) + '</h3>' + inner + '</div>' : ''; }
+    function contactBlock(rows, phone, text){ var k = kv(rows); return k ? k + (S ? callBtns(phone, text) : '') : ''; }
+    var mapLink = function(addr){ return S && trim(addr) ? '<a class="pf-sm-link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(addr)) + '">' + esc(addr) + '</a>' : esc(addr); };
+    var out = '';
+    out += section(S ? 'Contact' : 'Your contact info',
+      contactBlock([['Name', c.name], ['Phone', fmtPhone(c.phone)], ['Email', c.email && S ? '<a class="pf-sm-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : c.email, S && c.email], ['Address', mapLink(c.address), true]], c.phone, true) +
+      (trim(c.phone2) ? kv([['Second phone', fmtPhone(c.phone2)]]) + (S ? callBtns(c.phone2, true) : '') : ''));
+    out += section('Emergency contact', contactBlock([['Name', [trim(e.name), trim(e.rel) ? '(' + trim(e.rel) + ')' : ''].filter(Boolean).join(' ')], ['Phone', fmtPhone(e.phone)], ['Has a key', e.hasKey]], e.phone, true));
+    out += section('Vet', contactBlock([['Clinic', v.name], ['Phone', fmtPhone(v.phone)], ['Address', mapLink(v.address), true]], v.phone, false));
+    out += section('Emergency vet', contactBlock([['Clinic', ev.name], ['Phone', fmtPhone(ev.phone)], ['Address', mapLink(ev.address), true]], ev.phone, false));
+    out += section('Home access', kv([
+      ['Door or key', S ? masked(h.entry, 'door code') : h.entry, S], ['Alarm', S ? masked(h.alarm, 'alarm code') : h.alarm, S], ['Wi-Fi', S ? masked(h.wifi, 'Wi-Fi') : h.wifi, S],
+      ['Parking', h.parking], ['Supplies', h.supplies], ['Off limits', h.offLimits], ['Other tasks', h.extra], ['Notes', h.notes]]));
+    if (trim(a.amount) || trim(a.signature)) {
+      out += section('Emergency care authorization', '<p class="pf-sm-p" style="color:var(--text-primary);">' + esc(a.text || AUTH_TEXT) + '</p>' +
+        kv([['Up to', a.amount], ['Signed', a.signature], ['Date', fmtDay(a.date)]]));
+    } else if (!opts.review) {
+      out += section('Emergency care authorization', '<p class="pf-sm-p">Not signed.</p>');
+    }
+    (p.pets || []).forEach(function(pet){
+      var meds = (pet.meds || []).filter(function(m){ return trim(m.name); });
+      var medT = meds.length ? '<h4 class="pf-sm-h4">Medications</h4>' + meds.map(function(m){
+        return '<div class="pf-sm-medrow"><div class="pf-sm-medname">' + esc(m.name) + (m.dose ? ' <span class="pf-sm-meddose">' + esc(m.dose) + '</span>' : '') + '</div>' +
+          kv([['When', m.time], ['How', m.how]]) + '</div>'; }).join('') : '';
+      out += '<div class="pf-sm-section" data-pet-name="' + esc(pet.name) + '"><h3 class="pf-sm-h3">' + esc(pet.name || 'Pet') + '</h3>' + petPhotoTag(pet, 'pf-sm-photo') +
+        kv([['Kind', pet.kind], ['Age', pet.age], ['Weight', pet.weight], ['Sex', pet.sex], ['Microchip', pet.chip], ['Markings', pet.desc],
+            ['Feeding', pet.food], ['Treats', pet.treats], ['Health', pet.health], ['Walks', pet.walk], ['Behavior', pet.behave], ['Notes', pet.notes],
+            ['Rabies', pet.rabies], ['Insurance', pet.insurance]]) + medT + '</div>';
+    });
+    return out;
+  }
+
+  /* =====================================================================
+     SITTER MODE (Pawfolio Free): keys, inbox, Clients area
+     ===================================================================== */
+  function mode(){ var m = readJSON(K_MODE, {}); return (m && typeof m === 'object') ? m : {}; }
+  function saveMode(m){ return writeJSON(K_MODE, m); }
+  function clients(){ var l = readJSON(K_CLIENTS, []); return Array.isArray(l) ? l : []; }
+  function saveClients(l){ return writeJSON(K_CLIENTS, l); }
+  function vault(){ return window.pawfolioVaultStore || null; }
+  function intakeLink(m){
+    var pr = m.profile || {}, q = [];
+    if (trim(pr.name)) q.push('b=' + encodeURIComponent(trim(pr.name)));
+    if (trim(pr.phone)) q.push('p=' + encodeURIComponent(trim(pr.phone)));
+    if (trim(pr.email)) q.push('e=' + encodeURIComponent(trim(pr.email)));
+    return INTAKE_URL + (q.length ? '?' + q.join('&') : '') + PI().sendFragment(m.keys.inboxId, m.keys.publicKey);
+  }
+
+  var ui = { view: 'list', id: null, version: -1, query: '', banner: '', checking: false, lastCheck: 0, linkOpen: null, editProfile: false };
+  var photoURLs = {};
+  function loadPhotos(root){
+    var V = vault(); if (!V || !root) return;
+    root.querySelectorAll('img[data-photo-key]').forEach(function(img){
+      var k = img.getAttribute('data-photo-key');
+      function show(u){ img.src = u; img.style.display = ''; var ph = img.previousElementSibling; if (ph && ph.classList.contains('pf-sm-avatar-ph')) ph.style.display = 'none'; }
+      if (photoURLs[k]) return show(photoURLs[k]);
+      V.get(k).then(function(b){ if (b && b.type && /^image\//.test(b.type)) { photoURLs[k] = URL.createObjectURL(b); show(photoURLs[k]); } }).catch(function(){});
+    });
+  }
+  function forgetPhotos(prefix){ Object.keys(photoURLs).forEach(function(k){ if (k.indexOf(prefix) === 0) { try { URL.revokeObjectURL(photoURLs[k]); } catch(e){} delete photoURLs[k]; } }); }
+  function dataUrlToBlob(u){
+    var m = /^data:([^;]+);base64,(.*)$/.exec(u); if (!m) return null;
+    var bin = atob(m[2]), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return new Blob([a], { type: m[1] });
+  }
+  function stripPhotos(payload){
+    var p = JSON.parse(JSON.stringify(payload || {}));
+    (p.pets || []).forEach(function(x){ x.photo = ''; delete x.photoKey; });
+    return p;
+  }
+  function cleanPayload(p){
+    // Keep only the known shape, as strings, so stored data is predictable.
+    function o(src, keys){ var r = {}; src = src && typeof src === 'object' ? src : {}; keys.forEach(function(k){ r[k] = str(src[k]).slice(0, 4000); }); return r; }
+    return {
+      kind: 'pawfolio-intake', v: 1, sentAt: str(p.sentAt), source: p.source === 'pawfolio' ? 'pawfolio' : 'web', clientId: str(p.clientId).slice(0, 100),
+      sitter: o(p.sitter, ['name','phone','email']), client: o(p.client, TOP.client), emergency: o(p.emergency, TOP.emergency),
+      vet: o(p.vet, TOP.vet), emergencyVet: o(p.emergencyVet, TOP.emergencyVet), home: o(p.home, TOP.home),
+      authorization: o(p.authorization, ['amount','signature','date','text']),
+      pets: (Array.isArray(p.pets) ? p.pets : []).slice(0, 20).map(function(x){
+        var r = o(x, ['name'].concat(PET_FIELDS)); r.photo = safeImg(x && x.photo) || '';
+        r.meds = (Array.isArray(x && x.meds) ? x.meds : []).slice(0, 30).map(function(m){ return o(m, ['name','dose','time','how']); }).filter(function(m){ return trim(m.name); });
+        return r;
+      }).filter(function(x){ return trim(x.name) || x.photo; })
+    };
+  }
+
+  // Save decrypted forms: photos to IndexedDB first, then the client list. Returns the
+  // row ids that are safely stored (only those get acked).
+  function storeForms(forms){
+    var list = clients(), saved = [], added = 0, updated = 0, touched = [];
+    var chain = Promise.resolve();
+    forms.forEach(function(f){
+      chain = chain.then(function(){
+        var rowId = f.it.id;
+        if (list.some(function(c){ return (c.rowIds || []).indexOf(rowId) >= 0; })) { saved.push(rowId); return; }
+        var p = cleanPayload(f.p), at = f.it.created_at || new Date().toISOString();
+        var rec = p.clientId ? list.find(function(c){ return c.clientId === p.clientId; }) : null;
+        if (rec) {
+          rec.history = [{ at: rec.updatedAt, source: rec.source, payload: stripPhotos(rec.payload) }].concat(rec.history || []).slice(0, HISTORY_MAX);
+          rec.versions = (rec.versions || 1) + 1; updated++;
+        } else {
+          rec = { id: uid(), clientId: p.clientId, firstAt: at, versions: 1, history: [], rowIds: [] }; list.push(rec); added++;
+        }
+        rec.source = p.source; rec.updatedAt = at; rec.unseen = true;
+        rec.rowIds = [rowId].concat(rec.rowIds || []).slice(0, 30);
+        var V = vault(), oldCount = rec.payload && rec.payload.pets ? rec.payload.pets.length : 0;
+        forgetPhotos('sitterpet-' + rec.id + '-');
+        return Promise.all(p.pets.map(function(pet, i){
+          if (!pet.photo || !V) return Promise.resolve();
+          var key = 'sitterpet-' + rec.id + '-' + i, blob = dataUrlToBlob(pet.photo);
+          if (!blob) return Promise.resolve();
+          return V.put(key, blob).then(function(){ pet.photo = ''; pet.photoKey = key; }).catch(function(){ /* keep it inline */ });
+        })).then(function(){
+          for (var i = p.pets.length; i < oldCount; i++) { if (V) V.del('sitterpet-' + rec.id + '-' + i).catch(function(){}); }
+          p.pets.forEach(function(pet, i){ if (!pet.photo && !pet.photoKey && V) V.del('sitterpet-' + rec.id + '-' + i).catch(function(){}); });
+          rec.payload = p; saved.push(rowId); touched.push(rec.id);
+        });
+      });
+    });
+    return chain.then(function(){
+      if (!saved.length) return { savedIds: [], added: 0, updated: 0 };
+      if (!saveClients(list)) return { savedIds: [], added: 0, updated: 0 };
+      return { savedIds: saved, added: added, updated: updated };
+    });
+  }
+
+  function checkInbox(manual){
+    var m = mode(); if (!m.on || !m.keys || !PI() || ui.checking) return Promise.resolve();
+    if (!manual && Date.now() - ui.lastCheck < 20000) return Promise.resolve();
+    ui.checking = true; ui.lastCheck = Date.now(); paintStatus();
+    var added = 0, updated = 0, bad = {}, rounds = 0;
+    function round(){
+      return PI().list(m.keys).then(function(res){
+        var items = (res && res.items) || [];
+        return Promise.all(items.map(function(it){
+          return PI().decryptWith(m.keys.privateJwk, it.envelope).then(function(p){ return { it: it, p: p }; }, function(){ return { it: it, p: null }; });
+        })).then(function(dec){
+          var good = dec.filter(function(d){ if (d.p && d.p.kind === 'pawfolio-intake' && typeof d.p === 'object') return true; bad[d.it.id] = 1; return false; });
+          return storeForms(good);
+        }).then(function(r){
+          added += r.added; updated += r.updated;
+          if (!r.savedIds.length) return false;
+          var ids = r.savedIds.slice(), acks = [];
+          while (ids.length) acks.push(PI().ack(m.keys, ids.splice(0, 50)));
+          return Promise.all(acks).then(function(){ return !!(res && res.more) && ++rounds < 20; });
+        });
+      }).then(function(again){ if (again) return round(); });
+    }
+    return round().then(function(){
+      var n = added + updated, nb = Object.keys(bad).length, parts = [];
+      if (n) parts.push('<div class="pf-sm-ok">' + n + (n === 1 ? ' new form' : ' new forms') + (updated ? ' (' + updated + (updated === 1 ? ' update' : ' updates') + ' to clients you already have)' : '') + '.</div>');
+      else if (manual) parts.push('<div class="pf-sm-note">No new forms yet.</div>');
+      if (nb) parts.push('<div class="pf-sm-note" style="opacity:.85;">' + nb + (nb === 1 ? ' form could not be opened on this phone. It may have been sent to an older sitter link. It will stay in the inbox for now.' : ' forms could not be opened on this phone. They may have been sent to an older sitter link. They will stay in the inbox for now.') + '</div>');
+      ui.banner = parts.join('');
+    }).catch(function(e){
+      ui.banner = '<div class="pf-sm-err">' + esc(errText(e, 'inbox')) + '</div>';
+    }).then(function(){
+      ui.checking = false; m = mode(); m.lastCheckAt = new Date().toISOString(); saveModeQuiet(m);
+      applyNav(); if (isClientsTab()) renderClients();
+    });
+  }
+  function saveModeQuiet(m){ try { localStorage.setItem(K_MODE, JSON.stringify(m)); } catch(e){} }
+  function paintStatus(){ var b = document.getElementById('pf-cl-check'); if (b) { b.disabled = ui.checking; b.textContent = ui.checking ? 'Checking…' : 'Check for new forms'; } }
+  function isClientsTab(){ var t = document.getElementById('tab-sitter-clients'); return !!(t && t.classList.contains('active-tab')); }
+
+  function applyNav(){
+    var m = mode(), nav = document.getElementById('pf-clients-nav'), tg = document.getElementById('pf-sitter-mode-toggle');
+    if (tg) tg.checked = !!m.on;
+    if (!nav) return;
+    nav.style.display = m.on ? '' : 'none';
+    var n = m.on ? clients().filter(function(c){ return c.unseen; }).length : 0;
+    nav.innerHTML = 'Clients' + (n ? ' <span class="pf-sm-badge new" style="margin-left:6px;">' + n + ' new</span>' : '');
+  }
+
+  // ---------- Clients tab ----------
+  function renderClients(){
+    var root = document.getElementById('pf-clients-root'); if (!root) return;
+    var m = mode();
+    if (!m.on) { root.innerHTML = '<div class="card p-5"><p class="pf-sm-p">Sitter mode is off. Turn on "I\'m a pet sitter" in the menu to see your clients.</p></div>'; return; }
+    if (!m.keys || ui.editProfile) return renderSetup(root, m);
+    if (ui.view === 'detail') { var rec = clients().find(function(c){ return c.id === ui.id; }); if (rec) return renderDetail(root, rec); ui.view = 'list'; }
+    renderList(root, m);
+  }
+  function renderSetup(root, m){
+    var pr = m.profile || {}, editing = !!m.keys;
+    root.innerHTML = '<div class="card p-5"><h3 class="pf-sm-h3">' + (editing ? 'Your business info' : 'Set up Sitter mode') + '</h3>' +
+      '<p class="pf-sm-p">' + (editing ? 'This shows at the top of your intake form.' : 'Your clients fill in an intake form on their phone, and it comes straight to this Clients area. Free in Pawfolio Free.') + '</p>' +
+      inp('pf-su-name', 'Business name', pr.name || '', { ph: 'Happy Tails Pet Sitting' }) +
+      inp('pf-su-phone', 'Phone', pr.phone || '', { type: 'tel', mode: 'tel' }) +
+      inp('pf-su-email', 'Email', pr.email || '', { type: 'email', mode: 'email' }) +
+      '<div id="pf-su-msg" aria-live="polite"></div>' +
+      '<button type="button" class="pf-sm-btn block" id="pf-su-go" style="margin-top:14px;">' + (editing ? 'Save' : 'Set up my inbox') + '</button>' +
+      (editing ? '<button type="button" class="pf-sm-link" id="pf-su-cancel" style="margin-top:6px;">Cancel</button>' : '') +
+      '<p class="pf-sm-small" style="margin-top:10px;">' + esc(PRIVACY_SITTER) + '</p></div>';
+    var ph = root.querySelector('#pf-su-phone'); if (typeof window.attachLiveFormat === 'function' && typeof window.formatPhone === 'function') { try { window.attachLiveFormat(ph, window.formatPhone); } catch(e){} }
+    if (editing) root.querySelector('#pf-su-cancel').onclick = function(){ ui.editProfile = false; renderClients(); };
+    var go = root.querySelector('#pf-su-go'), msg = root.querySelector('#pf-su-msg');
+    go.onclick = function(){
+      var prof = { name: trim(root.querySelector('#pf-su-name').value), phone: trim(ph.value), email: trim(root.querySelector('#pf-su-email').value) };
+      if (!prof.name) { msg.innerHTML = '<div class="pf-sm-err">Add your business name first. It is how clients know the form is yours.</div>'; return; }
+      if (!PI()) { msg.innerHTML = '<div class="pf-sm-err">' + esc(errText(null)) + '</div>'; return; }
+      go.disabled = true; go.textContent = editing ? 'Saving…' : 'Setting up…'; msg.innerHTML = '';
+      var keysP = editing ? Promise.resolve(JSON.parse(JSON.stringify(m.keys))) : PI().generateSitterKeys();
+      keysP.then(function(keys){
+        return PI().register(keys, prof.name).then(function(){ return keys; });
+      }).then(function(keys){
+        var cur = mode(); cur.on = true; cur.profile = prof; cur.keys = keys; if (!cur.setupAt) cur.setupAt = new Date().toISOString();
+        if (!saveMode(cur)) throw new Error('storage');
+        ui.editProfile = false; ui.linkOpen = true; renderClients(); applyNav();
+        toast(editing ? 'Business info saved.' : 'Your inbox is ready. Share your sitter link with clients.');
+      }).catch(function(e){
+        go.disabled = false; go.textContent = editing ? 'Save' : 'Set up my inbox';
+        if (e && e.message === 'storage') return;
+        msg.innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'register')) + '</div>';
+      });
+    };
+  }
+  function linkCardHTML(m, open){
+    var link = intakeLink(m), code = PI().fmtCode(m.keys.code || '');
+    return '<div class="card p-5 mb-4" id="pf-cl-linkcard">' +
+      '<div id="pf-cl-linkbar" role="button" tabindex="0" aria-expanded="' + open + '" class="pf-sm-row" style="cursor:pointer;">' +
+      '<h3 class="pf-sm-h3 pf-sm-grow">My sitter link</h3><span class="pf-sm-link">' + (open ? 'Hide' : 'Show') + '</span></div>' +
+      (open ? '<p class="pf-sm-p">Send this link to new clients. They fill in the intake form on their phone, and it comes straight here.</p>' +
+        '<div class="pf-sm-linkbox" id="pf-cl-link">' + esc(link) + '</div>' +
+        '<div class="pf-sm-row" style="margin-top:10px;"><button type="button" class="pf-sm-btn pf-sm-grow" id="pf-cl-copy">Copy link</button>' +
+        (navigator.share ? '<button type="button" class="pf-sm-btn2 pf-sm-grow" id="pf-cl-share">Share</button>' : '') + '</div>' +
+        '<div id="pf-cl-copymsg" aria-live="polite"></div>' + QR.svg(link) +
+        '<p class="pf-sm-small" style="text-align:center;margin-top:6px;">Clients can scan this with their phone camera.</p>' +
+        '<hr class="pf-sm-divider"><p class="pf-sm-small" style="text-align:center;">Sitter code, for clients who use Pawfolio</p>' +
+        '<p class="pf-sm-code" id="pf-cl-code">' + esc(code) + '</p>' +
+        '<p class="pf-sm-small" style="text-align:center;">They tap Send to a sitter in Pet Sitter Info and type this code.</p>' +
+        '<hr class="pf-sm-divider"><p class="pf-sm-small">' + esc(PRIVACY_SITTER) + '</p>' +
+        '<div class="pf-sm-note"><strong>Keep a backup.</strong> Your inbox keys are saved on this phone and in your Save My Data backups. If they are lost, new forms can\'t be opened and you would need to send clients a new link. Your backup file holds these keys, so keep it somewhere private.</div>' +
+        '<div class="pf-sm-row" style="margin-top:10px;"><span class="pf-sm-small pf-sm-grow">' + esc((m.profile || {}).name || '') + '</span><button type="button" class="pf-sm-link" id="pf-cl-editprof">Edit business info</button></div>'
+      : '<p class="pf-sm-small" style="margin-top:4px;">Sitter code <strong>' + esc(code) + '</strong></p>') + '</div>';
+  }
+  function renderList(root, m){
+    var all = clients().slice().sort(function(a, b){ return str(b.updatedAt).localeCompare(str(a.updatedAt)); });
+    var open = ui.linkOpen == null ? all.length === 0 : ui.linkOpen;
+    var q = ui.query.toLowerCase().trim();
+    var shown = !q ? all : all.filter(function(c){
+      var p = c.payload || {}, cl = p.client || {};
+      return [cl.name, cl.phone, cl.email, telDigits(cl.phone)].concat((p.pets || []).map(function(x){ return x.name; })).join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    var rows = shown.map(function(c){
+      var p = c.payload || {}, cl = p.client || {}, pets = p.pets || [];
+      var faces = pets.slice(0, 3).map(function(x){
+        var src = safeImg(x.photo);
+        if (x.photoKey) return '<span style="position:relative;display:inline-flex;"><span class="pf-sm-avatar pf-sm-avatar-ph" style="width:44px;height:44px;">' + initial(x.name) + '</span><img class="pf-sm-avatar" data-photo-key="' + esc(x.photoKey) + '" style="width:44px;height:44px;display:none;" alt=""></span>';
+        return avatar(src, x.name, 44);
+      }).join('') || avatar('', cl.name, 44);
+      return '<button type="button" class="pf-sm-client" data-cid="' + esc(c.id) + '"><span class="pf-sm-faces">' + faces + '</span>' +
+        '<span class="pf-sm-grow"><span class="pf-sm-cname" style="display:block;">' + esc(cl.name || 'Client') + '</span>' +
+        '<span class="pf-sm-small" style="display:block;">' + esc(pets.map(function(x){ return x.name; }).filter(Boolean).join(', ')) + '</span>' +
+        (cl.phone ? '<span class="pf-sm-small" style="display:block;">' + esc(fmtPhone(cl.phone)) + '</span>' : '') +
+        (c.unseen || c.versions > 1 ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
+        (c.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(c.updatedAt)) + '</span>' : '') + '</span>' : '') + '</span>' +
+        '<span class="pf-sm-small" aria-hidden="true" style="font-size:18px;">&rsaquo;</span></button>';
+    }).join('');
+    root.innerHTML = linkCardHTML(m, open) +
+      '<div class="pf-sm-banner" id="pf-cl-banner">' + ui.banner + '</div>' +
+      '<div class="card p-5 mb-4"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">My clients' + (all.length ? ' (' + all.length + ')' : '') + '</h3></div>' +
+      '<button type="button" class="pf-sm-btn block" id="pf-cl-check" style="margin-top:10px;">Check for new forms</button>' +
+      (m.lastCheckAt ? '<p class="pf-sm-small" style="margin-top:6px;">Last checked ' + esc(fmtDayTime(m.lastCheckAt)) + '</p>' : '') +
+      (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, or phone" value="' + esc(ui.query) + '">' : '') +
+      (all.length ? (rows || '<p class="pf-sm-p">No clients match that search.</p>') : '<p class="pf-sm-p">No clients yet. When a client sends your intake form, they show up here.</p>') + '</div>';
+    paintStatus();
+    var bar = root.querySelector('#pf-cl-linkbar');
+    function tog(){ ui.linkOpen = !open; renderClients(); }
+    bar.onclick = tog; bar.onkeydown = function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } };
+    var copy = root.querySelector('#pf-cl-copy');
+    if (copy) copy.onclick = function(){
+      var link = intakeLink(mode()), msg = root.querySelector('#pf-cl-copymsg');
+      function done(ok){ msg.innerHTML = ok ? '<div class="pf-sm-ok">Link copied. Paste it in a text or email to your client.</div>' : '<div class="pf-sm-note">Press and hold the link above to copy it.</div>'; }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function(){ done(true); }, function(){ done(false); }); else done(false);
+    };
+    var share = root.querySelector('#pf-cl-share');
+    if (share) share.onclick = function(){
+      var mm = mode();
+      navigator.share({ title: ((mm.profile || {}).name || 'Pet sitter') + ' intake form', text: 'Please fill in this form for your pets before your first visit.', url: intakeLink(mm) }).catch(function(){});
+    };
+    var ep = root.querySelector('#pf-cl-editprof'); if (ep) ep.onclick = function(){ ui.editProfile = true; renderClients(); };
+    root.querySelector('#pf-cl-check').onclick = function(){ checkInbox(true); };
+    var se = root.querySelector('#pf-cl-search');
+    if (se) se.oninput = function(){ ui.query = se.value; var pos = se.selectionStart; renderClients(); var n = document.getElementById('pf-cl-search'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch(e){} } };
+    root.querySelectorAll('[data-cid]').forEach(function(b){ b.onclick = function(){ ui.view = 'detail'; ui.id = b.getAttribute('data-cid'); ui.version = -1; renderClients(); window.scrollTo(0, 0); }; });
+    loadPhotos(root);
+  }
+  function renderDetail(root, rec){
+    if (rec.unseen) { var l = clients(), r2 = l.find(function(c){ return c.id === rec.id; }); if (r2) { r2.unseen = false; saveClients(l); } applyNav(); }
+    var hist = rec.history || [], viewing = ui.version >= 0 && hist[ui.version] ? hist[ui.version] : null;
+    var p = viewing ? viewing.payload : rec.payload, cl = (p && p.client) || {};
+    var src = function(s){ return s === 'pawfolio' ? 'from Pawfolio' : 'from the web form'; };
+    var head = '<div class="card p-5 mb-4"><button type="button" class="pf-sm-link" id="pf-cd-back">All clients</button>' +
+      '<div class="pf-sm-row" style="margin-top:6px;"><h3 class="pf-sm-h3 pf-sm-grow" style="font-size:1.25rem;">' + esc(cl.name || 'Client') + '</h3>' +
+      (rec.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(rec.updatedAt)) + '</span>' : '') + '</div>' +
+      '<p class="pf-sm-small">' + (rec.versions > 1 ? 'First sent ' + esc(fmtDay(rec.firstAt)) + '. Latest ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.' : 'Sent ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.') + '</p>' +
+      (viewing ? '<div class="pf-sm-note">You are looking at the version from ' + esc(fmtDayTime(viewing.at)) + '. Photos are only kept for the latest version. <button type="button" class="pf-sm-link" id="pf-cd-latest">Back to the latest</button></div>' : '') +
+      '</div>';
+    var versions = hist.length ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">Previous versions</h3>' +
+      '<p class="pf-sm-small">Up to ' + HISTORY_MAX + ' earlier forms from this client.</p>' +
+      hist.map(function(h, i){ return '<div><button type="button" class="pf-sm-link" data-ver="' + i + '">' + esc(fmtDayTime(h.at)) + ' ' + src(h.source) + (ui.version === i ? ' (showing)' : '') + '</button></div>'; }).join('') + '</div>' : '';
+    root.innerHTML = head + payloadHTML(p, { sitter: true }) + versions +
+      '<div class="pf-sm-section"><button type="button" class="pf-sm-btn block" id="pf-cd-print">Print</button>' +
+      '<button type="button" class="pf-sm-danger" id="pf-cd-del" style="display:block;width:100%;margin-top:8px;">Delete client</button></div>';
+    root.querySelector('#pf-cd-back').onclick = function(){ ui.view = 'list'; ui.version = -1; renderClients(); };
+    var lt = root.querySelector('#pf-cd-latest'); if (lt) lt.onclick = function(){ ui.version = -1; renderClients(); };
+    root.querySelectorAll('[data-ver]').forEach(function(b){ b.onclick = function(){ ui.version = +b.getAttribute('data-ver'); renderClients(); window.scrollTo(0, 0); }; });
+    root.querySelectorAll('[data-reveal]').forEach(function(b){ b.onclick = function(){ var s = document.createElement('span'); s.textContent = b.getAttribute('data-reveal'); s.style.fontWeight = '700'; b.parentNode.replaceChild(s, b); }; });
+    root.querySelector('#pf-cd-print').onclick = function(){ printClient(p, root); };
+    root.querySelector('#pf-cd-del').onclick = function(){
+      confirmBox({ title: 'Delete ' + (cl.name || 'this client') + '?', message: 'Their forms and pet photos will be removed from this phone. If they send the form again, they will show up as a new client.', confirmText: 'Delete client', danger: true }, function(){
+        saveClients(clients().filter(function(c){ return c.id !== rec.id; }));
+        var V = vault(); (rec.payload && rec.payload.pets || []).forEach(function(x, i){ if (V) V.del('sitterpet-' + rec.id + '-' + i).catch(function(){}); });
+        forgetPhotos('sitterpet-' + rec.id + '-');
+        ui.view = 'list'; renderClients(); applyNav(); toast('Client deleted.');
+      });
+    };
+    loadPhotos(root);
+  }
+  function printClient(p, root){
+    var c = p.client || {}, e = p.emergency || {}, v = p.vet || {}, ev = p.emergencyVet || {}, h = p.home || {}, a = p.authorization || {};
+    function f(label, val){ return trim(val) ? '<div class="field"><div class="label">' + esc(label) + '</div><div class="value">' + esc(val) + '</div></div>' : ''; }
+    function grid(t, inner){ return inner ? '<h2>' + esc(t) + '</h2><div class="grid">' + inner + '</div>' : ''; }
+    var photoSrc = {}; (root || document).querySelectorAll('img[data-photo-key]').forEach(function(img){ if (img.src) photoSrc[img.getAttribute('data-photo-key')] = img.src; });
+    var html = '<div class="sitter-print-header"><div class="sitter-print-brand"><img src="./icon-192.png" alt="Pawfolio" class="sitter-print-brand-icon"><span class="sitter-print-brand-name">Pawfolio</span><span class="sitter-print-brand-sep">·</span><span class="sitter-print-brand-maker">CleartrackApps</span></div>' +
+      '<div class="sitter-print-subtitle">Client: ' + esc(c.name || '') + '</div></div>' +
+      grid('Contact', f('Name', c.name) + f('Phone', fmtPhone(c.phone)) + f('Email', c.email) + f('Address', c.address) + f('Second phone', fmtPhone(c.phone2))) +
+      grid('Emergency contact', f('Name', [e.name, e.rel ? '(' + e.rel + ')' : ''].filter(Boolean).join(' ')) + f('Phone', fmtPhone(e.phone)) + f('Has a key', e.hasKey)) +
+      grid('Vet', f('Clinic', v.name) + f('Phone', fmtPhone(v.phone)) + f('Address', v.address)) +
+      grid('Emergency vet', f('Clinic', ev.name) + f('Phone', fmtPhone(ev.phone)) + f('Address', ev.address)) +
+      grid('Home access', f('Door or key', h.entry) + f('Alarm', h.alarm) + f('Wi-Fi', h.wifi) + f('Parking', h.parking) + f('Supplies', h.supplies) + f('Off limits', h.offLimits) + f('Other tasks', h.extra) + f('Notes', h.notes)) +
+      (trim(a.amount) || trim(a.signature) ? '<h2>Emergency care authorization</h2><p>' + esc(a.text || AUTH_TEXT) + '</p><div class="grid">' + f('Up to', a.amount) + f('Signed', a.signature) + f('Date', fmtDay(a.date)) + '</div>' : '') +
+      (p.pets || []).map(function(pet){
+        var img = pet.photoKey ? photoSrc[pet.photoKey] : safeImg(pet.photo);
+        var meds = (pet.meds || []).map(function(m){ return '<p><strong>' + esc(m.name) + '</strong>' + (m.dose ? ' · ' + esc(m.dose) : '') + (m.time ? ' · ' + esc(m.time) : '') + (m.how ? '<br>' + esc(m.how) : '') + '</p>'; }).join('');
+        return '<h2>' + esc(pet.name || 'Pet') + '</h2><div class="pet-section">' + (img ? '<img src="' + esc(img) + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;float:right;margin:0 0 12px 12px;border:3px solid #5B5BD6;" alt="">' : '') +
+          '<div class="grid">' + f('Kind', pet.kind) + f('Age', pet.age) + f('Weight', pet.weight) + f('Sex', pet.sex) + f('Microchip', pet.chip) + f('Markings', pet.desc) +
+          f('Feeding', pet.food) + f('Treats', pet.treats) + f('Health', pet.health) + f('Walks', pet.walk) + f('Behavior', pet.behave) + f('Notes', pet.notes) + f('Rabies', pet.rabies) + f('Insurance', pet.insurance) + '</div>' +
+          (meds ? '<div class="label" style="margin-top:8px;">Medications</div>' + meds : '') + '</div>';
+      }).join('');
+    if (typeof window.pawfolioOpenPrintSheet === 'function') window.pawfolioOpenPrintSheet(html, 'Client: ' + (c.name || ''));
+    else window.print();
+  }
+
+  // ---------- wiring ----------
+  function init(){
+    renderSendCard();
+    applyNav();
+    var tg = document.getElementById('pf-sitter-mode-toggle');
+    if (tg) tg.onchange = function(){
+      var m = mode(); m.on = tg.checked;
+      if (!saveMode(m)) { tg.checked = !tg.checked; return; }
+      applyNav();
+      if (m.on) { if (typeof window.goToTab === 'function') window.goToTab('sitter-clients'); }
+      else {
+        if (isClientsTab() && typeof window.goToTab === 'function') window.goToTab('pet-sitter');
+        toast('Sitter mode is off. Your clients and inbox keys stay saved on this phone.');
+      }
+    };
+    var orig = window.goToTab;
+    if (typeof orig === 'function' && !orig.__pfSitter) {
+      var wrapped = function(name){
+        var r = orig.apply(this, arguments);
+        if (name === 'sitter-clients') { renderClients(); checkInbox(false); }
+        if (name === 'pet-sitter') renderSendCard();
+        return r;
+      };
+      wrapped.__pfSitter = true; window.goToTab = wrapped;
+    }
+    if (isClientsTab()) { renderClients(); checkInbox(false); }
+    var m = mode();
+    if (m.on && m.keys) setTimeout(function(){ checkInbox(false); }, 1500);
+  }
+  // Test/debug hooks (no secrets): lets QA read the computed payload.
+  window.pawfolioSitterMode = { buildPayload: buildPayload, renderClients: renderClients, renderSendCard: renderSendCard, checkInbox: checkInbox, QR: QR };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+<!-- PF-SITTER-MODE:END -->
