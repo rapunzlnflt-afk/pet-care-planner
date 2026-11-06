@@ -60,3 +60,45 @@ in-memory mock used by the app builds, so the two stay in step.
   can slightly overshoot it. A DB trigger would make it strict.
 - Inboxes that are never used again are kept forever. A cron job could remove
   inboxes not seen in a long time.
+
+## Live dose link (v3.41.0)
+
+No server change. A form sent from Pawfolio can carry an optional `doseShare: { url, pets }`
+inside the encrypted payload, so the server never sees it.
+
+- Client side (Send to a sitter): included only when the client has Pawfolio Complete, Dose
+  reminders are on, this phone holds the live dose link (`pawfolioDoseShare` = `{ groupId, token }`,
+  made by "Share doses with a sitter"), the group is still active (`pawfolio_dose_groups` with
+  `revoked_at is null`, read-only check) and at least one selected pet has a shared medication.
+  `pets` lists those selected pets. Review shows "Live dose sharing: Bella" with a box (default on;
+  unticking is remembered per sitter as `doseShareOff` and also applies to Send update). Complete
+  with no link for these pets: a "Set up dose sharing" link to the existing card. Pawfolio Free: nothing.
+  Nothing ever creates, renews or revokes a dose link from here.
+- Dose links are one per owner account (one active `pawfolio_dose_groups` row). The link covers every
+  medication switched on in "Share doses with a sitter", for any pet, and any number of sitter
+  phones can join it. The token exists only on the phone that made the link (the server keeps a hash),
+  so a link made on another phone cannot be sent from this one. If the selected pets are a subset,
+  review says the same link also shows doses for the other pets.
+- Sitter side: a `doseShare` is kept only for `source: "pawfolio"` and only if the URL is a
+  `/doses.html#t=<token>` link on https://cleartrackapps.com or the sitter app's own origin.
+  The latest version of the card then shows "Today's doses" (opens the link in a new tab) and
+  "Shares live doses: Bella"; the Clients list shows a "Doses" badge. A later form without the field
+  (revoked, unticked, downgraded to Pawfolio Free) hides both. Older app versions ignore the field.
+
+## Addresses and directions (v3.41.0)
+
+No server change.
+
+- Pet Sitter Info has a "Home address" field (`sitter-owner-address`, after Email). It is saved in
+  `petSitterInfo` (so backups include it), printed on the sitter sheet only when filled in, and sent
+  in the shared sitter sheet as `owner.address`. sitter.html shows it as a Home Address map link;
+  older links without the field show nothing extra.
+- Send to a sitter prefills `client.address` from it. A saved Send-form extra still wins, unless
+  that extra is empty, in which case the Pet Sitter Info value is used.
+- Sitter mode Clients list shows the client's address on one muted line (ellipsis), and search also
+  matches the address. The client card's Contact buttons are Call, Text, Directions. With no address
+  it shows "No address yet. Ask the client to send an update." instead of Directions.
+- Maps rule (Directions, client/vet/emergency vet address links, sitter.html): iPhone, iPad, and
+  iPadOS reporting as a Mac with touch use Apple Maps (`maps.apple.com/?daddr=` for Directions,
+  `?q=` for address links); everything else uses Google Maps (`/maps/dir/?api=1&destination=`,
+  `/maps/search/?api=1&query=`).

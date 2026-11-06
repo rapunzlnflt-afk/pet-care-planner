@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.40.1">
+                          <meta name="app-version" content="3.41.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1773,7 +1773,9 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
        <div><label class="block font-body text-xs text-secondary mb-1">Owner Name</label><input type="text" id="sitter-owner-name" placeholder="Your name"></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Phone</label><input type="text" id="sitter-owner-phone" placeholder="Your phone number"></div>
-       <div><label class="block font-body text-xs text-secondary mb-1">Email</label><input type="text" id="sitter-owner-email" placeholder="Your email"></div>
+       <div style="grid-column:1 / -1;"><label class="block font-body text-xs text-secondary mb-1">Email</label><input type="text" id="sitter-owner-email" placeholder="Your email"></div>
+       <!-- v3.41.0: owner's home address (sitter sheet, shared link, Send to a sitter prefill) -->
+       <div style="grid-column:1 / -1;"><label class="block font-body text-xs text-secondary mb-1" for="sitter-owner-address">Home address</label><textarea id="sitter-owner-address" rows="3" placeholder="Street, city" autocomplete="street-address" style="resize:vertical;min-height:0;"></textarea></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Away Dates</label><input type="text" id="sitter-away-dates" placeholder="e.g., Apr 10–15"></div>
       </div>
      </div>
@@ -3826,6 +3828,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       'sitter-owner-name': (document.getElementById('sitter-owner-name')||{}).value||'',
       'sitter-owner-phone': (document.getElementById('sitter-owner-phone')||{}).value||'',
       'sitter-owner-email': (document.getElementById('sitter-owner-email')||{}).value||'',
+      'sitter-owner-address': (document.getElementById('sitter-owner-address')||{}).value||'',
       'sitter-away-dates': (document.getElementById('sitter-away-dates')||{}).value||'',
       'sitter-emerg-name': (document.getElementById('sitter-emerg-name')||{}).value||'',
       'sitter-emerg-phone': (document.getElementById('sitter-emerg-phone')||{}).value||'',
@@ -3930,7 +3933,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   function restoreSitterOwnerFields() {
     let data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     data = migrateSitterVet(data);
-    ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-away-dates',
+    ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-owner-address','sitter-away-dates',
      'sitter-emerg-name','sitter-emerg-phone',
      'sitter-vet-name','sitter-vet-person','sitter-vet-phone','sitter-vet-address',
      'sitter-evet-name','sitter-evet-person','sitter-evet-phone','sitter-evet-address',
@@ -4024,6 +4027,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       <div class="field"><div class="label">Owner</div><div class="value">${escHtml(data['sitter-owner-name']||'')}</div></div>
       <div class="field"><div class="label">Phone</div><div class="value">${escHtml(fmtP(data['sitter-owner-phone']||''))}</div></div>
       <div class="field"><div class="label">Email</div><div class="value">${escHtml(data['sitter-owner-email']||'')}</div></div>
+      ${(data['sitter-owner-address']||'').trim() ? `<div class="field" style="grid-column:span 2;"><div class="label">Home Address</div><div class="value" style="white-space:pre-line;">${escHtml(data['sitter-owner-address'].trim())}</div></div>` : ''}
       <div class="field"><div class="label">Away Dates</div><div class="value">${escHtml(data['sitter-away-dates']||'')}</div></div>
     </div>
     <h2>Emergency Contacts</h2>
@@ -4208,7 +4212,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     })));
     return {
       v: 1,
-      owner: { name: d['sitter-owner-name']||'', phone: fmtPhone(d['sitter-owner-phone']||''), email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
+      owner: { name: d['sitter-owner-name']||'', phone: fmtPhone(d['sitter-owner-phone']||''), email: d['sitter-owner-email']||'', address: (d['sitter-owner-address']||'').trim(), away: d['sitter-away-dates']||'' },
       emerg: { name: d['sitter-emerg-name']||'', phone: fmtPhone(d['sitter-emerg-phone']||'') },
       vet: { name: d['sitter-vet-name']||'', person: d['sitter-vet-person']||'', phone: fmtPhone(d['sitter-vet-phone']||''), address: d['sitter-vet-address']||'' },
       evet: { name: d['sitter-evet-name']||'', person: d['sitter-evet-person']||'', phone: fmtPhone(d['sitter-evet-phone']||''), address: d['sitter-evet-address']||'' },
@@ -14287,6 +14291,37 @@ try {
   }
   window.pfDoseShareRender = function(){ render(); if(open) load(); };
 
+  // v3.41.0: Send to a sitter asks whether this phone has a live dose link to
+  // include. Read-only: it never creates, renews or revokes a link. The link
+  // (with its secret) only exists on the phone that made it, so a link made on
+  // another phone, or one that was stopped, gives url ''.
+  //   -> { paid, active, url, error, meds: [{ petId, petName, name }] }
+  window.pfDoseShareStatus = function(){
+    var i = I();
+    if(!i || !i.paid()) return Promise.resolve({ paid: false, active: false, url: '', meds: [] });
+    var meds = i.meds().filter(function(m){ return m.doseShared && i.timesOf(m).length; })
+      .map(function(m){ return { petId: m.petId, petName: m.petName || '', name: m.name || '' }; });
+    var out = { paid: true, active: !!i.active(), url: '', error: false, meds: meds };
+    var local = readLocal();
+    if(!out.active || !meds.length || !local || !local.token) return Promise.resolve(out);
+    return sb().then(function(c){
+      if(!c) { out.error = true; return out; }
+      return c.from('pawfolio_dose_groups').select('id').is('revoked_at', null).then(function(g){
+        if(g.error) { out.error = true; return out; }
+        var row = (g.data && g.data[0]) || null;
+        if(row && row.id === local.groupId) out.url = linkFor(local.token);
+        else writeLocal(null);   // stopped (here or on another phone): same as load()
+        return out;
+      });
+    }).catch(function(){ out.error = true; return out; });
+  };
+  // v3.41.0: "Set up dose sharing" from Send to a sitter opens this card.
+  window.pfDoseShareOpen = function(){
+    open = true; render(); load();
+    var h = document.getElementById('pf-dose-share');
+    if(h && h.scrollIntoView) { try { h.scrollIntoView({ block: 'center' }); } catch(e){ h.scrollIntoView(); } }
+  };
+
   function boot(){
     if(!document.getElementById('pf-typectl-dose') || !I()) return setTimeout(boot, 150);
     render();
@@ -14646,7 +14681,7 @@ try {
   else setTimeout(watch, 600);
 })();
 </script>
-<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode) -->
+<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link) -->
 <style id="pf-sitter-mode-css">
 /* === Pawfolio v3.40.0: Send to a sitter + Sitter mode (Clients) === */
 .pf-sm-muted { color: var(--text-secondary); }
@@ -14671,6 +14706,8 @@ try {
 .pf-sm-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(91,91,214,.08); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 13.5px; line-height: 1.45; }
 .pf-sm-badge { display: inline-block; font-family: 'Karla', sans-serif; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: rgba(91,91,214,.12); color: #4C4CC8; white-space: nowrap; }
 .pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+.pf-sm-badge.dose { background: #e6f6ee; color: #1f6f4a; }
+.pf-sm-dosebtn { margin-top: 12px; font-size: 16px; padding: 13px 16px; text-decoration: none; }
 .pf-sm-divider { border: none; border-top: 1px solid var(--border-color); margin: 14px 0; }
 /* My sitters list (client side) */
 .pf-sm-sitter { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-top: 10px; }
@@ -14705,6 +14742,7 @@ try {
 .pf-sm-client .pf-sm-faces { display: flex; flex: 0 0 auto; }
 .pf-sm-client .pf-sm-faces > * { margin-left: -10px; border: 2px solid #fff; }
 .pf-sm-client .pf-sm-faces > *:first-child { margin-left: 0; }
+.pf-sm-addr { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .pf-sm-cname { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15.5px; }
 .pf-sm-callrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .pf-sm-mask { background: rgba(91,91,214,.08); border: 1px dashed rgba(91,91,214,.4); color: var(--accent-color); border-radius: 8px; padding: 4px 10px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -14726,6 +14764,7 @@ try {
 [data-theme="dark"] .pf-sm-mask { color: #a5a3ff; }
 [data-theme="dark"] .pf-sm-badge { background: rgba(139,124,248,.2); color: #c7c5ff; }
 [data-theme="dark"] .pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+[data-theme="dark"] .pf-sm-badge.dose { background: rgba(72,187,120,.18); color: #9ae6b4; }
 [data-theme="dark"] .pf-sm-err { background: rgba(197,48,48,.16); color: #feb2b2; }
 [data-theme="dark"] .pf-sm-ok { background: rgba(72,187,120,.14); color: #9ae6b4; }
 [data-theme="dark"] .pf-sm-danger { color: #fc8181; }
@@ -15024,7 +15063,7 @@ try {
     var vetName = trim(si['sitter-vet-name']) || (pv ? trim(pv.vet) : '');
     var sv = savedVetByName(vetName);
     return {
-      client: { name: trim(si['sitter-owner-name']), phone: trim(si['sitter-owner-phone']), email: trim(si['sitter-owner-email']), address: '', phone2: '' },
+      client: { name: trim(si['sitter-owner-name']), phone: trim(si['sitter-owner-phone']), email: trim(si['sitter-owner-email']), address: trim(si['sitter-owner-address']), phone2: '' },
       emergency: { name: trim(si['sitter-emerg-name']), rel: '', phone: trim(si['sitter-emerg-phone']), hasKey: '' },
       vet: { name: vetName, phone: trim(si['sitter-vet-phone']) || (sv ? trim(sv.phone) : ''), address: trim(si['sitter-vet-address']) || vetAddress(sv) },
       emergencyVet: { name: trim(si['sitter-evet-name']), phone: trim(si['sitter-evet-phone']), address: trim(si['sitter-evet-address']) || vetAddress(savedVetByName(si['sitter-evet-name'])) },
@@ -15035,12 +15074,55 @@ try {
   function topValues(){
     var d = derivedTop(), x = extras();
     Object.keys(TOP).forEach(function(sec){ var o = x[sec] || {};
-      TOP[sec].forEach(function(k){ if (Object.prototype.hasOwnProperty.call(o, k)) d[sec][k] = str(o[k]); }); });
+      TOP[sec].forEach(function(k){
+        if (!Object.prototype.hasOwnProperty.call(o, k)) return;
+        // v3.41.0: an empty saved home address falls back to Pet Sitter Info's Home address.
+        if (sec === 'client' && k === 'address' && !trim(o[k])) return;
+        d[sec][k] = str(o[k]); }); });
     return d;
   }
 
+  // ---- Live dose sharing (v3.41.0). The dose link is Pawfolio Complete; sending it is
+  // just a pointer to the link the client already made. Never creates a link. ----
+  // -> { state: 'none' (Pawfolio Free / nothing to say) | 'setup' | 'unknown' | 'share', url, pets, others }
+  function doseShareFor(petIds){
+    var f = window.pfDoseShareStatus;
+    if (typeof f !== 'function') return Promise.resolve({ state: 'none' });
+    return Promise.resolve().then(f).then(function(st){
+      if (!st || !st.paid) return { state: 'none' };
+      var ids = (petIds || []).map(String), byPet = {}, others = [];
+      (st.meds || []).forEach(function(m){
+        var p = petById(m.petId), name = trim(p ? p.name : m.petName); if (!name) return;
+        if (ids.indexOf(String(m.petId)) >= 0) byPet[String(m.petId)] = name; else if (others.indexOf(name) < 0) others.push(name);
+      });
+      var pets = [];
+      ids.forEach(function(id){ if (byPet[id] && pets.indexOf(byPet[id]) < 0) pets.push(byPet[id]); });
+      others = others.filter(function(n){ return pets.indexOf(n) < 0; });
+      if (pets.length && st.error) return { state: 'unknown' };
+      if (!pets.length || !st.url) return { state: 'setup' };
+      return { state: 'share', url: st.url, pets: pets, others: others };
+    }).catch(function(){ return { state: 'none' }; });
+  }
+  function nameList(a){ return a.length < 3 ? a.join(' and ') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  function openDoseSetup(){
+    closeSheet();
+    if (typeof window.goToTab === 'function') window.goToTab('medications');
+    var tries = 0;
+    (function go(){ if (typeof window.pfDoseShareOpen === 'function' && document.getElementById('pf-dose-share')) window.pfDoseShareOpen(); else if (++tries < 20) setTimeout(go, 150); })();
+  }
+
   // Build the payload (schema v1 in SPEC.md). Photos are shrunk to 720px / 0.78.
-  function buildPayload(sitter, petIds, authDate){
+  // v3.41.0: adds doseShare when the client has Pawfolio Complete and a live dose link
+  // covering these pets, unless they unticked it for this sitter (sitter.doseShareOff).
+  function buildPayload(sitter, petIds, authDate){ return buildSend(sitter, petIds, authDate).then(function(r){ return r.payload; }); }
+  function buildSend(sitter, petIds, authDate){
+    return Promise.all([buildBase(sitter, petIds, authDate), doseShareFor(petIds)]).then(function(r){
+      var payload = r[0], dose = r[1];
+      if (dose.state === 'share' && !sitter.doseShareOff) payload.doseShare = { url: dose.url, pets: dose.pets.slice() };
+      return { payload: payload, dose: dose };
+    });
+  }
+  function buildBase(sitter, petIds, authDate){
     var top = topValues();
     var pets = petIds.map(petById).filter(Boolean);
     return Promise.all(pets.map(function(p){
@@ -15198,7 +15280,7 @@ try {
       '<div class="pf-sm-note">Sending to <strong>' + esc(name) + '</strong>. Check each section, then review before you send.</div>' +
       sec('pets', 'Pets to include', '', petsPick) +
       (pets.length ? sec('petinfo', 'Pet details', 'Tap a pet to check or add details for your sitter.', petBlocks) : '') +
-      sec('client', 'Your contact info', '', t('client','name','Your name') + t('client','phone','Phone', { type: 'tel', mode: 'tel' }) + t('client','email','Email', { type: 'email', mode: 'email' }) + t('client','address','Home address', { type: 'area' }) + t('client','phone2','Second phone', { type: 'tel', mode: 'tel' })) +
+      sec('client', 'Your contact info', '', t('client','name','Your name') + t('client','phone','Phone', { type: 'tel', mode: 'tel' }) + t('client','email','Email', { type: 'email', mode: 'email' }) + t('client','address','Home address', { type: 'area', rows: 3 }) + t('client','phone2','Second phone', { type: 'tel', mode: 'tel' })) +
       sec('emergency', 'Emergency contact', 'Someone nearby who can help if your sitter can\'t reach you.', t('emergency','name','Name') + t('emergency','rel','Relationship') + t('emergency','phone','Phone', { type: 'tel', mode: 'tel' }) +
         t('emergency','hasKey','Do they have a key?', { type: 'select', options: [['', 'Choose'], ['Yes', 'Yes'], ['No', 'No']] })) +
       sec('vet', 'Vet', '', t('vet','name','Clinic') + t('vet','phone','Phone', { type: 'tel', mode: 'tel' }) + t('vet','address','Address', { type: 'area' })) +
@@ -15263,11 +15345,21 @@ try {
   function showReview(sitter, authDate){
     var name = sitter.label || 'your sitter';
     var s = setSheet('Review', '<p class="pf-sm-p">Getting your pets\' details ready…</p>', '', function(){ showDetails(sitter, authDate); });
-    buildPayload(sitter, sitter.petIds || [], authDate).then(function(payload){
+    buildSend(sitter, sitter.petIds || [], authDate).then(function(built){
       if (!sheet || sheet !== s) return;
-      var body = '<div class="pf-sm-note">This is what <strong>' + esc(name) + '</strong> will get.</div>' + payloadHTML(payload, { review: true }) +
+      var payload = built.payload, dose = built.dose;
+      var body = '<div class="pf-sm-note">This is what <strong>' + esc(name) + '</strong> will get.</div>' + doseReviewHTML(dose, sitter) + payloadHTML(payload, { review: true }) +
         '<p class="pf-sm-small" style="margin-top:14px;">' + esc(PRIVACY) + '</p><div id="pf-send-msg" aria-live="polite"></div>';
       s.querySelector('.pf-sm-sheet-body').innerHTML = body;
+      var doseCb = s.querySelector('#pf-send-dose-on');
+      if (doseCb) doseCb.onchange = function(){
+        if (doseCb.checked) payload.doseShare = { url: dose.url, pets: dose.pets.slice() }; else delete payload.doseShare;
+        var list = mySitters(), me = list.find(function(x){ return x.id === sitter.id; });
+        if (me) { if (doseCb.checked) delete me.doseShareOff; else me.doseShareOff = true; saveSitters(list); }
+        if (doseCb.checked) delete sitter.doseShareOff; else sitter.doseShareOff = true;
+      };
+      var doseSetup = s.querySelector('#pf-send-dose-setup');
+      if (doseSetup) doseSetup.onclick = openDoseSetup;
       var foot = document.createElement('div'); foot.className = 'pf-sm-sheet-foot';
       foot.innerHTML = '<button type="button" class="pf-sm-btn block" id="pf-send-go">Send to ' + esc(name) + '</button>';
       s.querySelector('.pf-sm-sheet').appendChild(foot);
@@ -15285,6 +15377,17 @@ try {
     }).catch(function(e){
       s.querySelector('.pf-sm-sheet-body').innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'send')) + '</div>';
     });
+  }
+  // The live dose sharing line on the review screen (nothing at all for Pawfolio Free).
+  function doseReviewHTML(dose, sitter){
+    if (!dose || dose.state === 'none') return '';
+    if (dose.state === 'unknown') return '<div class="pf-sm-section" id="pf-send-dose"><p class="pf-sm-small" style="margin:0;">Live dose sharing could not be checked, so it is not included this time. Check your connection and try again.</p></div>';
+    if (dose.state === 'setup') return '<div class="pf-sm-section" id="pf-send-dose"><p class="pf-sm-small" style="margin:0;">Live dose sharing is not set up for these pets. It is part of Pawfolio Complete.</p>' +
+      '<button type="button" class="pf-sm-link" id="pf-send-dose-setup">Set up dose sharing</button></div>';
+    return '<div class="pf-sm-section" id="pf-send-dose"><label class="pf-sm-check" style="padding:0;align-items:flex-start;">' +
+      '<input type="checkbox" id="pf-send-dose-on"' + (sitter.doseShareOff ? '' : ' checked') + ' style="margin-top:2px;">' +
+      '<span><strong>Live dose sharing: ' + esc(nameList(dose.pets)) + '</strong><br><span class="pf-sm-small">Your sitter gets a \u201cToday\u2019s doses\u201d button that opens your live dose link. Part of Pawfolio Complete. Sitters don\'t pay anything.</span></span></label>' +
+      (dose.others && dose.others.length ? '<p class="pf-sm-small" style="margin:8px 0 0;">The same link also shows doses for ' + esc(nameList(dose.others)) + '.</p>' : '') + '</div>';
   }
   function doSend(sitter, payload){
     return PI().submit({ inboxId: sitter.inboxId, publicKey: sitter.publicKey }, payload).then(function(){
@@ -15313,6 +15416,30 @@ try {
      opts.review: the client checking their own form (nothing masked, no buttons)
      opts.sitter: tap-to-call/text and masked codes; photos come from IndexedDB
      ===================================================================== */
+  // v3.41.0: maps links. Apple Maps on iPhone/iPad (iPadOS can report as a Mac with touch),
+  // Google Maps everywhere else. Search-style for addresses, directions for the client's home.
+  function appleMaps(){
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua)) return true;
+    return (/Macintosh/.test(ua) || navigator.platform === 'MacIntel') && (navigator.maxTouchPoints || 0) > 1;
+  }
+  function oneLine(addr){ return trim(addr).replace(/\s*\n\s*/g, ', '); }
+  function mapsSearchHref(addr){
+    var q = encodeURIComponent(oneLine(addr));
+    return appleMaps() ? 'https://maps.apple.com/?q=' + q : 'https://www.google.com/maps/search/?api=1&query=' + q;
+  }
+  function directionsHref(addr){
+    var q = encodeURIComponent(oneLine(addr));
+    return appleMaps() ? 'https://maps.apple.com/?daddr=' + q : 'https://www.google.com/maps/dir/?api=1&destination=' + q;
+  }
+  // The client's Call / Text / Directions row (sitter view). No address: a muted note instead.
+  function clientActions(c){
+    var d = telDigits(c.phone), addr = trim(c.address);
+    var btns = (d ? '<a class="pf-sm-btn2" href="tel:' + esc(d) + '">Call</a><a class="pf-sm-btn2" href="sms:' + esc(d) + '">Text</a>' : '') +
+      (addr ? '<a class="pf-sm-btn2" id="pf-cd-directions" href="' + esc(directionsHref(addr)) + '" target="_blank" rel="noopener">Directions</a>' : '');
+    return (btns ? '<div class="pf-sm-callrow">' + btns + '</div>' : '') +
+      (addr ? '' : '<p class="pf-sm-small" id="pf-cd-noaddr" style="margin-top:8px;">No address yet. Ask the client to send an update.</p>');
+  }
   function callBtns(phone, text){
     var d = telDigits(phone); if (!d) return '';
     return '<div class="pf-sm-callrow"><a class="pf-sm-btn2" href="tel:' + esc(d) + '">Call</a>' + (text ? '<a class="pf-sm-btn2" href="sms:' + esc(d) + '">Text</a>' : '') + '</div>';
@@ -15331,11 +15458,11 @@ try {
     var S = !!opts.sitter;
     var c = p.client || {}, e = p.emergency || {}, v = p.vet || {}, ev = p.emergencyVet || {}, h = p.home || {}, a = p.authorization || {};
     function section(title, inner){ return inner ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">' + esc(title) + '</h3>' + inner + '</div>' : ''; }
-    function contactBlock(rows, phone, text){ var k = kv(rows); return k ? k + (S ? callBtns(phone, text) : '') : ''; }
-    var mapLink = function(addr){ return S && trim(addr) ? '<a class="pf-sm-link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(addr)) + '">' + esc(addr) + '</a>' : esc(addr); };
+    function contactBlock(rows, phone, text){ var k = kv(rows); return k ? k + (S && phone !== undefined ? callBtns(phone, text) : '') : ''; }
+    var mapLink = function(addr){ return S && trim(addr) ? '<a class="pf-sm-link" data-map target="_blank" rel="noopener" href="' + esc(mapsSearchHref(addr)) + '">' + esc(addr) + '</a>' : esc(addr); };
     var out = '';
     out += section(S ? 'Contact' : 'Your contact info',
-      contactBlock([['Name', c.name], ['Phone', fmtPhone(c.phone)], ['Email', c.email && S ? '<a class="pf-sm-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : c.email, S && c.email], ['Address', mapLink(c.address), true]], c.phone, true) +
+      contactBlock([['Name', c.name], ['Phone', fmtPhone(c.phone)], ['Email', c.email && S ? '<a class="pf-sm-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : c.email, S && c.email], ['Address', mapLink(c.address), true]]) + (S ? clientActions(c) : '') +
       (trim(c.phone2) ? kv([['Second phone', fmtPhone(c.phone2)]]) + (S ? callBtns(c.phone2, true) : '') : ''));
     out += section('Emergency contact', contactBlock([['Name', [trim(e.name), trim(e.rel) ? '(' + trim(e.rel) + ')' : ''].filter(Boolean).join(' ')], ['Phone', fmtPhone(e.phone)], ['Has a key', e.hasKey]], e.phone, true));
     out += section('Vet', contactBlock([['Clinic', v.name], ['Phone', fmtPhone(v.phone)], ['Address', mapLink(v.address), true]], v.phone, false));
@@ -15400,10 +15527,23 @@ try {
     (p.pets || []).forEach(function(x){ x.photo = ''; delete x.photoKey; });
     return p;
   }
+  // v3.41.0: optional doseShare from a Pawfolio Complete client. Only a doses.html link
+  // with a #t= token, on Pawfolio's own site (or the site this app runs on), is kept.
+  var DOSE_ORIGINS = ['https://cleartrackapps.com'];
+  function cleanDoseShare(d){
+    if (!d || typeof d !== 'object') return null;
+    var u; try { u = new URL(trim(d.url)); } catch(e){ return null; }
+    if (DOSE_ORIGINS.indexOf(u.origin) < 0 && u.origin !== location.origin) return null;
+    if (u.protocol !== 'https:' && u.origin !== location.origin) return null;
+    if (!/\/doses\.html$/.test(u.pathname)) return null;
+    var t = /^#t=([A-Za-z0-9_-]{20,200})$/.exec(u.hash || ''); if (!t) return null;
+    var pets = (Array.isArray(d.pets) ? d.pets : []).map(function(x){ return trim(x).slice(0, 80); }).filter(Boolean).slice(0, 20);
+    return { url: u.origin + u.pathname + '#t=' + t[1], pets: pets };
+  }
   function cleanPayload(p){
     // Keep only the known shape, as strings, so stored data is predictable.
     function o(src, keys){ var r = {}; src = src && typeof src === 'object' ? src : {}; keys.forEach(function(k){ r[k] = str(src[k]).slice(0, 4000); }); return r; }
-    return {
+    var ds = p && p.source === 'pawfolio' ? cleanDoseShare(p.doseShare) : null, out = {   // web-form payloads never carry one
       kind: 'pawfolio-intake', v: 1, sentAt: str(p.sentAt), source: p.source === 'pawfolio' ? 'pawfolio' : 'web', clientId: str(p.clientId).slice(0, 100),
       sitter: o(p.sitter, ['name','phone','email']), client: o(p.client, TOP.client), emergency: o(p.emergency, TOP.emergency),
       vet: o(p.vet, TOP.vet), emergencyVet: o(p.emergencyVet, TOP.emergencyVet), home: o(p.home, TOP.home),
@@ -15414,6 +15554,8 @@ try {
         return r;
       }).filter(function(x){ return trim(x.name) || x.photo; })
     };
+    if (ds) out.doseShare = ds;
+    return out;
   }
 
   // Save decrypted forms: photos to IndexedDB first, then the client list. Returns the
@@ -15572,7 +15714,7 @@ try {
     var q = ui.query.toLowerCase().trim();
     var shown = !q ? all : all.filter(function(c){
       var p = c.payload || {}, cl = p.client || {};
-      return [cl.name, cl.phone, cl.email, telDigits(cl.phone)].concat((p.pets || []).map(function(x){ return x.name; })).join(' ').toLowerCase().indexOf(q) >= 0;
+      return [cl.name, cl.phone, cl.email, telDigits(cl.phone), cl.address].concat((p.pets || []).map(function(x){ return x.name; })).join(' ').toLowerCase().indexOf(q) >= 0;
     });
     var rows = shown.map(function(c){
       var p = c.payload || {}, cl = p.client || {}, pets = p.pets || [];
@@ -15584,8 +15726,10 @@ try {
       return '<button type="button" class="pf-sm-client" data-cid="' + esc(c.id) + '"><span class="pf-sm-faces">' + faces + '</span>' +
         '<span class="pf-sm-grow"><span class="pf-sm-cname" style="display:block;">' + esc(cl.name || 'Client') + '</span>' +
         '<span class="pf-sm-small" style="display:block;">' + esc(pets.map(function(x){ return x.name; }).filter(Boolean).join(', ')) + '</span>' +
+        (trim(cl.address) ? '<span class="pf-sm-small pf-sm-addr" title="' + esc(trim(cl.address)) + '">' + esc(oneLine(cl.address)) + '</span>' : '') +
         (cl.phone ? '<span class="pf-sm-small" style="display:block;">' + esc(fmtPhone(cl.phone)) + '</span>' : '') +
-        (c.unseen || c.versions > 1 ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
+        (c.unseen || c.versions > 1 || p.doseShare ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
+        (p.doseShare ? '<span class="pf-sm-badge dose" title="Shares live doses">Doses</span>' : '') +
         (c.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(c.updatedAt)) + '</span>' : '') + '</span>' : '') + '</span>' +
         '<span class="pf-sm-small" aria-hidden="true" style="font-size:18px;">&rsaquo;</span></button>';
     }).join('');
@@ -15594,7 +15738,7 @@ try {
       '<div class="card p-5 mb-4"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">My clients' + (all.length ? ' (' + all.length + ')' : '') + '</h3></div>' +
       '<button type="button" class="pf-sm-btn block" id="pf-cl-check" style="margin-top:10px;">Check for new forms</button>' +
       (m.lastCheckAt ? '<p class="pf-sm-small" style="margin-top:6px;">Last checked ' + esc(fmtDayTime(m.lastCheckAt)) + '</p>' : '') +
-      (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, or phone" value="' + esc(ui.query) + '">' : '') +
+      (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, phone, or address" value="' + esc(ui.query) + '">' : '') +
       (all.length ? (rows || '<p class="pf-sm-p">No clients match that search.</p>') : '<p class="pf-sm-p">No clients yet. When a client sends your intake form, they show up here.</p>') + '</div>';
     paintStatus();
     var bar = root.querySelector('#pf-cl-linkbar');
@@ -15618,6 +15762,12 @@ try {
     root.querySelectorAll('[data-cid]').forEach(function(b){ b.onclick = function(){ ui.view = 'detail'; ui.id = b.getAttribute('data-cid'); ui.version = -1; renderClients(); window.scrollTo(0, 0); }; });
     loadPhotos(root);
   }
+  // v3.41.0: the client's live dose link (they have Pawfolio Complete; free for the sitter).
+  // Opens like the link would from a text: in a new tab, on the doses page.
+  function doseButtonHTML(ds){
+    return '<a class="pf-sm-btn block pf-sm-dosebtn" id="pf-cd-doses" href="' + esc(ds.url) + '" target="_blank" rel="noopener noreferrer">Today\'s doses</a>' +
+      (ds.pets && ds.pets.length ? '<p class="pf-sm-small" id="pf-cd-doses-pets" style="margin-top:6px;">Shares live doses: ' + esc(nameList(ds.pets)) + '</p>' : '');
+  }
   function renderDetail(root, rec){
     if (rec.unseen) { var l = clients(), r2 = l.find(function(c){ return c.id === rec.id; }); if (r2) { r2.unseen = false; saveClients(l); } applyNav(); }
     var hist = rec.history || [], viewing = ui.version >= 0 && hist[ui.version] ? hist[ui.version] : null;
@@ -15627,6 +15777,7 @@ try {
       '<div class="pf-sm-row" style="margin-top:6px;"><h3 class="pf-sm-h3 pf-sm-grow" style="font-size:1.25rem;">' + esc(cl.name || 'Client') + '</h3>' +
       (rec.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(rec.updatedAt)) + '</span>' : '') + '</div>' +
       '<p class="pf-sm-small">' + (rec.versions > 1 ? 'First sent ' + esc(fmtDay(rec.firstAt)) + '. Latest ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.' : 'Sent ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.') + '</p>' +
+      (!viewing && p && p.doseShare ? doseButtonHTML(p.doseShare) : '') +
       (viewing ? '<div class="pf-sm-note">You are looking at the version from ' + esc(fmtDayTime(viewing.at)) + '. Photos are only kept for the latest version. <button type="button" class="pf-sm-link" id="pf-cd-latest">Back to the latest</button></div>' : '') +
       '</div>';
     var versions = hist.length ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">Previous versions</h3>' +

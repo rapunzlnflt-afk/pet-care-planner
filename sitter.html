@@ -133,9 +133,18 @@
       var p=String(phone||''); var plus=p.trim().charAt(0)==='+'?'+':''; var digits=p.replace(/[^0-9]/g,'');
       return digits?('tel:'+plus+digits):'';
     }
+    // v3.41.0: Apple Maps on iPhone/iPad (iPadOS can report as a Mac with touch),
+    // Google Maps everywhere else. Same rule as Sitter mode in the app.
+    function appleMaps(){
+      var ua=navigator.userAgent||'';
+      if(/iPhone|iPad|iPod/.test(ua)) return true;
+      return (/Macintosh/.test(ua) || navigator.platform==='MacIntel') && (navigator.maxTouchPoints||0)>1;
+    }
     function mapsHref(addr){
-      var a=String(addr||'').trim();
-      return a?('https://maps.google.com/?q='+encodeURIComponent(a)):'';
+      var a=String(addr||'').trim().replace(/\s*\n\s*/g,', ');
+      if(!a) return '';
+      var q=encodeURIComponent(a);
+      return appleMaps()?('https://maps.apple.com/?q='+q):('https://www.google.com/maps/search/?api=1&query='+q);
     }
     // Pull "Name — phone" apart so we can make the phone tap-to-call.
     function splitNamePhone(str){
@@ -287,6 +296,8 @@
       ownerRows+=fieldText('Owner', o.name);
       if(o.phone) ownerRows+='<div class="field"><div class="label">Owner Phone</div><div><a class="value tap" data-tap="Call" href="'+telHref(o.phone)+'">'+esc(o.phone)+'</a></div></div>';
       ownerRows+=fieldText('Email', o.email);
+      // v3.41.0: home address (older links have none, so nothing shows).
+      if(typeof o.address==='string' && o.address.trim()) ownerRows+=fieldAddr('Home Address', o.address.trim());
       if(em.name||em.phone){
         if(em.phone) ownerRows+='<div class="field"><div class="label">Emergency Contact</div><div>'+(em.name?esc(em.name)+' &middot; ':'')+'<a class="value tap" data-tap="Call" href="'+telHref(em.phone)+'">'+esc(em.phone)+'</a></div></div>';
         else ownerRows+=fieldText('Emergency Contact', em.name);
