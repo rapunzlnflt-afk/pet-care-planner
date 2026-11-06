@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.40.0">
+                          <meta name="app-version" content="3.40.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -15130,25 +15130,25 @@ try {
 
   function startAdd(){
     var s = setSheet('Send to a sitter',
-      '<div class="pf-sm-section"><h3 class="pf-sm-h3">Find your sitter</h3>' +
+      '<div class="pf-sm-section"><h3 class="pf-sm-h3">Add your sitter</h3>' +
       '<p class="pf-sm-p">Paste the intake link your sitter sent you, or type their sitter code. It looks like ABCD-EFGH.</p>' +
       '<label class="pf-sm-label" for="pf-send-target">Sitter link or code</label>' +
       '<textarea id="pf-send-target" rows="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="https://cleartrackapps.com/pet-sitter-intake-form/… or ABCD-EFGH"></textarea>' +
       '<div id="pf-send-find-msg" aria-live="polite"></div></div>' +
       '<p class="pf-sm-small" style="margin-top:12px;">' + esc(PRIVACY) + '</p>',
-      '<button type="button" class="pf-sm-btn block" id="pf-send-find">Find sitter</button>');
+      '<button type="button" class="pf-sm-btn block" id="pf-send-find">Add sitter</button>');
     var ta = s.querySelector('#pf-send-target'), btn = s.querySelector('#pf-send-find'), msg = s.querySelector('#pf-send-find-msg');
     setTimeout(function(){ try { ta.focus(); } catch(e){} }, 50);
     btn.onclick = function(){
       if (!trim(ta.value)) { msg.innerHTML = '<div class="pf-sm-err">Paste your sitter\'s link or type their code first.</div>'; return; }
-      btn.disabled = true; btn.textContent = 'Finding your sitter…'; msg.innerHTML = '';
+      btn.disabled = true; btn.textContent = 'Checking…'; msg.innerHTML = '';
       resolveTarget(ta.value).then(function(t){
         var r = upsertSitter(t);
         if (!saveSitters(r.list)) throw new Error('storage');
         renderSendCard();
         showDetails(r.sitter);
       }).catch(function(e){
-        btn.disabled = false; btn.textContent = 'Find sitter';
+        btn.disabled = false; btn.textContent = 'Add sitter';
         if (e && e.message === 'storage') return;
         msg.innerHTML = '<div class="pf-sm-err">' + esc(e && e.code === 'bad_input' ? 'That doesn\'t look like a sitter link or code. Check it and try again.' : errText(e, 'lookup')) + '</div>';
       });
@@ -15558,7 +15558,7 @@ try {
         (navigator.share ? '<button type="button" class="pf-sm-btn2 pf-sm-grow" id="pf-cl-share">Share</button>' : '') + '</div>' +
         '<div id="pf-cl-copymsg" aria-live="polite"></div>' + QR.svg(link) +
         '<p class="pf-sm-small" style="text-align:center;margin-top:6px;">Clients can scan this with their phone camera.</p>' +
-        '<hr class="pf-sm-divider"><p class="pf-sm-small" style="text-align:center;">Sitter code, for clients who use Pawfolio</p>' +
+        '<hr class="pf-sm-divider"><p class="pf-sm-small" style="text-align:center;">Sitter code, for clients who already use Pawfolio</p>' +
         '<p class="pf-sm-code" id="pf-cl-code">' + esc(code) + '</p>' +
         '<p class="pf-sm-small" style="text-align:center;">They tap Send to a sitter in Pet Sitter Info and type this code.</p>' +
         '<hr class="pf-sm-divider"><p class="pf-sm-small">' + esc(PRIVACY_SITTER) + '</p>' +
