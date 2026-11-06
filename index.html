@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.40.1">
+                          <meta name="app-version" content="3.41.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -14287,6 +14287,37 @@ try {
   }
   window.pfDoseShareRender = function(){ render(); if(open) load(); };
 
+  // v3.41.0: Send to a sitter asks whether this phone has a live dose link to
+  // include. Read-only: it never creates, renews or revokes a link. The link
+  // (with its secret) only exists on the phone that made it, so a link made on
+  // another phone, or one that was stopped, gives url ''.
+  //   -> { paid, active, url, error, meds: [{ petId, petName, name }] }
+  window.pfDoseShareStatus = function(){
+    var i = I();
+    if(!i || !i.paid()) return Promise.resolve({ paid: false, active: false, url: '', meds: [] });
+    var meds = i.meds().filter(function(m){ return m.doseShared && i.timesOf(m).length; })
+      .map(function(m){ return { petId: m.petId, petName: m.petName || '', name: m.name || '' }; });
+    var out = { paid: true, active: !!i.active(), url: '', error: false, meds: meds };
+    var local = readLocal();
+    if(!out.active || !meds.length || !local || !local.token) return Promise.resolve(out);
+    return sb().then(function(c){
+      if(!c) { out.error = true; return out; }
+      return c.from('pawfolio_dose_groups').select('id').is('revoked_at', null).then(function(g){
+        if(g.error) { out.error = true; return out; }
+        var row = (g.data && g.data[0]) || null;
+        if(row && row.id === local.groupId) out.url = linkFor(local.token);
+        else writeLocal(null);   // stopped (here or on another phone): same as load()
+        return out;
+      });
+    }).catch(function(){ out.error = true; return out; });
+  };
+  // v3.41.0: "Set up dose sharing" from Send to a sitter opens this card.
+  window.pfDoseShareOpen = function(){
+    open = true; render(); load();
+    var h = document.getElementById('pf-dose-share');
+    if(h && h.scrollIntoView) { try { h.scrollIntoView({ block: 'center' }); } catch(e){ h.scrollIntoView(); } }
+  };
+
   function boot(){
     if(!document.getElementById('pf-typectl-dose') || !I()) return setTimeout(boot, 150);
     render();
@@ -14646,7 +14677,7 @@ try {
   else setTimeout(watch, 600);
 })();
 </script>
-<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode) -->
+<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link) -->
 <style id="pf-sitter-mode-css">
 /* === Pawfolio v3.40.0: Send to a sitter + Sitter mode (Clients) === */
 .pf-sm-muted { color: var(--text-secondary); }
@@ -14671,6 +14702,8 @@ try {
 .pf-sm-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(91,91,214,.08); color: var(--text-primary); font-family: 'Karla', sans-serif; font-size: 13.5px; line-height: 1.45; }
 .pf-sm-badge { display: inline-block; font-family: 'Karla', sans-serif; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: rgba(91,91,214,.12); color: #4C4CC8; white-space: nowrap; }
 .pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+.pf-sm-badge.dose { background: #e6f6ee; color: #1f6f4a; }
+.pf-sm-dosebtn { margin-top: 12px; font-size: 16px; padding: 13px 16px; text-decoration: none; }
 .pf-sm-divider { border: none; border-top: 1px solid var(--border-color); margin: 14px 0; }
 /* My sitters list (client side) */
 .pf-sm-sitter { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-top: 10px; }
@@ -14726,6 +14759,7 @@ try {
 [data-theme="dark"] .pf-sm-mask { color: #a5a3ff; }
 [data-theme="dark"] .pf-sm-badge { background: rgba(139,124,248,.2); color: #c7c5ff; }
 [data-theme="dark"] .pf-sm-badge.new { background: #5B5BD6; color: #fff; }
+[data-theme="dark"] .pf-sm-badge.dose { background: rgba(72,187,120,.18); color: #9ae6b4; }
 [data-theme="dark"] .pf-sm-err { background: rgba(197,48,48,.16); color: #feb2b2; }
 [data-theme="dark"] .pf-sm-ok { background: rgba(72,187,120,.14); color: #9ae6b4; }
 [data-theme="dark"] .pf-sm-danger { color: #fc8181; }
@@ -15039,8 +15073,47 @@ try {
     return d;
   }
 
+  // ---- Live dose sharing (v3.41.0). The dose link is Pawfolio Complete; sending it is
+  // just a pointer to the link the client already made. Never creates a link. ----
+  // -> { state: 'none' (Pawfolio Free / nothing to say) | 'setup' | 'unknown' | 'share', url, pets, others }
+  function doseShareFor(petIds){
+    var f = window.pfDoseShareStatus;
+    if (typeof f !== 'function') return Promise.resolve({ state: 'none' });
+    return Promise.resolve().then(f).then(function(st){
+      if (!st || !st.paid) return { state: 'none' };
+      var ids = (petIds || []).map(String), byPet = {}, others = [];
+      (st.meds || []).forEach(function(m){
+        var p = petById(m.petId), name = trim(p ? p.name : m.petName); if (!name) return;
+        if (ids.indexOf(String(m.petId)) >= 0) byPet[String(m.petId)] = name; else if (others.indexOf(name) < 0) others.push(name);
+      });
+      var pets = [];
+      ids.forEach(function(id){ if (byPet[id] && pets.indexOf(byPet[id]) < 0) pets.push(byPet[id]); });
+      others = others.filter(function(n){ return pets.indexOf(n) < 0; });
+      if (pets.length && st.error) return { state: 'unknown' };
+      if (!pets.length || !st.url) return { state: 'setup' };
+      return { state: 'share', url: st.url, pets: pets, others: others };
+    }).catch(function(){ return { state: 'none' }; });
+  }
+  function nameList(a){ return a.length < 3 ? a.join(' and ') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  function openDoseSetup(){
+    closeSheet();
+    if (typeof window.goToTab === 'function') window.goToTab('medications');
+    var tries = 0;
+    (function go(){ if (typeof window.pfDoseShareOpen === 'function' && document.getElementById('pf-dose-share')) window.pfDoseShareOpen(); else if (++tries < 20) setTimeout(go, 150); })();
+  }
+
   // Build the payload (schema v1 in SPEC.md). Photos are shrunk to 720px / 0.78.
-  function buildPayload(sitter, petIds, authDate){
+  // v3.41.0: adds doseShare when the client has Pawfolio Complete and a live dose link
+  // covering these pets, unless they unticked it for this sitter (sitter.doseShareOff).
+  function buildPayload(sitter, petIds, authDate){ return buildSend(sitter, petIds, authDate).then(function(r){ return r.payload; }); }
+  function buildSend(sitter, petIds, authDate){
+    return Promise.all([buildBase(sitter, petIds, authDate), doseShareFor(petIds)]).then(function(r){
+      var payload = r[0], dose = r[1];
+      if (dose.state === 'share' && !sitter.doseShareOff) payload.doseShare = { url: dose.url, pets: dose.pets.slice() };
+      return { payload: payload, dose: dose };
+    });
+  }
+  function buildBase(sitter, petIds, authDate){
     var top = topValues();
     var pets = petIds.map(petById).filter(Boolean);
     return Promise.all(pets.map(function(p){
@@ -15263,11 +15336,21 @@ try {
   function showReview(sitter, authDate){
     var name = sitter.label || 'your sitter';
     var s = setSheet('Review', '<p class="pf-sm-p">Getting your pets\' details ready…</p>', '', function(){ showDetails(sitter, authDate); });
-    buildPayload(sitter, sitter.petIds || [], authDate).then(function(payload){
+    buildSend(sitter, sitter.petIds || [], authDate).then(function(built){
       if (!sheet || sheet !== s) return;
-      var body = '<div class="pf-sm-note">This is what <strong>' + esc(name) + '</strong> will get.</div>' + payloadHTML(payload, { review: true }) +
+      var payload = built.payload, dose = built.dose;
+      var body = '<div class="pf-sm-note">This is what <strong>' + esc(name) + '</strong> will get.</div>' + doseReviewHTML(dose, sitter) + payloadHTML(payload, { review: true }) +
         '<p class="pf-sm-small" style="margin-top:14px;">' + esc(PRIVACY) + '</p><div id="pf-send-msg" aria-live="polite"></div>';
       s.querySelector('.pf-sm-sheet-body').innerHTML = body;
+      var doseCb = s.querySelector('#pf-send-dose-on');
+      if (doseCb) doseCb.onchange = function(){
+        if (doseCb.checked) payload.doseShare = { url: dose.url, pets: dose.pets.slice() }; else delete payload.doseShare;
+        var list = mySitters(), me = list.find(function(x){ return x.id === sitter.id; });
+        if (me) { if (doseCb.checked) delete me.doseShareOff; else me.doseShareOff = true; saveSitters(list); }
+        if (doseCb.checked) delete sitter.doseShareOff; else sitter.doseShareOff = true;
+      };
+      var doseSetup = s.querySelector('#pf-send-dose-setup');
+      if (doseSetup) doseSetup.onclick = openDoseSetup;
       var foot = document.createElement('div'); foot.className = 'pf-sm-sheet-foot';
       foot.innerHTML = '<button type="button" class="pf-sm-btn block" id="pf-send-go">Send to ' + esc(name) + '</button>';
       s.querySelector('.pf-sm-sheet').appendChild(foot);
@@ -15285,6 +15368,17 @@ try {
     }).catch(function(e){
       s.querySelector('.pf-sm-sheet-body').innerHTML = '<div class="pf-sm-err">' + esc(errText(e, 'send')) + '</div>';
     });
+  }
+  // The live dose sharing line on the review screen (nothing at all for Pawfolio Free).
+  function doseReviewHTML(dose, sitter){
+    if (!dose || dose.state === 'none') return '';
+    if (dose.state === 'unknown') return '<div class="pf-sm-section" id="pf-send-dose"><p class="pf-sm-small" style="margin:0;">Live dose sharing could not be checked, so it is not included this time. Check your connection and try again.</p></div>';
+    if (dose.state === 'setup') return '<div class="pf-sm-section" id="pf-send-dose"><p class="pf-sm-small" style="margin:0;">Live dose sharing is not set up for these pets. It is part of Pawfolio Complete.</p>' +
+      '<button type="button" class="pf-sm-link" id="pf-send-dose-setup">Set up dose sharing</button></div>';
+    return '<div class="pf-sm-section" id="pf-send-dose"><label class="pf-sm-check" style="padding:0;align-items:flex-start;">' +
+      '<input type="checkbox" id="pf-send-dose-on"' + (sitter.doseShareOff ? '' : ' checked') + ' style="margin-top:2px;">' +
+      '<span><strong>Live dose sharing: ' + esc(nameList(dose.pets)) + '</strong><br><span class="pf-sm-small">Your sitter gets a \u201cToday\u2019s doses\u201d button that opens your live dose link. Part of Pawfolio Complete. Sitters don\'t pay anything.</span></span></label>' +
+      (dose.others && dose.others.length ? '<p class="pf-sm-small" style="margin:8px 0 0;">The same link also shows doses for ' + esc(nameList(dose.others)) + '.</p>' : '') + '</div>';
   }
   function doSend(sitter, payload){
     return PI().submit({ inboxId: sitter.inboxId, publicKey: sitter.publicKey }, payload).then(function(){
@@ -15400,10 +15494,23 @@ try {
     (p.pets || []).forEach(function(x){ x.photo = ''; delete x.photoKey; });
     return p;
   }
+  // v3.41.0: optional doseShare from a Pawfolio Complete client. Only a doses.html link
+  // with a #t= token, on Pawfolio's own site (or the site this app runs on), is kept.
+  var DOSE_ORIGINS = ['https://cleartrackapps.com'];
+  function cleanDoseShare(d){
+    if (!d || typeof d !== 'object') return null;
+    var u; try { u = new URL(trim(d.url)); } catch(e){ return null; }
+    if (DOSE_ORIGINS.indexOf(u.origin) < 0 && u.origin !== location.origin) return null;
+    if (u.protocol !== 'https:' && u.origin !== location.origin) return null;
+    if (!/\/doses\.html$/.test(u.pathname)) return null;
+    var t = /^#t=([A-Za-z0-9_-]{20,200})$/.exec(u.hash || ''); if (!t) return null;
+    var pets = (Array.isArray(d.pets) ? d.pets : []).map(function(x){ return trim(x).slice(0, 80); }).filter(Boolean).slice(0, 20);
+    return { url: u.origin + u.pathname + '#t=' + t[1], pets: pets };
+  }
   function cleanPayload(p){
     // Keep only the known shape, as strings, so stored data is predictable.
     function o(src, keys){ var r = {}; src = src && typeof src === 'object' ? src : {}; keys.forEach(function(k){ r[k] = str(src[k]).slice(0, 4000); }); return r; }
-    return {
+    var ds = p && p.source === 'pawfolio' ? cleanDoseShare(p.doseShare) : null, out = {   // web-form payloads never carry one
       kind: 'pawfolio-intake', v: 1, sentAt: str(p.sentAt), source: p.source === 'pawfolio' ? 'pawfolio' : 'web', clientId: str(p.clientId).slice(0, 100),
       sitter: o(p.sitter, ['name','phone','email']), client: o(p.client, TOP.client), emergency: o(p.emergency, TOP.emergency),
       vet: o(p.vet, TOP.vet), emergencyVet: o(p.emergencyVet, TOP.emergencyVet), home: o(p.home, TOP.home),
@@ -15414,6 +15521,8 @@ try {
         return r;
       }).filter(function(x){ return trim(x.name) || x.photo; })
     };
+    if (ds) out.doseShare = ds;
+    return out;
   }
 
   // Save decrypted forms: photos to IndexedDB first, then the client list. Returns the
@@ -15585,7 +15694,8 @@ try {
         '<span class="pf-sm-grow"><span class="pf-sm-cname" style="display:block;">' + esc(cl.name || 'Client') + '</span>' +
         '<span class="pf-sm-small" style="display:block;">' + esc(pets.map(function(x){ return x.name; }).filter(Boolean).join(', ')) + '</span>' +
         (cl.phone ? '<span class="pf-sm-small" style="display:block;">' + esc(fmtPhone(cl.phone)) + '</span>' : '') +
-        (c.unseen || c.versions > 1 ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
+        (c.unseen || c.versions > 1 || p.doseShare ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
+        (p.doseShare ? '<span class="pf-sm-badge dose" title="Shares live doses">Doses</span>' : '') +
         (c.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(c.updatedAt)) + '</span>' : '') + '</span>' : '') + '</span>' +
         '<span class="pf-sm-small" aria-hidden="true" style="font-size:18px;">&rsaquo;</span></button>';
     }).join('');
@@ -15618,6 +15728,12 @@ try {
     root.querySelectorAll('[data-cid]').forEach(function(b){ b.onclick = function(){ ui.view = 'detail'; ui.id = b.getAttribute('data-cid'); ui.version = -1; renderClients(); window.scrollTo(0, 0); }; });
     loadPhotos(root);
   }
+  // v3.41.0: the client's live dose link (they have Pawfolio Complete; free for the sitter).
+  // Opens like the link would from a text: in a new tab, on the doses page.
+  function doseButtonHTML(ds){
+    return '<a class="pf-sm-btn block pf-sm-dosebtn" id="pf-cd-doses" href="' + esc(ds.url) + '" target="_blank" rel="noopener noreferrer">Today\'s doses</a>' +
+      (ds.pets && ds.pets.length ? '<p class="pf-sm-small" id="pf-cd-doses-pets" style="margin-top:6px;">Shares live doses: ' + esc(nameList(ds.pets)) + '</p>' : '');
+  }
   function renderDetail(root, rec){
     if (rec.unseen) { var l = clients(), r2 = l.find(function(c){ return c.id === rec.id; }); if (r2) { r2.unseen = false; saveClients(l); } applyNav(); }
     var hist = rec.history || [], viewing = ui.version >= 0 && hist[ui.version] ? hist[ui.version] : null;
@@ -15627,6 +15743,7 @@ try {
       '<div class="pf-sm-row" style="margin-top:6px;"><h3 class="pf-sm-h3 pf-sm-grow" style="font-size:1.25rem;">' + esc(cl.name || 'Client') + '</h3>' +
       (rec.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(rec.updatedAt)) + '</span>' : '') + '</div>' +
       '<p class="pf-sm-small">' + (rec.versions > 1 ? 'First sent ' + esc(fmtDay(rec.firstAt)) + '. Latest ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.' : 'Sent ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.') + '</p>' +
+      (!viewing && p && p.doseShare ? doseButtonHTML(p.doseShare) : '') +
       (viewing ? '<div class="pf-sm-note">You are looking at the version from ' + esc(fmtDayTime(viewing.at)) + '. Photos are only kept for the latest version. <button type="button" class="pf-sm-link" id="pf-cd-latest">Back to the latest</button></div>' : '') +
       '</div>';
     var versions = hist.length ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">Previous versions</h3>' +
