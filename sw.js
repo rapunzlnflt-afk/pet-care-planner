@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-215';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-216';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -10,7 +10,15 @@ const CACHE_NAME = 'pet-care-planner-215';const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icon-192-maskable.png',
-  './icon-512-maskable.png'
+  './icon-512-maskable.png',
+  // v3.42.0: Leaflet for the Clients map (vendored, loaded only when the map opens)
+  './vendor/leaflet/leaflet.js',
+  './vendor/leaflet/leaflet.css',
+  './vendor/leaflet/images/marker-icon.png',
+  './vendor/leaflet/images/marker-icon-2x.png',
+  './vendor/leaflet/images/marker-shadow.png',
+  './vendor/leaflet/images/layers.png',
+  './vendor/leaflet/images/layers-2x.png'
 ];
 
 self.addEventListener('install', event => {

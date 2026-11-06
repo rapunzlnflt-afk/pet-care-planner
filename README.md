@@ -30,6 +30,16 @@ This product has **two separate GitHub repos**. They are NOT linked — a commit
 
 Supabase migration 0009 + Edge Function `pawfolio-sitter-inbox` for Sitter mode and "Send to a sitter". Setup, deploy steps and local tests: [SITTER_INBOX.md](SITTER_INBOX.md).
 
+## Clients map (Sitter mode, v3.42.0)
+
+Clients tab > **Map** shows every client with an address on one map, for planning visits. Free for sitters (part of Pawfolio Free).
+
+- **Leaflet 1.9.4** is vendored in `vendor/leaflet/` (BSD-2-Clause, see `vendor/leaflet/LICENSE`; the `sourceMappingURL` comment was removed). No CDN. It is loaded only when the map opens, and it is in the `sw.js` precache.
+- **Tiles:** OpenStreetMap standard tiles with attribution. The map needs internet; offline it shows a friendly message and still lists clients.
+- **Geocoding:** OpenStreetMap Nominatim, one request at a time, at most one per second, only for clients without saved coordinates. A one-time notice comes first ("Client addresses are looked up with OpenStreetMap to place pins. Nothing else is sent.").
+- **Stored on the client record** in `pawfolioSitterClients` as `geo: {lat, lng, addr, status, manual, q, at}`, so Save My Data backups carry it. `addr` is the address the spot came from; a client is looked up again only when that changes. Pins moved by hand (`manual: true`) are kept until the address changes.
+- **Plan a route:** pick stops in order. iPhone/iPad (iOS 18.4+) open Apple Maps' unified directions URL (`maps.apple.com/directions`, up to 14 stops) with Google Maps as a fallback; elsewhere, and on older iOS, Google Maps directions (up to 10 stops). The route starts at the current location.
+
 ## Releasing a new version
 
 When making a change that the user should see:
