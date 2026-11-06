@@ -1773,7 +1773,9 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
        <div><label class="block font-body text-xs text-secondary mb-1">Owner Name</label><input type="text" id="sitter-owner-name" placeholder="Your name"></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Phone</label><input type="text" id="sitter-owner-phone" placeholder="Your phone number"></div>
-       <div><label class="block font-body text-xs text-secondary mb-1">Email</label><input type="text" id="sitter-owner-email" placeholder="Your email"></div>
+       <div style="grid-column:1 / -1;"><label class="block font-body text-xs text-secondary mb-1">Email</label><input type="text" id="sitter-owner-email" placeholder="Your email"></div>
+       <!-- v3.41.0: owner's home address (sitter sheet, shared link, Send to a sitter prefill) -->
+       <div style="grid-column:1 / -1;"><label class="block font-body text-xs text-secondary mb-1" for="sitter-owner-address">Home address</label><textarea id="sitter-owner-address" rows="3" placeholder="Street, city" autocomplete="street-address" style="resize:vertical;min-height:0;"></textarea></div>
        <div><label class="block font-body text-xs text-secondary mb-1">Away Dates</label><input type="text" id="sitter-away-dates" placeholder="e.g., Apr 10–15"></div>
       </div>
      </div>
@@ -3826,6 +3828,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       'sitter-owner-name': (document.getElementById('sitter-owner-name')||{}).value||'',
       'sitter-owner-phone': (document.getElementById('sitter-owner-phone')||{}).value||'',
       'sitter-owner-email': (document.getElementById('sitter-owner-email')||{}).value||'',
+      'sitter-owner-address': (document.getElementById('sitter-owner-address')||{}).value||'',
       'sitter-away-dates': (document.getElementById('sitter-away-dates')||{}).value||'',
       'sitter-emerg-name': (document.getElementById('sitter-emerg-name')||{}).value||'',
       'sitter-emerg-phone': (document.getElementById('sitter-emerg-phone')||{}).value||'',
@@ -3930,7 +3933,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   function restoreSitterOwnerFields() {
     let data = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
     data = migrateSitterVet(data);
-    ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-away-dates',
+    ['sitter-owner-name','sitter-owner-phone','sitter-owner-email','sitter-owner-address','sitter-away-dates',
      'sitter-emerg-name','sitter-emerg-phone',
      'sitter-vet-name','sitter-vet-person','sitter-vet-phone','sitter-vet-address',
      'sitter-evet-name','sitter-evet-person','sitter-evet-phone','sitter-evet-address',
@@ -4024,6 +4027,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       <div class="field"><div class="label">Owner</div><div class="value">${escHtml(data['sitter-owner-name']||'')}</div></div>
       <div class="field"><div class="label">Phone</div><div class="value">${escHtml(fmtP(data['sitter-owner-phone']||''))}</div></div>
       <div class="field"><div class="label">Email</div><div class="value">${escHtml(data['sitter-owner-email']||'')}</div></div>
+      ${(data['sitter-owner-address']||'').trim() ? `<div class="field" style="grid-column:span 2;"><div class="label">Home Address</div><div class="value" style="white-space:pre-line;">${escHtml(data['sitter-owner-address'].trim())}</div></div>` : ''}
       <div class="field"><div class="label">Away Dates</div><div class="value">${escHtml(data['sitter-away-dates']||'')}</div></div>
     </div>
     <h2>Emergency Contacts</h2>
@@ -4208,7 +4212,7 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     })));
     return {
       v: 1,
-      owner: { name: d['sitter-owner-name']||'', phone: fmtPhone(d['sitter-owner-phone']||''), email: d['sitter-owner-email']||'', away: d['sitter-away-dates']||'' },
+      owner: { name: d['sitter-owner-name']||'', phone: fmtPhone(d['sitter-owner-phone']||''), email: d['sitter-owner-email']||'', address: (d['sitter-owner-address']||'').trim(), away: d['sitter-away-dates']||'' },
       emerg: { name: d['sitter-emerg-name']||'', phone: fmtPhone(d['sitter-emerg-phone']||'') },
       vet: { name: d['sitter-vet-name']||'', person: d['sitter-vet-person']||'', phone: fmtPhone(d['sitter-vet-phone']||''), address: d['sitter-vet-address']||'' },
       evet: { name: d['sitter-evet-name']||'', person: d['sitter-evet-person']||'', phone: fmtPhone(d['sitter-evet-phone']||''), address: d['sitter-evet-address']||'' },
@@ -14738,6 +14742,7 @@ try {
 .pf-sm-client .pf-sm-faces { display: flex; flex: 0 0 auto; }
 .pf-sm-client .pf-sm-faces > * { margin-left: -10px; border: 2px solid #fff; }
 .pf-sm-client .pf-sm-faces > *:first-child { margin-left: 0; }
+.pf-sm-addr { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .pf-sm-cname { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15.5px; }
 .pf-sm-callrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .pf-sm-mask { background: rgba(91,91,214,.08); border: 1px dashed rgba(91,91,214,.4); color: var(--accent-color); border-radius: 8px; padding: 4px 10px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
@@ -15058,7 +15063,7 @@ try {
     var vetName = trim(si['sitter-vet-name']) || (pv ? trim(pv.vet) : '');
     var sv = savedVetByName(vetName);
     return {
-      client: { name: trim(si['sitter-owner-name']), phone: trim(si['sitter-owner-phone']), email: trim(si['sitter-owner-email']), address: '', phone2: '' },
+      client: { name: trim(si['sitter-owner-name']), phone: trim(si['sitter-owner-phone']), email: trim(si['sitter-owner-email']), address: trim(si['sitter-owner-address']), phone2: '' },
       emergency: { name: trim(si['sitter-emerg-name']), rel: '', phone: trim(si['sitter-emerg-phone']), hasKey: '' },
       vet: { name: vetName, phone: trim(si['sitter-vet-phone']) || (sv ? trim(sv.phone) : ''), address: trim(si['sitter-vet-address']) || vetAddress(sv) },
       emergencyVet: { name: trim(si['sitter-evet-name']), phone: trim(si['sitter-evet-phone']), address: trim(si['sitter-evet-address']) || vetAddress(savedVetByName(si['sitter-evet-name'])) },
@@ -15069,7 +15074,11 @@ try {
   function topValues(){
     var d = derivedTop(), x = extras();
     Object.keys(TOP).forEach(function(sec){ var o = x[sec] || {};
-      TOP[sec].forEach(function(k){ if (Object.prototype.hasOwnProperty.call(o, k)) d[sec][k] = str(o[k]); }); });
+      TOP[sec].forEach(function(k){
+        if (!Object.prototype.hasOwnProperty.call(o, k)) return;
+        // v3.41.0: an empty saved home address falls back to Pet Sitter Info's Home address.
+        if (sec === 'client' && k === 'address' && !trim(o[k])) return;
+        d[sec][k] = str(o[k]); }); });
     return d;
   }
 
@@ -15271,7 +15280,7 @@ try {
       '<div class="pf-sm-note">Sending to <strong>' + esc(name) + '</strong>. Check each section, then review before you send.</div>' +
       sec('pets', 'Pets to include', '', petsPick) +
       (pets.length ? sec('petinfo', 'Pet details', 'Tap a pet to check or add details for your sitter.', petBlocks) : '') +
-      sec('client', 'Your contact info', '', t('client','name','Your name') + t('client','phone','Phone', { type: 'tel', mode: 'tel' }) + t('client','email','Email', { type: 'email', mode: 'email' }) + t('client','address','Home address', { type: 'area' }) + t('client','phone2','Second phone', { type: 'tel', mode: 'tel' })) +
+      sec('client', 'Your contact info', '', t('client','name','Your name') + t('client','phone','Phone', { type: 'tel', mode: 'tel' }) + t('client','email','Email', { type: 'email', mode: 'email' }) + t('client','address','Home address', { type: 'area', rows: 3 }) + t('client','phone2','Second phone', { type: 'tel', mode: 'tel' })) +
       sec('emergency', 'Emergency contact', 'Someone nearby who can help if your sitter can\'t reach you.', t('emergency','name','Name') + t('emergency','rel','Relationship') + t('emergency','phone','Phone', { type: 'tel', mode: 'tel' }) +
         t('emergency','hasKey','Do they have a key?', { type: 'select', options: [['', 'Choose'], ['Yes', 'Yes'], ['No', 'No']] })) +
       sec('vet', 'Vet', '', t('vet','name','Clinic') + t('vet','phone','Phone', { type: 'tel', mode: 'tel' }) + t('vet','address','Address', { type: 'area' })) +
@@ -15407,6 +15416,30 @@ try {
      opts.review: the client checking their own form (nothing masked, no buttons)
      opts.sitter: tap-to-call/text and masked codes; photos come from IndexedDB
      ===================================================================== */
+  // v3.41.0: maps links. Apple Maps on iPhone/iPad (iPadOS can report as a Mac with touch),
+  // Google Maps everywhere else. Search-style for addresses, directions for the client's home.
+  function appleMaps(){
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua)) return true;
+    return (/Macintosh/.test(ua) || navigator.platform === 'MacIntel') && (navigator.maxTouchPoints || 0) > 1;
+  }
+  function oneLine(addr){ return trim(addr).replace(/\s*\n\s*/g, ', '); }
+  function mapsSearchHref(addr){
+    var q = encodeURIComponent(oneLine(addr));
+    return appleMaps() ? 'https://maps.apple.com/?q=' + q : 'https://www.google.com/maps/search/?api=1&query=' + q;
+  }
+  function directionsHref(addr){
+    var q = encodeURIComponent(oneLine(addr));
+    return appleMaps() ? 'https://maps.apple.com/?daddr=' + q : 'https://www.google.com/maps/dir/?api=1&destination=' + q;
+  }
+  // The client's Call / Text / Directions row (sitter view). No address: a muted note instead.
+  function clientActions(c){
+    var d = telDigits(c.phone), addr = trim(c.address);
+    var btns = (d ? '<a class="pf-sm-btn2" href="tel:' + esc(d) + '">Call</a><a class="pf-sm-btn2" href="sms:' + esc(d) + '">Text</a>' : '') +
+      (addr ? '<a class="pf-sm-btn2" id="pf-cd-directions" href="' + esc(directionsHref(addr)) + '" target="_blank" rel="noopener">Directions</a>' : '');
+    return (btns ? '<div class="pf-sm-callrow">' + btns + '</div>' : '') +
+      (addr ? '' : '<p class="pf-sm-small" id="pf-cd-noaddr" style="margin-top:8px;">No address yet. Ask the client to send an update.</p>');
+  }
   function callBtns(phone, text){
     var d = telDigits(phone); if (!d) return '';
     return '<div class="pf-sm-callrow"><a class="pf-sm-btn2" href="tel:' + esc(d) + '">Call</a>' + (text ? '<a class="pf-sm-btn2" href="sms:' + esc(d) + '">Text</a>' : '') + '</div>';
@@ -15425,11 +15458,11 @@ try {
     var S = !!opts.sitter;
     var c = p.client || {}, e = p.emergency || {}, v = p.vet || {}, ev = p.emergencyVet || {}, h = p.home || {}, a = p.authorization || {};
     function section(title, inner){ return inner ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">' + esc(title) + '</h3>' + inner + '</div>' : ''; }
-    function contactBlock(rows, phone, text){ var k = kv(rows); return k ? k + (S ? callBtns(phone, text) : '') : ''; }
-    var mapLink = function(addr){ return S && trim(addr) ? '<a class="pf-sm-link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(addr)) + '">' + esc(addr) + '</a>' : esc(addr); };
+    function contactBlock(rows, phone, text){ var k = kv(rows); return k ? k + (S && phone !== undefined ? callBtns(phone, text) : '') : ''; }
+    var mapLink = function(addr){ return S && trim(addr) ? '<a class="pf-sm-link" data-map target="_blank" rel="noopener" href="' + esc(mapsSearchHref(addr)) + '">' + esc(addr) + '</a>' : esc(addr); };
     var out = '';
     out += section(S ? 'Contact' : 'Your contact info',
-      contactBlock([['Name', c.name], ['Phone', fmtPhone(c.phone)], ['Email', c.email && S ? '<a class="pf-sm-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : c.email, S && c.email], ['Address', mapLink(c.address), true]], c.phone, true) +
+      contactBlock([['Name', c.name], ['Phone', fmtPhone(c.phone)], ['Email', c.email && S ? '<a class="pf-sm-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : c.email, S && c.email], ['Address', mapLink(c.address), true]]) + (S ? clientActions(c) : '') +
       (trim(c.phone2) ? kv([['Second phone', fmtPhone(c.phone2)]]) + (S ? callBtns(c.phone2, true) : '') : ''));
     out += section('Emergency contact', contactBlock([['Name', [trim(e.name), trim(e.rel) ? '(' + trim(e.rel) + ')' : ''].filter(Boolean).join(' ')], ['Phone', fmtPhone(e.phone)], ['Has a key', e.hasKey]], e.phone, true));
     out += section('Vet', contactBlock([['Clinic', v.name], ['Phone', fmtPhone(v.phone)], ['Address', mapLink(v.address), true]], v.phone, false));
@@ -15681,7 +15714,7 @@ try {
     var q = ui.query.toLowerCase().trim();
     var shown = !q ? all : all.filter(function(c){
       var p = c.payload || {}, cl = p.client || {};
-      return [cl.name, cl.phone, cl.email, telDigits(cl.phone)].concat((p.pets || []).map(function(x){ return x.name; })).join(' ').toLowerCase().indexOf(q) >= 0;
+      return [cl.name, cl.phone, cl.email, telDigits(cl.phone), cl.address].concat((p.pets || []).map(function(x){ return x.name; })).join(' ').toLowerCase().indexOf(q) >= 0;
     });
     var rows = shown.map(function(c){
       var p = c.payload || {}, cl = p.client || {}, pets = p.pets || [];
@@ -15693,6 +15726,7 @@ try {
       return '<button type="button" class="pf-sm-client" data-cid="' + esc(c.id) + '"><span class="pf-sm-faces">' + faces + '</span>' +
         '<span class="pf-sm-grow"><span class="pf-sm-cname" style="display:block;">' + esc(cl.name || 'Client') + '</span>' +
         '<span class="pf-sm-small" style="display:block;">' + esc(pets.map(function(x){ return x.name; }).filter(Boolean).join(', ')) + '</span>' +
+        (trim(cl.address) ? '<span class="pf-sm-small pf-sm-addr" title="' + esc(trim(cl.address)) + '">' + esc(oneLine(cl.address)) + '</span>' : '') +
         (cl.phone ? '<span class="pf-sm-small" style="display:block;">' + esc(fmtPhone(cl.phone)) + '</span>' : '') +
         (c.unseen || c.versions > 1 || p.doseShare ? '<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + (c.unseen ? '<span class="pf-sm-badge new">New</span>' : '') +
         (p.doseShare ? '<span class="pf-sm-badge dose" title="Shares live doses">Doses</span>' : '') +
@@ -15704,7 +15738,7 @@ try {
       '<div class="card p-5 mb-4"><div class="pf-sm-row"><h3 class="pf-sm-h3 pf-sm-grow">My clients' + (all.length ? ' (' + all.length + ')' : '') + '</h3></div>' +
       '<button type="button" class="pf-sm-btn block" id="pf-cl-check" style="margin-top:10px;">Check for new forms</button>' +
       (m.lastCheckAt ? '<p class="pf-sm-small" style="margin-top:6px;">Last checked ' + esc(fmtDayTime(m.lastCheckAt)) + '</p>' : '') +
-      (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, or phone" value="' + esc(ui.query) + '">' : '') +
+      (all.length ? '<label class="pf-sm-label" for="pf-cl-search">Search clients</label><input type="search" id="pf-cl-search" placeholder="Name, pet, phone, or address" value="' + esc(ui.query) + '">' : '') +
       (all.length ? (rows || '<p class="pf-sm-p">No clients match that search.</p>') : '<p class="pf-sm-p">No clients yet. When a client sends your intake form, they show up here.</p>') + '</div>';
     paintStatus();
     var bar = root.querySelector('#pf-cl-linkbar');
