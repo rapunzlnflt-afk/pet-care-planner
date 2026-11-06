@@ -30,6 +30,10 @@ This product has **two separate GitHub repos**. They are NOT linked — a commit
 
 Supabase migration 0009 + Edge Function `pawfolio-sitter-inbox` for Sitter mode and "Send to a sitter". Setup, deploy steps and local tests: [SITTER_INBOX.md](SITTER_INBOX.md).
 
+## Shared devices and separate clients (Sitter mode, v3.42.1)
+
+A form only updates an existing client when the clientId matches and the owner name is the same (trimmed, case-insensitive, spaces collapsed). If either name is empty, the clientId alone decides, as before. This covers a sitter's tablet or a family computer used by several people, where the old web form reused one clientId per sitter. To fix forms that were already filed under the wrong client, open a previous version on the client card and tap **Make this a separate client**: that version becomes its own client (new id and clientId, no photos) and is removed from the original's history. The old clientId is kept in `altClientIds`, so that person's later forms still land on their new card. The web form (rapunzlnflt-afk.github.io) now keeps its clientId per sitter inbox and owner name.
+
 ## Clients map (Sitter mode, v3.42.0)
 
 Clients tab > **Map** shows every client with an address on one map, for planning visits. Free for sitters (part of Pawfolio Free).

@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.42.0">
+                          <meta name="app-version" content="3.42.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -14681,7 +14681,7 @@ try {
   else setTimeout(watch, 600);
 })();
 </script>
-<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link; v3.42.0 Clients map) -->
+<!-- PF-SITTER-MODE:START (v3.40.0 Send to a sitter + Sitter mode; v3.41.0 live dose link; v3.42.0 Clients map; v3.42.1 separate clients on shared devices) -->
 <style id="pf-sitter-mode-css">
 /* === Pawfolio v3.40.0: Send to a sitter + Sitter mode (Clients) === */
 .pf-sm-muted { color: var(--text-secondary); }
@@ -14831,7 +14831,7 @@ try {
      pawfolioSendExtras    {client,emergency,vet,emergencyVet,home,auth,pets:{<petId>:{f:{},medsOff:[],medHow:{}}}}
      pawfolioSitterMode    {on, profile:{name,phone,email}, keys:{inboxId,inboxSecret,publicKey,privateJwk,code}, setupAt}
      pawfolioSitterClients [{id,clientId,source,firstAt,updatedAt,versions,unseen,rowIds,payload,history:[{at,source,payload}],
-                            geo:{lat,lng,addr,status,manual,q,at} (v3.42.0 Clients map)}]
+                            geo:{lat,lng,addr,status,manual,q,at} (v3.42.0 Clients map), altClientIds, splitFrom, splitAt (v3.42.1)}]
    IndexedDB pawfolioVault/docImages: client pet photos as 'sitterpet-<clientRecId>-<n>'
    (window.pawfolioVaultStore), so full backups carry them like document photos. */
 (function(){
@@ -15608,6 +15608,23 @@ try {
 
   // Save decrypted forms: photos to IndexedDB first, then the client list. Returns the
   // row ids that are safely stored (only those get acked).
+  // v3.42.1: one browser can send forms for different people (a sitter's tablet handed to
+  // several clients, a shared family computer), and the web form used to keep one clientId
+  // per sitter. So a form only updates a client when the clientId matches AND the owner
+  // name is the same (trimmed, case-insensitive, spaces collapsed). If either name is empty
+  // the clientId alone decides, as before. A client split out with "Make this a separate
+  // client" keeps the old clientId in altClientIds so their later forms still find them.
+  function normName(v){ return trim(v).replace(/\s+/g, ' ').toLowerCase(); }
+  function sameOwner(rec, p){
+    var a = normName(((rec.payload || {}).client || {}).name), b = normName((p.client || {}).name);
+    return !a || !b || a === b;
+  }
+  function matchClient(list, p){
+    if (!p.clientId) return null;
+    var cands = list.filter(function(c){ return c.clientId === p.clientId || (c.altClientIds || []).indexOf(p.clientId) >= 0; });
+    return cands.find(function(c){ return c.clientId === p.clientId && sameOwner(c, p); }) ||
+           cands.find(function(c){ return sameOwner(c, p); }) || null;
+  }
   function storeForms(forms){
     var list = clients(), saved = [], added = 0, updated = 0, touched = [];
     var chain = Promise.resolve();
@@ -15616,7 +15633,7 @@ try {
         var rowId = f.it.id;
         if (list.some(function(c){ return (c.rowIds || []).indexOf(rowId) >= 0; })) { saved.push(rowId); return; }
         var p = cleanPayload(f.p), at = f.it.created_at || new Date().toISOString();
-        var rec = p.clientId ? list.find(function(c){ return c.clientId === p.clientId; }) : null;
+        var rec = matchClient(list, p);   // v3.42.1: same clientId AND same owner name
         if (rec) {
           rec.history = [{ at: rec.updatedAt, source: rec.source, payload: stripPhotos(rec.payload) }].concat(rec.history || []).slice(0, HISTORY_MAX);
           rec.versions = (rec.versions || 1) + 1; updated++;
@@ -15829,7 +15846,9 @@ try {
       (rec.versions > 1 ? '<span class="pf-sm-badge">Updated ' + esc(fmtDay(rec.updatedAt)) + '</span>' : '') + '</div>' +
       '<p class="pf-sm-small">' + (rec.versions > 1 ? 'First sent ' + esc(fmtDay(rec.firstAt)) + '. Latest ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.' : 'Sent ' + esc(fmtDayTime(rec.updatedAt)) + ' ' + src(rec.source) + '.') + '</p>' +
       (!viewing && p && p.doseShare ? doseButtonHTML(p.doseShare) : '') +
-      (viewing ? '<div class="pf-sm-note">You are looking at the version from ' + esc(fmtDayTime(viewing.at)) + '. Photos are only kept for the latest version. <button type="button" class="pf-sm-link" id="pf-cd-latest">Back to the latest</button></div>' : '') +
+      (viewing ? '<div class="pf-sm-note">You are looking at the version from ' + esc(fmtDayTime(viewing.at)) + '. Photos are only kept for the latest version. <button type="button" class="pf-sm-link" id="pf-cd-latest">Back to the latest</button>' +
+        '<button type="button" class="pf-sm-btn2" id="pf-cd-split" style="display:flex;width:100%;margin-top:10px;">Make this a separate client</button>' +
+        '<p class="pf-sm-small" style="margin-top:6px;">Use this if this form is from someone else, for example when two people sent forms from the same phone or computer.</p></div>' : '') +
       '</div>';
     var versions = hist.length ? '<div class="pf-sm-section"><h3 class="pf-sm-h3">Previous versions</h3>' +
       '<p class="pf-sm-small">Up to ' + HISTORY_MAX + ' earlier forms from this client.</p>' +
@@ -15840,6 +15859,7 @@ try {
     root.querySelector('#pf-cd-back').onclick = function(){ ui.view = 'list'; ui.version = -1; ui.fromMap = false; renderClients(); };
     var bm = root.querySelector('#pf-cd-backmap'); if (bm) bm.onclick = function(){ ui.view = 'list'; ui.version = -1; ui.fromMap = false; renderClients(); openClientsMap(); };
     var lt = root.querySelector('#pf-cd-latest'); if (lt) lt.onclick = function(){ ui.version = -1; renderClients(); };
+    var sp = root.querySelector('#pf-cd-split'); if (sp) sp.onclick = function(){ splitVersion(rec.id, ui.version); };
     root.querySelectorAll('[data-ver]').forEach(function(b){ b.onclick = function(){ ui.version = +b.getAttribute('data-ver'); renderClients(); window.scrollTo(0, 0); }; });
     root.querySelectorAll('[data-reveal]').forEach(function(b){ b.onclick = function(){ var s = document.createElement('span'); s.textContent = b.getAttribute('data-reveal'); s.style.fontWeight = '700'; b.parentNode.replaceChild(s, b); }; });
     root.querySelector('#pf-cd-print').onclick = function(){ printClient(p, root); };
@@ -15852,6 +15872,26 @@ try {
       });
     };
     loadPhotos(root);
+  }
+  // v3.42.1: move one previous version out into its own client (recovery for forms that
+  // were filed under the wrong client). Photos are not kept for previous versions.
+  function splitVersion(recId, idx){
+    var l0 = clients(), r0 = l0.find(function(c){ return c.id === recId; }), h0 = r0 && (r0.history || [])[idx];
+    if (!h0) return;
+    var nm = trim(((h0.payload || {}).client || {}).name) || 'this client';
+    confirmBox({ title: 'Make ' + nm + ' a separate client?', message: 'The form from ' + fmtDayTime(h0.at) + ' becomes its own client card and is removed from this one\'s previous versions. Photos are not kept for previous versions.', confirmText: 'Make separate client' }, function(){
+      var l = clients(), r = l.find(function(c){ return c.id === recId; }), h = r && (r.history || [])[idx];
+      if (!h || h.at !== h0.at) return;
+      var n = { id: uid(), clientId: uid() + uid(), altClientIds: r.clientId ? [r.clientId] : [], source: h.source, firstAt: h.at, updatedAt: h.at,
+                versions: 1, unseen: false, history: [], rowIds: [], payload: stripPhotos(h.payload), splitFrom: r.id, splitAt: new Date().toISOString() };
+      r.history.splice(idx, 1);
+      r.versions = Math.max(1, (r.versions || 1) - 1);
+      l.push(n);
+      if (!saveClients(l)) return;
+      ui.view = 'detail'; ui.id = n.id; ui.version = -1;
+      renderClients(); applyNav(); window.scrollTo(0, 0);
+      toast(nm + ' is now a separate client.');
+    });
   }
   function printClient(p, root){
     var c = p.client || {}, e = p.emergency || {}, v = p.vet || {}, ev = p.emergencyVet || {}, h = p.home || {}, a = p.authorization || {};
