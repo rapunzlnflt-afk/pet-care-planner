@@ -215,9 +215,26 @@
       });
     }
 
+    function pfClearDoseNotes(ids){
+      // v3.43.0 — take "Dose due" reminders for doses already given or skipped off
+      // the lock screen. Android and computers honor this; iPhones may ignore it.
+      try {
+        if(!ids || !ids.length || !('serviceWorker' in navigator)) return;
+        var want = {}; ids.forEach(function(id){ if(id != null) want['dose-' + id] = 1; });
+        navigator.serviceWorker.ready.then(function(reg){
+          if(!reg.getNotifications) return;
+          return reg.getNotifications().then(function(list){
+            (list || []).forEach(function(n){ if(n && want[n.tag]) { try { n.close(); } catch(e){} } });
+          });
+        }).catch(function(){});
+      } catch(e){}
+    }
     function render(){
       if(!data) return;
       var meds = data.meds || [];
+      var _done = [];
+      meds.forEach(function(m){ (m.history || []).forEach(function(e){ if(e && (e.status === 'taken' || e.status === 'skipped')) _done.push(e.id); }); });
+      pfClearDoseNotes(_done);
       // One tab per pet ("Daisy", "Max") when the link shares doses for more
       // than one, so a sitter only sees one pet's medications at a time. A red
       // dot marks any other pet with a dose due now. (Same as MedRecords.)

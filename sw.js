@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pet-care-planner-218';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-219';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -93,7 +93,13 @@ self.addEventListener('push', event => {
       doseEventId: payload.doseEventId || null
     }
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  // v3.43.0 — "✓ … given" replaces the "Dose due" reminder. iPhones don't replace by
+  // tag, so close the old one first (best effort; some iOS versions ignore close()).
+  const isFollowUp = /^\u2713/.test(title) && /^dose-/.test(options.tag);
+  const clearOld = isFollowUp && self.registration.getNotifications
+    ? self.registration.getNotifications({ tag: options.tag }).then(list => (list || []).forEach(n => { try { n.close(); } catch (_) {} })).catch(() => {})
+    : Promise.resolve();
+  event.waitUntil(clearOld.then(() => self.registration.showNotification(title, options)));
 });
 
 // Subscription rotated by the browser/push service. The page-side enable flow
