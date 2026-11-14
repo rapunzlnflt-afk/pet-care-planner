@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.42.1">
+                          <meta name="app-version" content="3.42.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -6428,6 +6428,12 @@ try {
     if(typeof getList !== 'function') return;
     var reminders = [];
     var now = new Date();
+    // v3.42.2 — count whole LOCAL days. new Date('YYYY-MM-DD') is midnight UTC, which is
+    // 6 PM the day before in Central time, so after 6 PM a date of today counted as
+    // yesterday and today's vet appointment dropped off the Overview.
+    var _t0 = new Date(); _t0.setHours(0,0,0,0);
+    var dayDiff = function(d){ return Math.round((new Date(String(d).slice(0,10) + 'T00:00:00') - _t0) / 86400000); };
+    var _todayISO = (typeof todayISO === 'function') ? todayISO() : now.toLocaleDateString('en-CA');
     // Exclude archived ("Rainbow Bridge") pets from reminders.
     var _archPets = (getList('pets')||[]).filter(function(p){return p.archived;});
     var _archIds = new Set(_archPets.map(function(p){return String(p.__id);}));
@@ -6435,11 +6441,11 @@ try {
     var _isArch = function(r){ return _archIds.has(String(r.petId)) || (r.petId == null && _archNames.has(r.petName)); };
     try {
       (getList('vaccinations')||[]).filter(function(v){return v.next && !_isArch(v);}).forEach(function(v){
-        var days = Math.ceil((new Date(v.next) - now) / 86400000);
+        var days = dayDiff(v.next);
         if(days <= 60) reminders.push({type:'Vaccination', name:v.name, pet:v.petName, days:days, date:v.next, time:'', tab:'vaccinations'});
       });
       (getList('medications')||[]).filter(function(m){return m.refill && !_isArch(m) && !m.archived;}).forEach(function(m){
-        var days = Math.ceil((new Date(m.refill) - now) / 86400000);
+        var days = dayDiff(m.refill);
         var isSupp = typeof window.isSupplement === 'function' && window.isSupplement(m);
         if(days <= 30) reminders.push({type:isSupp?'Supplement Reorder':'Medication Refill', name:m.name, pet:m.petName, days:days, date:m.refill, time:'', tab:'medications'});
       });
@@ -6459,13 +6465,22 @@ try {
       (getList('vet-visits')||[]).filter(function(v){return !_isArch(v);}).forEach(function(v){
         // Choose appointment date+time (v.date/v.time) OR follow-up date+time (v.next/v.nextTime)
         // If v.next is set, that's a follow-up reminder; otherwise use v.date for scheduled appts.
-        var useDate, useTime, vid = v.__id;
-        if(v.next){ useDate = v.next; useTime = v.nextTime || ''; }
-        else { useDate = v.date; useTime = v.time || ''; }
-        if(!useDate) return;
-        var days = Math.ceil((new Date(useDate) - now) / 86400000);
-        if(days >= 0 && days <= 60){
-          reminders.push({type:'Vet Appointment', name:v.reason||'Follow-up', pet:v.petName, days:days, date:useDate, time:useTime, tab:'vet-visits', visitId:vid});
+        // v3.42.2 — a visit can produce two rows: its own appointment (while it is still
+        // scheduled) and its follow-up date. It used to show only the follow-up when one
+        // was set, which hid an appointment happening today.
+        var vid = v.__id;
+        var add = function(d, tm){
+          var days = dayDiff(d);
+          if(days >= 0 && days <= 60){
+            reminders.push({type:'Vet Appointment', name:v.reason||'Follow-up', pet:v.petName, days:days, date:d, time:tm||'', tab:'vet-visits', visitId:vid});
+          }
+        };
+        var sched = (typeof window.pfVisitIsScheduled === 'function') ? window.pfVisitIsScheduled(v) : !!(v.date && v.date >= _todayISO);
+        if(v.date && sched) add(v.date, v.time);
+        if(v.next && v.next !== v.date){
+          // Skip if the follow-up already exists as its own appointment (it gets its own row).
+          var linked = (getList('vet-visits')||[]).some(function(o){ return o !== v && o.date === v.next && (String(o.petId) === String(v.petId) || o.petName === v.petName); });
+          if(!linked) add(v.next, v.nextTime);
         }
       });
     } catch(e){ return; }
