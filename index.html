@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.42.2">
+                          <meta name="app-version" content="3.43.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -13428,11 +13428,27 @@ try {
             });
             state = next; loaded = true; rerender();
             maybeDuePopup();
+            pfClearDoseNotes((ev.data || []).filter(function(e){ return e.status === 'taken' || e.status === 'skipped'; }).map(function(e){ return e.id; }));
           });
       });
     }).catch(function(){});
   }
   window.pfDoseRefresh = function(){ return refresh(); };
+  function pfClearDoseNotes(ids){
+    // v3.43.0 — take "Dose due" reminders for doses already given or skipped off
+    // the lock screen. Android and computers honor this; iPhones may ignore it.
+    try {
+      if(!ids || !ids.length || !('serviceWorker' in navigator)) return;
+      var want = {}; ids.forEach(function(id){ if(id != null) want['dose-' + id] = 1; });
+      navigator.serviceWorker.ready.then(function(reg){
+        if(!reg.getNotifications) return;
+        return reg.getNotifications().then(function(list){
+          (list || []).forEach(function(n){ if(n && want[n.tag]) { try { n.close(); } catch(e){} } });
+        });
+      }).catch(function(){});
+    } catch(e){}
+  }
+  window.pfClearDoseNotes = pfClearDoseNotes;
 
   function rerender(){
     if(typeof window.pfRenderMedications === 'function'){ try { window.pfRenderMedications(); } catch(e){} }
