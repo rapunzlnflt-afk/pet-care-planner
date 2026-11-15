@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.43.1">
+                          <meta name="app-version" content="3.43.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4639,17 +4639,21 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   // ============ FORCE REFRESH (clear cache + reload latest) ============
   // The real cure for phones stuck on an old cached copy. Always shows an
   // export-first confirm so the user can back up their data before we clear caches.
+  // v3.43.2: only Pawfolio's own service worker and caches. Every CleartrackApps app
+  // shares cleartrackapps.com, so clearing everything also broke the other apps offline.
   async function doForceRefresh() {
+    const ownScope = new URL('./', location.href).href;
+    const isOwnCache = k => k.startsWith('pet-care-planner-') && !k.startsWith('pet-care-planner-demo');
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+        await Promise.all(regs.filter(r => r.scope.startsWith(ownScope)).map(r => r.unregister().catch(() => {})));
       }
     } catch (e) { /* non-fatal */ }
     try {
       if (window.caches && caches.keys) {
         const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+        await Promise.all(keys.filter(isOwnCache).map(k => caches.delete(k).catch(() => {})));
       }
     } catch (e) { /* non-fatal */ }
     // Cache-busted reload to the live page so the phone pulls the newest copy.
@@ -7789,19 +7793,22 @@ try {
   }
   function getBackupFn(){ return (typeof window.pawfolioDownloadFullBackup === 'function') ? window.pawfolioDownloadFullBackup : null; }
 
+  // v3.43.2: only Pawfolio's own service worker and caches (other apps share this origin).
   function clearWorkersAndCaches(){
     var jobs = [];
+    var ownScope = new URL('./', location.href).href;
+    var isOwnCache = function(k){ return k.indexOf('pet-care-planner-') === 0 && k.indexOf('pet-care-planner-demo') !== 0; };
     try {
       if ('serviceWorker' in navigator){
         jobs.push(navigator.serviceWorker.getRegistrations().then(function(regs){
-          return Promise.all((regs||[]).map(function(r){ return r.unregister().catch(function(){}); }));
+          return Promise.all((regs||[]).filter(function(r){ return r.scope.indexOf(ownScope) === 0; }).map(function(r){ return r.unregister().catch(function(){}); }));
         }).catch(function(){}));
       }
     } catch(e){}
     try {
       if (window.caches && caches.keys){
         jobs.push(caches.keys().then(function(keys){
-          return Promise.all((keys||[]).map(function(k){ return caches.delete(k).catch(function(){}); }));
+          return Promise.all((keys||[]).filter(isOwnCache).map(function(k){ return caches.delete(k).catch(function(){}); }));
         }).catch(function(){}));
       }
     } catch(e){}

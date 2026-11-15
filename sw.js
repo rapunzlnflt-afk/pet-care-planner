@@ -1,4 +1,6 @@
-const CACHE_NAME = 'pet-care-planner-220';const ASSETS = [
+// Only this app's own caches. Every CleartrackApps app shares cleartrackapps.com, so they all share one cache store.
+const isOwnCache = k => k.startsWith('pet-care-planner-') && !k.startsWith('pet-care-planner-demo');
+const CACHE_NAME = 'pet-care-planner-221';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -31,7 +33,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => isOwnCache(k) && k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
