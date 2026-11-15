@@ -1,9 +1,10 @@
 // Test double for supabase-js: translates the small query-builder subset used
-// by the function into SQL against PGlite (real Postgres, with migration 0009).
+// by the function into SQL against PGlite (real Postgres, with the migrations
+// listed in MIGRATION, comma-separated, applied in order).
 import { PGlite } from "npm:@electric-sql/pglite";
 export const db = new PGlite();
-await db.exec("create role anon; create role authenticated;");
-await db.exec(await Deno.readTextFile(Deno.env.get("MIGRATION")!));
+await db.exec("create role anon; create role authenticated; create role service_role;");
+for (const f of Deno.env.get("MIGRATION")!.split(",")) await db.exec(await Deno.readTextFile(f.trim()));
 (globalThis as any).__db = db;
 
 class Q {
@@ -56,4 +57,13 @@ class Q {
   }
   then(a: any, b: any) { return this.run().then(a, b); }
 }
-export function createClient(..._a: unknown[]) { return { from: (t: string) => new Q(t) }; }
+async function rpc(fn: string, args: Record<string, unknown> = {}) {
+  const ks = Object.keys(args);
+  try {
+    const r = await db.query<any>(`select public.${fn}(${ks.map((k, i) => `${k} => $${i + 1}`).join(", ")}) as v`, ks.map((k) => args[k]));
+    return { data: r.rows[0]?.v ?? null, error: null };
+  } catch (e: any) {
+    return { data: null, error: { code: e.code, message: e.message } };
+  }
+}
+export function createClient(..._a: unknown[]) { return { from: (t: string) => new Q(t), rpc }; }

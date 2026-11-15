@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.43.2">
+                          <meta name="app-version" content="3.43.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -14939,6 +14939,7 @@ try {
     if (code === 'too_large') return 'This is too big to send. Use fewer or smaller photos, or send fewer pets at a time.';
     if (code === 'not_found') return ctx === 'lookup' ? 'No sitter has that code. Check it with your sitter and try again.' : 'This sitter link no longer works. Ask your sitter for a new link or code.';
     if (code === 'inbox_full') return 'Your sitter\'s inbox is full right now. Ask them to open Pawfolio, then try again.';
+    if (code === 'rate_limited') return 'Too many tries in a short time. Please wait a few minutes, then try again.';
     if (code === 'forbidden') return 'This phone could not open the inbox. If you moved to a new phone, restore your Pawfolio backup.';
     if (code === 'bad_request' || code === 'bad_envelope') return 'Something in this form could not be sent. Check it and try again.';
     if (code === 'code_taken') return 'Could not make a sitter code. Please try again.';

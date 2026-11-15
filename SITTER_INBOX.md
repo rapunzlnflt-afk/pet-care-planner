@@ -9,6 +9,7 @@ picks it up, and it can't read it.
 | File | Purpose |
 |------|---------|
 | `supabase/migrations/0009_pawfolio_sitter_inbox.sql` | `pawfolio_sitter_inboxes`, `pawfolio_sitter_submissions`. RLS on, no policies. |
+| `supabase/migrations/0010_pawfolio_sitter_inbox_limits.sql` | Rate-limit counters (`pawfolio_sitter_rate`, `pawfolio_sitter_rate_hit`) and a trigger that makes the 100-form cap strict. RLS on, no policies. |
 | `supabase/functions/pawfolio-sitter-inbox/index.ts` | The only way in: `register`, `lookup`, `submit`, `list`, `ack`. |
 | `supabase/tests/pawfolio-sitter-inbox/` | Local contract test (no live project). |
 
@@ -25,11 +26,32 @@ picks it up, and it can't read it.
 Errors are always `{error}` with a matching status. When `more` is true, the
 sitter app should ack what it saved and call `list` again.
 
+## Rate limits (v3.43.3, migration 0010)
+
+`register`, `lookup` and `submit` need no secret, so they are limited. Over a
+limit the reply is 429 `{error: "rate_limited"}` with a `Retry-After` header
+(seconds). A full inbox is still 429 `inbox_full`; clients check the code.
+
+| Action | Per connection (hashed IP) | Per inbox |
+|--------|---------------------------|-----------|
+| `register` | 10 an hour | |
+| `lookup` | 30 per 10 minutes, 200 a day (malformed codes count too); 2,000 an hour for everyone together | |
+| `submit` | 20 an hour, 60 a day | 30 an hour |
+| `list`, `ack` | not limited (need the inbox secret) | |
+
+- The IP comes from `cf-connecting-ip` (set by Cloudflare, can't be faked), else the first `x-forwarded-for` entry, and is stored only as a 32-character
+  sha256 prefix. Counter rows are removed after 2 days (by the rate function
+  itself, no cron job). A request with no IP skips the per-IP limits.
+- If the counter call fails, the request goes through, so a database hiccup
+  never blocks real users.
+- The 100-waiting-forms cap is enforced by a trigger that locks the inbox row,
+  so two forms at the same moment can't overshoot it.
+
 ## Deploy
 
 Not deployed by this PR. When ready:
 
-1. Apply the migration (SQL editor, or `supabase db push`). It is idempotent.
+1. Apply the migrations 0009 and 0010 in order (SQL editor, or `supabase db push`). Both are idempotent.
 2. `supabase functions deploy pawfolio-sitter-inbox --no-verify-jwt`
    (token-checked inside; there is no user JWT on a sitter's or client's phone).
    `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided by Supabase.
@@ -44,22 +66,17 @@ INTAKE_CRYPTO=/path/to/intake-crypto.js MOCK=/path/to/mock_server.py \
 ```
 
 Runs the real `index.ts` under Deno against Postgres in WASM (PGlite, with
-migration 0009 applied) and drives it with `intake-crypto.js` under Node:
+migrations 0009 and 0010 applied) and drives it with `intake-crypto.js` under Node:
 register, lookup by code, submit an encrypted form, list, decrypt, ack, plus
 every limit and error. With `MOCK` set, the same test runs against the
 in-memory mock used by the app builds, so the two stay in step.
 
 ## Follow-ups
 
-- **Rate limiting (deferred).** `register`, `lookup` and `submit` need no
-  secret. Anyone who has a sitter's link or code can fill that inbox to the
-  100-form limit, so new forms get 429 `inbox_full` until the sitter acks or
-  the 60-day purge runs. `lookup` can also be used to guess codes (31^8
-  possibilities). Add per-IP or per-inbox limits before wide release.
-- The 100-form check is count-then-insert, so two submits at the same moment
-  can slightly overshoot it. A DB trigger would make it strict.
-- Inboxes that are never used again are kept forever. A cron job could remove
-  inboxes not seen in a long time.
+- Rate limiting and the strict 100-form cap: done in v3.43.3 (see above).
+- Inboxes that are never used again are kept forever. Removing old ones would
+  also break that sitter's printed cards and saved links, so it is left alone
+  for now; an inbox row is tiny.
 
 ## Live dose link (v3.41.0)
 

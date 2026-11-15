@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local contract test for pawfolio-sitter-inbox. Never touches the live project.
 # Runs the real index.ts under Deno with a fake supabase-js backed by PGlite
-# (real Postgres in WASM, migration 0009 applied), then drives it with the
+# (real Postgres in WASM, migrations 0009 and 0010 applied), then drives it with the
 # shared intake-crypto.js under Node. Optionally runs the same test against
 # mock_server.py (MOCK=/path/to/mock_server.py) so both stay in step.
 #   INTAKE_CRYPTO=/path/to/intake-crypto.js [MOCK=/path/to/mock_server.py] ./run.sh
@@ -18,7 +18,7 @@ J
 PIDS=()
 trap 'kill ${PIDS[@]} 2>/dev/null || true; rm -f deno.json' EXIT
 SUPABASE_URL=http://local SUPABASE_SERVICE_ROLE_KEY=test \
-  MIGRATION=../../migrations/0009_pawfolio_sitter_inbox.sql PORT="$FN_PORT" \
+  MIGRATION=../../migrations/0009_pawfolio_sitter_inbox.sql,../../migrations/0010_pawfolio_sitter_inbox_limits.sql PORT="$FN_PORT" \
   deno run -A --import-map=import_map.json serve.ts > fn.log 2>&1 & PIDS+=($!)
 for _ in $(seq 60); do grep -q "fn up" fn.log 2>/dev/null && break; sleep 1; done
 node e2e.mjs "http://127.0.0.1:$FN_PORT/functions/v1/pawfolio-sitter-inbox" fn "http://127.0.0.1:$FN_PORT"
