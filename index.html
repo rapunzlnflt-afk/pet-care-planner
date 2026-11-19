@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.43.3">
+                          <meta name="app-version" content="3.43.4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -12703,6 +12703,10 @@ try {
     var STORE_ID   = 478073;
     var PRODUCT_ID = 1405596;
     var RECHECK_HOURS = 12;           // how often an online device re-asks the store
+    // Lemon Squeezy shuts down on 2027-03-31. From 2027-03-01 the app stops asking
+    // it and keeps whatever it last confirmed, so a paid device is not locked by
+    // the store going away (offline grace and expiry no longer apply to it).
+    var LS_SUNSET = Date.parse('2027-03-01T00:00:00Z');
     var DEMO_URL = 'https://cleartrackapps.com/pet-care-planner-demo/';
 
     var PAID = [
@@ -12732,6 +12736,7 @@ try {
       // Grandfathered users never expire and are never re-checked against the store.
       if (l.grandfathered) return true;
       if (l.status !== 'active') return false;
+      if (Date.now() >= LS_SUNSET) return true;
       // Offline grace: a paying customer keeps working without a connection,
       // but not indefinitely. After GRACE_DAYS with no successful check the
       // tabs lock (records stay visible) until the next check succeeds.
@@ -13158,6 +13163,7 @@ try {
     function revalidate(force){
       var l = readLic();
       if (!l.key || !l.instanceId || l.grandfathered) return Promise.resolve();
+      if (Date.now() >= LS_SUNSET) return Promise.resolve();
       var age = l.lastCheck ? (Date.now() - Date.parse(l.lastCheck)) / 3600000 : Infinity;
       var pastExpiry = l.expiresAt && Date.now() > Date.parse(l.expiresAt)
                        && (!l.lastCheck || Date.parse(l.lastCheck) < Date.parse(l.expiresAt));
@@ -13166,6 +13172,9 @@ try {
       return lsPost('validate', { license_key:l.key, instance_id:l.instanceId })
         .then(function(d){
           if (!d || (d.valid === undefined && !d.license_key)) return; // unusable reply: leave as is
+          // "Not found" with no key details means the store can't answer (shut
+          // down or keys removed), not that the subscription ended: leave as is.
+          if (!d.license_key) return;
           // A saved key that turns out to belong to another product is not
           // a Pawfolio Complete subscription: lock rather than trust it.
           if (d.valid && d.license_key && ours(d.meta)) { record(l.key, l.instanceId, d); }
