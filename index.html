@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.43.5">
+                          <meta name="app-version" content="3.43.6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -13756,7 +13756,13 @@ try {
   // ---- log a due dose with the time it was really given (v3.36.0) ----
   // For a dose that is due or late: it was given at 2:00 but is being tapped
   // at 2:30. Rolling schedules count the next dose from the time entered.
-  function givenAtSheet(ev, name, pet, rolling, onDone){
+  // v3.43.6 — a time sheet opened from the "doses due" popup returns to the
+  // popup (Cancel, tapping outside, or after saving) so the other doses stay.
+  function wireBack(ov, onBack){
+    ov.querySelector('#pf-dose-time-cancel').onclick = function(){ closeSheet(); if(onBack) onBack(); };
+    if(onBack) ov.addEventListener('click', function(e){ if(e.target === ov) onBack(); });
+  }
+  function givenAtSheet(ev, name, pet, rolling, onDone, onCancel){
     var due = new Date(ev.due_at);
     var ov = sheet(
       '<h2 id="pf-dose-title">When was it given?</h2>' +
@@ -13768,7 +13774,7 @@ try {
       '<p class="pf-dose-err" id="pf-dose-time-err" role="alert"></p>' +
       '<button type="button" class="pf-dose-primary" id="pf-dose-time-save">Record as given</button>' +
       '<button type="button" class="pf-dose-link" id="pf-dose-time-cancel">Cancel</button>');
-    ov.querySelector('#pf-dose-time-cancel').onclick = closeSheet;
+    wireBack(ov, onCancel);
     var err = ov.querySelector('#pf-dose-time-err');
     ov.querySelector('#pf-dose-time').addEventListener('input', function(){ err.textContent = ''; });
     function save(force){
@@ -13797,7 +13803,7 @@ try {
         closeSheet();
         toast('Given ' + when(new Date(res.taken_at)) + '.' + (res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
         if(onDone) onDone(res);
-        return refresh();
+        return refresh().then(function(){ if(onCancel) onCancel(); });
       }).catch(function(){ err.textContent = 'Could not record the dose. Check your connection and try again.'; btn.disabled = false; });
     }
     ov.querySelector('#pf-dose-time-save').onclick = function(){ save(false); };
@@ -13835,7 +13841,7 @@ try {
   }
   window.pfDoseTimeParts.pickedPast = pickedPast;
 
-  function recordMissedSheet(ev, name, pet, rolling){
+  function recordMissedSheet(ev, name, pet, rolling, onBack){
     var due = new Date(ev.due_at);
     var ov = sheet(
       '<h2 id="pf-dose-title">Record a missed dose</h2>' +
@@ -13847,7 +13853,7 @@ try {
       '<p class="pf-dose-err" id="pf-dose-time-err" role="alert"></p>' +
       '<button type="button" class="pf-dose-primary" id="pf-dose-time-save">Record as given</button>' +
       '<button type="button" class="pf-dose-link" id="pf-dose-time-cancel">Cancel</button>');
-    ov.querySelector('#pf-dose-time-cancel').onclick = closeSheet;
+    wireBack(ov, onBack);
     var err = ov.querySelector('#pf-dose-time-err');
     ov.querySelector('#pf-dose-time').addEventListener('input', function(){ err.textContent = ''; });
     function save(force){
@@ -13875,7 +13881,7 @@ try {
         if(res.outcome !== 'recorded'){ err.textContent = recordError(res); btn.disabled = false; return; }
         closeSheet();
         toast('Recorded as given ' + when(new Date(res.taken_at)) + '.' + (rolling && res.next_due_at ? ' Next dose ' + when(new Date(res.next_due_at)) + '.' : ''));
-        return refresh();
+        return refresh().then(function(){ if(onBack) onBack(); });
       }).catch(function(){ err.textContent = 'Could not record the dose. Check your connection and try again.'; btn.disabled = false; });
     }
     ov.querySelector('#pf-dose-time-save').onclick = function(){ save(false); };
@@ -13957,10 +13963,14 @@ try {
       if(typeof window.goToTab === 'function'){ try { window.goToTab('medications'); } catch(e){} }
     };
     var left = list.length;
+    function backToPopup(){
+      var again = dueList();
+      if(again.length) showDuePopup(again); else closeSheet();
+    }
     list.forEach(function(x, i){
       var row = ov.querySelector('[data-row="' + i + '"]'), btns = row.querySelector('[data-btns]');
       if(x.missed){
-        row.querySelector('[data-rec]').onclick = function(){ recordMissedSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m)); };
+        row.querySelector('[data-rec]').onclick = function(){ recordMissedSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m), backToPopup); };
         return;
       }
       function go(taken){
@@ -13982,7 +13992,7 @@ try {
       row.querySelector('[data-g]').onclick = function(){ go(true); };
       row.querySelector('[data-s]').onclick = function(){ go(false); };
       var at = row.querySelector('[data-at]');
-      if(at) at.onclick = function(){ givenAtSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m)); };
+      if(at) at.onclick = function(){ givenAtSheet(x.ev, x.m.name, x.m.petName, !!everyOf(x.m), null, backToPopup); };
     });
   }
 
