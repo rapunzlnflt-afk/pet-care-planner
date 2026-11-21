@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.45.0">
+                          <meta name="app-version" content="3.45.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3949,18 +3949,24 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       // v3.45.0: which sections are switched on, if this pet's chips are rendered.
       const chips = document.querySelectorAll('.pf-sec-chip[data-pet="' + p.__id + '"]');
       if(chips.length) data['sitter-sections-' + p.__id] = Array.prototype.filter.call(chips, c => c.getAttribute('aria-pressed') === 'true').map(c => c.getAttribute('data-sec-chip'));
-      // Gather med checkbox selections if this pet's picker is rendered.
+      // Gather med checkbox selections for every med whose checkbox is rendered.
+      // v3.45.1: this used to look only at the pet's FIRST medication. When that
+      // one was archived (archived meds aren't shown), nothing for the pet was
+      // saved, so checks and sitter instructions vanished on the next reload.
+      // Now each rendered checkbox is read, and saved entries for meds that
+      // aren't shown (archived) are kept as they were.
       const meds = getList('medications').filter(m => m.petId === p.__id);
-      const anyChk = meds.length && document.getElementById('sitter-medchk-'+p.__id+'-'+meds[0].__id);
-      if(anyChk) {
-        const sel = {};
-        meds.forEach(m => {
-          const chk = document.getElementById('sitter-medchk-'+p.__id+'-'+m.__id);
-          const ins = document.getElementById('sitter-medins-'+p.__id+'-'+m.__id);
-          if(chk) sel[m.__id] = { include: !!chk.checked, instructions: ins ? ins.value : '' };
-        });
-        data['sitter-selmeds-'+p.__id] = sel;
-      }
+      const priorSel = (prior['sitter-selmeds-'+p.__id] && typeof prior['sitter-selmeds-'+p.__id] === 'object') ? prior['sitter-selmeds-'+p.__id] : {};
+      const sel = Object.assign({}, priorSel);
+      let anyChk = false;
+      meds.forEach(m => {
+        const chk = document.getElementById('sitter-medchk-'+p.__id+'-'+m.__id);
+        if(!chk) return;
+        anyChk = true;
+        const ins = document.getElementById('sitter-medins-'+p.__id+'-'+m.__id);
+        sel[m.__id] = { include: !!chk.checked, instructions: ins ? ins.value : '' };
+      });
+      if(anyChk) data['sitter-selmeds-'+p.__id] = sel;
     });
     return data;
   }
@@ -15259,7 +15265,11 @@ try {
   // Every active medication and supplement for the pet, as payload rows (+ the record id).
   function derivedMeds(pid){
     var si = readJSON('petSitterInfo', {});
-    var sel = {}; try { sel = JSON.parse(si['sitter-selmeds-' + pid] || '{}') || {}; } catch(e){}
+    // v3.45.1: the selection is saved as an object, not a JSON string. Parsing it
+    // always failed, so sitter instructions were never sent (only the med's notes).
+    var raw = si['sitter-selmeds-' + pid], sel = {};
+    if (raw && typeof raw === 'object') sel = raw;
+    else if (typeof raw === 'string') { try { sel = JSON.parse(raw) || {}; } catch(e){} }
     return getList('medications').filter(function(m){ return String(m.petId) === String(pid) && medActive(m); }).map(function(m){
       var times = Array.isArray(m.doseTimes) ? m.doseTimes.map(time12).join(', ') : '';
       var s = sel[String(m.__id)] || {};
