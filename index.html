@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.50.0">
+                          <meta name="app-version" content="3.51.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4451,16 +4451,22 @@ body.pf-ho-lock{overflow:hidden;}
     c.style.cssText = 'display:block;overflow:visible;height:auto;max-height:none;flex:none;width:' + CSSW + 'px;max-width:none;margin:0;background:#fff;';
     // The picture-maker draws text a few pixels off, so the header row came out
     // on several levels. Swap in a header drawn directly (pfSitterHeaderImg).
+    // v3.51.0: the header used to go in as an <img>, but Safari hadn't finished
+    // loading it when the picture was taken, so iPhone PDFs had no header. Now
+    // an empty box of the right size holds its place and the header is painted
+    // onto the finished picture (pfMakePdf).
     var hd = c.querySelector('.sitter-print-header');
-    if (hd && pfHeaderUrl) {
-      hd.style.cssText = 'padding:0;margin:-24px -24px 24px;background:none;';
-      hd.innerHTML = '<img alt="" src="' + pfHeaderUrl + '" style="display:block;width:' + CSSW + 'px;height:auto;">';
+    if (hd && pfHeaderCv) {
+      hd.style.cssText = 'padding:0;margin:-24px -24px 24px;background:none;width:' + CSSW + 'px;height:' + (pfHeaderCv.height / 2) + 'px;';
+      hd.innerHTML = '';
+      var r = hd.getBoundingClientRect(), rc = c.getBoundingClientRect();
+      pfHeaderPos = { x: r.left - rc.left, y: r.top - rc.top, w: CSSW, h: pfHeaderCv.height / 2 };
     }
   }
-  var pfHeaderUrl = '';
+  var pfHeaderCv = null, pfHeaderPos = null;
   function pfSitterHeaderImg(W) {
     var hd = document.querySelector('#sitter-print-content .sitter-print-header');
-    if (!hd) return Promise.resolve('');
+    if (!hd) return Promise.resolve(null);
     var q = function(sel) { var e = hd.querySelector(sel); return e ? e.textContent.trim() : ''; };
     var name = q('.sitter-print-brand-name') || 'Pawfolio', maker = q('.sitter-print-brand-maker'), sub = q('.sitter-print-subtitle');
     var iconEl = hd.querySelector('.sitter-print-brand-icon');
@@ -4488,8 +4494,8 @@ body.pf-ho-lock{overflow:hidden;}
         x.fillStyle = 'rgba(255,255,255,0.92)'; x.font = '600 18px ' + F; x.fillText(maker, px, mid);
       }
       if (sub) { x.fillStyle = 'rgba(255,255,255,0.95)'; x.font = '600 18px ' + F; x.fillText(sub, 24, 72); }
-      return cv.toDataURL('image/png');
-    }).catch(function() { return ''; });
+      return cv;
+    }).catch(function() { return null; });
   }
   function pfMakePdf(src, onclone) {
     var CSSW = 760;
@@ -4499,6 +4505,8 @@ body.pf-ho-lock{overflow:hidden;}
         onclone: function(doc) { onclone(doc, CSSW); }
       });
     }).then(function(canvas) {
+      var k0 = canvas.width / CSSW;
+      if (pfHeaderCv && pfHeaderPos) { var hc = canvas.getContext('2d'); hc.setTransform(1, 0, 0, 1, 0, 0); hc.drawImage(pfHeaderCv, pfHeaderPos.x * k0, pfHeaderPos.y * k0, pfHeaderPos.w * k0, pfHeaderPos.h * k0); }
       var k = canvas.width / CSSW, pageCss = CSSW * 720 / 540, total = canvas.height / k, pages = [], y = 0;
       var ctx0 = canvas.getContext('2d');
       // New pages start on a run of blank rows in the picture itself, so a line
@@ -4542,6 +4550,7 @@ body.pf-ho-lock{overflow:hidden;}
   function pfPdfFlow(opts) {
     var afterFail = opts.afterFail, NAME = pfCleanName(opts.name);
     var old = document.getElementById('pf-pdf-sheet'); if (old) old.remove();
+    pfHeaderCv = null; pfHeaderPos = null;
     pfPdfHost = opts.host || document.body;
     pfPdfSheet('<h3 id="pf-pdf-h">Making a PDF\u2026</h3><p>' + (afterFail ? 'Printing didn\u2019t open here, so I\u2019m making a PDF you can print or save.' : 'Printing from the Home Screen app goes through a PDF on iPhone.') + '</p>');
     (opts.prep ? opts.prep() : Promise.resolve()).then(function() { return pfMakePdf(opts.el, opts.onclone); }).then(function(blob) {
@@ -4563,7 +4572,7 @@ body.pf-ho-lock{overflow:hidden;}
     });
   }
   function pfSitterPdf(afterFail) {
-    pfPdfFlow({ prep: function() { return pfSitterHeaderImg(760).then(function(u) { pfHeaderUrl = u; }); }, el: document.getElementById('sitter-print-content'), host: document.getElementById('sitter-print-overlay'),
+    pfPdfFlow({ prep: function() { return pfSitterHeaderImg(760).then(function(cv) { pfHeaderCv = cv; }); }, el: document.getElementById('sitter-print-content'), host: document.getElementById('sitter-print-overlay'),
       name: (document.getElementById('sitter-print-title') || {}).textContent || 'Pet Sitter Instructions', onclone: pfSitterClone, afterFail: afterFail });
   }
   window.pfPrintBlocked = pfPrintBlocked;
