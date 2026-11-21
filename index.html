@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.49.0">
+                          <meta name="app-version" content="3.50.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4443,18 +4443,60 @@ body.pf-ho-lock{overflow:hidden;}
     return new Blob(parts, { type: 'application/pdf' });
   }
   function pfDataUrlBytes(u) { var b = atob(u.split(',')[1]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
-  function pfMakeSitterPdf() {
-    var src = document.getElementById('sitter-print-content');
+  // v3.50.0: shared by the sitter print view and the Timeline print view.
+  function pfSitterClone(doc, CSSW) {
+    var ov = doc.getElementById('sitter-print-overlay'), c = doc.getElementById('sitter-print-content'), bar = doc.getElementById('sitter-print-bar');
+    if (bar) bar.style.display = 'none';
+    if (ov) ov.style.cssText = 'display:block;position:absolute;top:0;left:0;width:' + CSSW + 'px;height:auto;background:#fff;';
+    c.style.cssText = 'display:block;overflow:visible;height:auto;max-height:none;flex:none;width:' + CSSW + 'px;max-width:none;margin:0;background:#fff;';
+    // The picture-maker draws text a few pixels off, so the header row came out
+    // on several levels. Swap in a header drawn directly (pfSitterHeaderImg).
+    var hd = c.querySelector('.sitter-print-header');
+    if (hd && pfHeaderUrl) {
+      hd.style.cssText = 'padding:0;margin:-24px -24px 24px;background:none;';
+      hd.innerHTML = '<img alt="" src="' + pfHeaderUrl + '" style="display:block;width:' + CSSW + 'px;height:auto;">';
+    }
+  }
+  var pfHeaderUrl = '';
+  function pfSitterHeaderImg(W) {
+    var hd = document.querySelector('#sitter-print-content .sitter-print-header');
+    if (!hd) return Promise.resolve('');
+    var q = function(sel) { var e = hd.querySelector(sel); return e ? e.textContent.trim() : ''; };
+    var name = q('.sitter-print-brand-name') || 'Pawfolio', maker = q('.sitter-print-brand-maker'), sub = q('.sitter-print-subtitle');
+    var iconEl = hd.querySelector('.sitter-print-brand-icon');
+    return new Promise(function(res) {
+      var icon = new Image();
+      icon.onload = function() { res(icon); }; icon.onerror = function() { res(null); };
+      icon.src = iconEl ? iconEl.src : './icon-192.png';
+    }).then(function(icon) {
+      var S = 2, H = sub ? 102 : 70, cv = document.createElement('canvas');
+      cv.width = W * S; cv.height = H * S;
+      var x = cv.getContext('2d'); x.scale(S, S);
+      var g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#5B5BD6'); g.addColorStop(1, '#4C4CC8');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      var F = 'Arial, Helvetica, sans-serif', mid = 35, px = 24;
+      if (icon) {
+        x.save(); x.beginPath();
+        if (x.roundRect) x.roundRect(px, 18, 34, 34, 8); else x.rect(px, 18, 34, 34);
+        x.clip(); x.drawImage(icon, px, 18, 34, 34); x.restore();
+        px += 34 + 10;
+      }
+      x.textBaseline = 'middle'; x.fillStyle = '#ffffff';
+      x.font = '700 26px ' + F; x.fillText(name, px, mid); px += x.measureText(name).width + 10;
+      if (maker) {
+        x.font = '700 18px ' + F; x.fillStyle = 'rgba(255,255,255,0.7)'; x.fillText('\u00b7', px, mid); px += x.measureText('\u00b7').width + 10;
+        x.fillStyle = 'rgba(255,255,255,0.92)'; x.font = '600 18px ' + F; x.fillText(maker, px, mid);
+      }
+      if (sub) { x.fillStyle = 'rgba(255,255,255,0.95)'; x.font = '600 18px ' + F; x.fillText(sub, 24, 72); }
+      return cv.toDataURL('image/png');
+    }).catch(function() { return ''; });
+  }
+  function pfMakePdf(src, onclone) {
     var CSSW = 760;
     return pfLoadH2c().then(function(h2c) {
       return h2c(src, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 816,
-        onclone: function(doc) {
-          var ov = doc.getElementById('sitter-print-overlay'), c = doc.getElementById('sitter-print-content'), bar = doc.getElementById('sitter-print-bar');
-          if (bar) bar.style.display = 'none';
-          if (ov) ov.style.cssText = 'display:block;position:absolute;top:0;left:0;width:' + CSSW + 'px;height:auto;background:#fff;';
-          c.style.cssText = 'display:block;overflow:visible;height:auto;max-height:none;flex:none;width:' + CSSW + 'px;max-width:none;margin:0;';
-        }
+        onclone: function(doc) { onclone(doc, CSSW); }
       });
     }).then(function(canvas) {
       var k = canvas.width / CSSW, pageCss = CSSW * 720 / 540, total = canvas.height / k, pages = [], y = 0;
@@ -4483,34 +4525,36 @@ body.pf-ho-lock{overflow:hidden;}
       return pfBuildPdf(pages);
     });
   }
-  function pfPdfName() {
-    var t = (document.getElementById('sitter-print-title') || {}).textContent || 'Pet Sitter Instructions';
-    return t.replace(/[\\/:*?"<>|]+/g, '').trim() + '.pdf';
-  }
+  function pfCleanName(t) { return String(t || 'Pawfolio').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim() + '.pdf'; }
+  var pfPdfHost = null;
   function pfPdfSheet(html) {
     var ov = document.getElementById('pf-pdf-sheet');
     if (!ov) {
       ov = document.createElement('div'); ov.id = 'pf-pdf-sheet';
       ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-labelledby', 'pf-pdf-h');
       ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
-      document.getElementById('sitter-print-overlay').appendChild(ov);
+      (pfPdfHost || document.body).appendChild(ov);
     }
     ov.innerHTML = '<div class="pf-pdf-panel">' + html + '</div>';
     return ov;
   }
-  function pfSitterPdf(afterFail) {
+  // opts: { el, host, name, onclone, afterFail }
+  function pfPdfFlow(opts) {
+    var afterFail = opts.afterFail, NAME = pfCleanName(opts.name);
+    var old = document.getElementById('pf-pdf-sheet'); if (old) old.remove();
+    pfPdfHost = opts.host || document.body;
     pfPdfSheet('<h3 id="pf-pdf-h">Making a PDF\u2026</h3><p>' + (afterFail ? 'Printing didn\u2019t open here, so I\u2019m making a PDF you can print or save.' : 'Printing from the Home Screen app goes through a PDF on iPhone.') + '</p>');
-    pfMakeSitterPdf().then(function(blob) {
-      var file = null; try { file = new File([blob], pfPdfName(), { type: 'application/pdf' }); } catch (e) {}
+    (opts.prep ? opts.prep() : Promise.resolve()).then(function() { return pfMakePdf(opts.el, opts.onclone); }).then(function(blob) {
+      var file = null; try { file = new File([blob], NAME, { type: 'application/pdf' }); } catch (e) {}
       var canShare = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
       var url = URL.createObjectURL(blob);
       var ov = pfPdfSheet('<h3 id="pf-pdf-h">Your PDF is ready</h3><p>' + (canShare ? 'Tap below, then choose <strong>Print</strong>, or Save to Files to keep a copy.' : 'Open it, then print or save it from there.') + '</p>' +
         '<div class="pf-pdf-btns">' + (canShare ? '<button type="button" class="pf-pdf-go" id="pf-pdf-share">Print or save PDF</button>' : '') +
-        '<a class="' + (canShare ? 'pf-pdf-alt' : 'pf-pdf-go') + '" id="pf-pdf-open" href="' + url + '" download="' + pfPdfName().replace(/"/g, '') + '" target="_blank" rel="noopener">' + (canShare ? 'Open PDF instead' : 'Open PDF') + '</a>' +
+        '<a class="' + (canShare ? 'pf-pdf-alt' : 'pf-pdf-go') + '" id="pf-pdf-open" href="' + url + '" download="' + NAME.replace(/"/g, '') + '" target="_blank" rel="noopener">' + (canShare ? 'Open PDF instead' : 'Open PDF') + '</a>' +
         '<button type="button" class="pf-pdf-alt" id="pf-pdf-cancel">Cancel</button></div>');
       var sh = document.getElementById('pf-pdf-share');
       if (sh) sh.addEventListener('click', function() {
-        navigator.share({ files: [file], title: pfPdfName().replace(/\.pdf$/, '') }).then(function() { ov.remove(); }).catch(function() {});
+        navigator.share({ files: [file], title: NAME.replace(/\.pdf$/, '') }).then(function() { ov.remove(); }).catch(function() {});
       });
       document.getElementById('pf-pdf-cancel').addEventListener('click', function() { ov.remove(); });
     }).catch(function(err) {
@@ -4518,6 +4562,12 @@ body.pf-ho-lock{overflow:hidden;}
       document.getElementById('pf-pdf-cancel').addEventListener('click', function() { ov.remove(); });
     });
   }
+  function pfSitterPdf(afterFail) {
+    pfPdfFlow({ prep: function() { return pfSitterHeaderImg(760).then(function(u) { pfHeaderUrl = u; }); }, el: document.getElementById('sitter-print-content'), host: document.getElementById('sitter-print-overlay'),
+      name: (document.getElementById('sitter-print-title') || {}).textContent || 'Pet Sitter Instructions', onclone: pfSitterClone, afterFail: afterFail });
+  }
+  window.pfPrintBlocked = pfPrintBlocked;
+  window.pfPdfFlow = pfPdfFlow;
   window.pfSitterPdf = pfSitterPdf;
 
   if (document.getElementById('sitter-print-close-btn')) {
@@ -11152,15 +11202,49 @@ try {
     $('tl-print-none').addEventListener('click', function(){ setAllPicks(false); });
     $('tl-print-do').addEventListener('click', function(){
       if (!pickedRows().length){ say('Tick at least one entry to print.'); return; }
+      // v3.50.0: iOS 27 Home Screen apps ignore window.print(); use the PDF instead.
+      if (window.pfPrintBlocked && window.pfPrintBlocked()) { timelinePdf(); return; }
       // Scope the print rules to this overlay so the sitter print view is
       // unaffected. The class visibly drops the unticked rows and the toolbar,
       // so it has to come back off reliably - afterprint is the real signal,
       // with a timer as a backstop for browsers that never fire it.
       document.body.classList.add('tl-printing');
       var undo = function(){ document.body.classList.remove('tl-printing'); };
+      var began = false, mark = function(){ began = true; };
+      try { window.addEventListener('beforeprint', mark, { once: true }); } catch(e){}
       try { window.addEventListener('afterprint', undo, { once: true }); } catch(e){}
       try { window.print(); } catch(e){}
       setTimeout(undo, 1500);
+      // If printing quietly fails, offer the PDF rather than doing nothing.
+      setTimeout(function(){ try { window.removeEventListener('beforeprint', mark); } catch(e){} if (!began && !(window.matchMedia && matchMedia('print').matches)) timelinePdf(true); }, 1200);
+    });
+  }
+
+  function timelinePdf(afterFail){
+    if (!window.pfPdfFlow) { say('Printing is not available here.'); return; }
+    var meta = document.querySelector('#tl-print-content .tl-print-meta');
+    var who = meta ? meta.textContent.split('\u00b7')[0].trim() : '';
+    window.pfPdfFlow({
+      el: $('tl-print-content'), host: $('tl-print-overlay'),
+      name: 'Pawfolio Timeline' + (who ? ' - ' + who : ''), afterFail: afterFail,
+      onclone: function(doc, W){
+        // Same layout the print dialog gets: no toolbar, no checkboxes, unticked rows gone.
+        doc.body.classList.add('tl-printing');
+        var c = doc.getElementById('tl-print-content');
+        if (c) { c.style.setProperty('width', W + 'px', 'important'); c.style.setProperty('padding', '0 0 24px', 'important'); c.style.setProperty('background', '#fff', 'important'); }
+        // The picture-maker skips list numbers, so write them in.
+        var n = 0;
+        [].forEach.call(doc.querySelectorAll('#tl-print-content .tl-print-list'), function(ol){ ol.style.cssText = 'list-style:none;padding-left:0;margin:0;'; });
+        [].forEach.call(doc.querySelectorAll('#tl-print-content .tl-print-row'), function(li){
+          if (li.classList.contains('tl-off')) return;
+          var num = doc.createElement('span');
+          num.textContent = (++n) + '.';
+          num.style.cssText = 'flex:0 0 24px;width:24px;text-align:right;color:#334155;font-size:13px;font-weight:700;line-height:1.4;font-variant-numeric:tabular-nums;';
+          var row = li.querySelector('.tl-print-rowin'); if (row) row.insertBefore(num, row.firstChild);
+        });
+        var ov = doc.getElementById('tl-print-overlay');
+        if (ov) ov.style.setProperty('width', W + 'px', 'important');
+      }
     });
   }
 
