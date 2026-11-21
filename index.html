@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.47.0">
+                          <meta name="app-version" content="3.48.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -980,8 +980,13 @@ body.pf-ho-lock{overflow:hidden;}
 .pf-pet-head[aria-expanded="true"] .pf-pet-chev{transform:rotate(90deg);}
 .pf-pet-body{margin-top:14px;}
 .pf-pet-body[hidden]{display:none;}
-.pf-fgroup{padding:12px 0 2px;border-top:1px solid var(--border-color,rgba(0,0,0,0.08));}
-.pf-fhead{font-size:15px;font-weight:700;color:var(--text-primary);margin:0 0 8px;}
+/* v3.48: each included section is its own soft panel with a clear heading */
+.pf-fgroup{margin-top:12px;padding:12px 14px 14px;border:1px solid rgba(91,91,214,0.16);border-radius:12px;background:rgba(91,91,214,0.04);}
+.pf-fhead{display:flex !important;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;font-size:16px !important;font-weight:700;line-height:1.3;color:var(--text-primary);margin:0 0 10px;}
+.pf-fhead::before{content:"";flex:0 0 4px;height:16px;border-radius:2px;background:var(--accent-color);}
+.card .pf-fgrid label{font-size:14px !important;line-height:1.35 !important;font-weight:600;color:var(--text-secondary);}
+@media (max-width:768px){.card .pf-fhead{font-size:18px !important;}.card .pf-fhead::before{height:18px;}}
+.pf-fgroup input,.pf-fgroup textarea{background:var(--card-bg,#fff);}
 .pf-fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
 .pf-medlist{display:flex;flex-direction:column;}
 .pf-medrow{padding:8px 0;border-top:1px dashed var(--border-color,rgba(0,0,0,0.1));}
@@ -989,6 +994,22 @@ body.pf-ho-lock{overflow:hidden;}
 .pf-medtag{display:inline-block;font-size:11px;font-weight:600;color:var(--accent-color);background:rgba(91,91,214,0.10);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:1px;}
 .pf-sec-note{font-weight:400;}
 .pf-ho-privacy{font-size:11.5px;color:var(--text-secondary);line-height:1.4;margin:4px 0 0;padding-top:10px;border-top:1px solid var(--border-color,rgba(0,0,0,0.08));}
+/* v3.48: dark mode for the sitter popup and pet sections */
+[data-theme="dark"] .pf-ho-overlay{background:rgba(0,0,0,.6);}
+[data-theme="dark"] .pf-ho-panel{background:#1e2732;border:1px solid rgba(139,124,248,0.2);box-shadow:0 -8px 40px rgba(0,0,0,.55);}
+[data-theme="dark"] .pf-ho-panel-head h3{color:#e8e6f0;}
+[data-theme="dark"] .pf-ho-x{color:#9b98b0;}
+[data-theme="dark"] .pf-ho-x:hover{background:rgba(139,124,248,0.12);color:#e8e6f0;}
+[data-theme="dark"] .pf-ho-row,[data-theme="dark"] .pf-ho-privacy{border-color:rgba(139,124,248,0.15);}
+[data-theme="dark"] .pf-ho-btn:disabled{opacity:.45;}
+[data-theme="dark"] .pf-fgroup{background:rgba(139,124,248,0.06);border-color:rgba(139,124,248,0.2);}
+[data-theme="dark"] .pf-fhead::before{background:#8b7cf8;}
+[data-theme="dark"] .pf-medrow{border-color:rgba(139,124,248,0.18);}
+[data-theme="dark"] .pf-medtag{color:#c4b5fd;background:rgba(139,124,248,0.18);}
+[data-theme="dark"] .pf-sec-chip{border-color:rgba(139,124,248,0.28);color:#9b98b0;}
+[data-theme="dark"] .pf-sec-chip[aria-pressed="true"]{background:rgba(139,124,248,0.18);border-color:#8b7cf8;color:#c4b5fd;}
+[data-theme="dark"] .pf-pet-chev{color:#9b98b0;}
+[data-theme="dark"] .pf-ho-trigger-chev{color:#c4b5fd;}
 </style>
 </head>
  <body class="h-full">
