@@ -328,6 +328,12 @@
           rows+=fieldText('When to Feed', p.feed);
           rows+=fieldText('Feeding Instructions', p.food);
           rows+=fieldText('Walks', p.walk);
+          // v3.45.0: extra sections the owner chose for this pet in Pet Sitter Info.
+          rows+=fieldText(p.sp==='Cat' ? 'Litter Box' : (p.sp==='Dog' ? 'Potty Breaks' : 'Potty / Litter'), p.potty);
+          rows+=fieldText('Habitat & Enclosure', p.hab);
+          rows+=fieldText('Sleep & Crate', p.sleep);
+          rows+=fieldText('Grooming', p.groom);
+          rows+=fieldText('Play & Comfort', p.play);
           rows+=p.meds?('<div class="field full"><div class="label">Medications</div><div class="value" style="white-space:pre-line;">'+esc(p.meds)+'</div></div>'):'';
           rows+=p.supps?('<div class="field full"><div class="label">Supplements</div><div class="value" style="white-space:pre-line;">'+esc(p.supps)+'</div></div>'):'';
           // Full-width + nowrap label so the short label can't wrap on paper.

@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.44.0">
+                          <meta name="app-version" content="3.45.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -934,6 +934,19 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
   };
 })();
 </script>
+<style>
+/* v3.45.0: per-pet "What to include" section chips in Pet Sitter Info */
+.pf-sec-label{font-size:12px;font-weight:600;color:var(--text-secondary);margin:0 0 8px;}
+.pf-sec-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px;}
+.pf-sec-chip{-webkit-appearance:none;appearance:none;font:inherit;font-size:13px;font-weight:600;line-height:1.3;padding:6px 12px;border-radius:999px;border:1.5px solid var(--border-color);background:transparent;color:var(--text-secondary);cursor:pointer;}
+.pf-sec-chip[aria-pressed="true"]{background:rgba(91,91,214,0.10);border-color:var(--accent-color);color:var(--accent-color);}
+.pf-sec-chip[aria-pressed="true"]::before{content:"\2713";margin-right:5px;}
+.pf-sec-chip:focus-visible{outline:2px solid var(--accent-color);outline-offset:2px;}
+.pf-sec-hint{font-size:11.5px;color:var(--text-secondary);margin:0 0 12px;}
+[data-sec][hidden]{display:none !important;}
+.pf-handoff-note{font-size:12.5px;color:var(--text-secondary);margin:-8px 0 16px;line-height:1.45;}
+.pf-handoff-note strong{color:var(--text-primary);font-weight:600;}
+</style>
 </head>
  <body class="h-full">
 
@@ -1766,11 +1779,13 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <h2 class="font-heading text-2xl font-bold text-primary">Pet Sitter Info</h2>
       <div style="display:flex;gap:8px;">
-       <button id="share-sitter-btn" class="btn-primary px-4 py-2 text-sm" style="background:var(--accent-color);">Share to sitter</button>
+       <button id="share-sitter-btn" class="btn-primary px-4 py-2 text-sm" style="background:var(--accent-color);" title="Text or email a link that opens in any phone's browser. No app needed.">Share as a link</button>
        <button id="print-sitter-btn" class="btn-primary px-4 py-2 text-sm">Print / Export</button>
       </div>
      </div>
      <p class="font-body text-sm text-secondary mb-4">Everything your pet sitter needs to know — fill this out once and print before any trip (changes save automatically).</p>
+     <!-- v3.45.0: the three ways to hand this off, so Share as a link and Send to a Pawfolio sitter don't read as the same thing -->
+     <p class="pf-handoff-note"><strong>Print / Export</strong> makes a paper copy. <strong>Share as a link</strong> texts or emails a link any sitter can open, no app needed. <strong>Send to a Pawfolio sitter</strong> (below) is for sitters who use Pawfolio — it goes into their Clients list.</p>
      <!-- Send to a sitter (v3.40.0): rendered by the Sitter mode script -->
      <div id="pf-send-sitter-card" class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);"></div>
      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
@@ -3785,38 +3800,111 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     }).join('') + `</div>`;
   }
 
+  // ---- v3.45.0: per-pet "What to include" sections ----
+  // Each pet chooses which sections go on the sitter sheet. The choice applies
+  // to all three handoffs: the printed sheet, Share as a link (sitter.html) and
+  // Send to a Pawfolio sitter. Turning a section off only hides it; whatever was
+  // typed is kept in petSitterInfo. Saved as 'sitter-sections-<petId>' (array).
+  // Pets with no saved choice get their species preset plus any section that
+  // already has text, so nothing an existing user typed disappears.
+  const SITTER_SECTIONS = [
+    { key: 'feed',    label: 'Feeding' },
+    { key: 'meds',    label: 'Medications & supplements' },
+    { key: 'walk',    label: 'Walks & exercise' },
+    { key: 'potty',   label: 'Potty breaks', catLabel: 'Litter box', otherLabel: 'Potty / litter',
+      ph: 'e.g., Out first thing, after meals and before bed', catPh: 'e.g., Scoop once a day. Box is in the laundry room, litter under the sink' },
+    { key: 'habitat', label: 'Habitat & enclosure', ph: 'e.g., Tank light on 8am–8pm, mist twice a day, keep the lid latched' },
+    { key: 'sleep',   label: 'Sleep & crate', ph: 'e.g., Crate at night with the blue blanket, door closed' },
+    { key: 'groom',   label: 'Grooming', ph: 'e.g., Brush every other day, wipe paws after walks' },
+    { key: 'play',    label: 'Play & comfort', ph: 'e.g., Loves the squeaky duck. Hides under the bed during storms' }
+  ];
+  // Free-text sections stored as 'sitter-<key>-<petId>' (feed/meds/walk use their older keys).
+  const SITTER_TEXT_SECTIONS = ['potty', 'habitat', 'sleep', 'groom', 'play'];
+  const SITTER_PRESETS = {
+    Dog: ['feed', 'meds', 'walk', 'potty', 'sleep'],
+    Cat: ['feed', 'meds', 'potty', 'play'],
+    Other: ['feed', 'meds', 'habitat']
+  };
+  function sitterSectionLabel(key, p) {
+    const def = SITTER_SECTIONS.find(x => x.key === key) || { label: key };
+    const sp = p && p.species;
+    if (sp === 'Cat' && def.catLabel) return def.catLabel;
+    if (sp !== 'Dog' && sp !== 'Cat' && def.otherLabel) return def.otherLabel;
+    return def.label;
+  }
+  function sitterSections(p, data) {
+    const saved = data && data['sitter-sections-' + p.__id];
+    if (Array.isArray(saved)) return saved.slice();
+    const out = (SITTER_PRESETS[p.species] || SITTER_PRESETS.Other).slice();
+    const filled = k => String((data && data[k + p.__id]) || '').trim() !== '';
+    if (filled('sitter-walk-') && out.indexOf('walk') < 0) out.push('walk');
+    if ((filled('sitter-feed-') || filled('sitter-food-')) && out.indexOf('feed') < 0) out.push('feed');
+    SITTER_TEXT_SECTIONS.forEach(k => { if (filled('sitter-' + k + '-') && out.indexOf(k) < 0) out.push(k); });
+    return out;
+  }
+  function sitterIncludes(p, data, key) { return sitterSections(p, data).indexOf(key) >= 0; }
+  window.sitterSections = sitterSections;
+  window.sitterIncludes = sitterIncludes;
+  window.sitterSectionLabel = sitterSectionLabel;
+  window.SITTER_TEXT_SECTIONS = SITTER_TEXT_SECTIONS;
+
   function renderSitterPets() {
     const pets = getList('pets');
     const section = document.getElementById('sitter-pets-section');
     if(!pets.length) { section.innerHTML = '<p class="font-body text-sm text-secondary italic mb-4">Add pets in Pet Profiles first to see per-pet sitter sections.</p>'; return; }
     const sitterData = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
-    section.innerHTML = pets.map(p => `
+    section.innerHTML = pets.map(p => {
+      const on = sitterSections(p, sitterData);
+      const hid = k => on.indexOf(k) < 0 ? ' hidden' : '';
+      const chips = SITTER_SECTIONS.map(d =>
+        `<button type="button" class="pf-sec-chip" data-pet="${p.__id}" data-sec-chip="${d.key}" aria-pressed="${on.indexOf(d.key) >= 0}">${escHtml(sitterSectionLabel(d.key, p))}</button>`).join('');
+      const textSec = k => {
+        const d = SITTER_SECTIONS.find(x => x.key === k);
+        const ph = (p.species === 'Cat' && d.catPh) ? d.catPh : d.ph;
+        return `<div data-sec="${k}"${hid(k)} style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1" for="sitter-${k}-${p.__id}">${escHtml(sitterSectionLabel(k, p))}</label><textarea rows="2" id="sitter-${k}-${p.__id}" placeholder="${escHtml(ph)}">${escHtml(sitterData['sitter-'+k+'-'+p.__id]||'')}</textarea></div>`;
+      };
+      return `
       <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color-2);">
         <h3 class="font-heading text-sm font-bold text-primary mb-3">${escHtml(p.name)} (${escHtml(p.species)})</h3>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
-          <div><label class="block font-body text-xs text-secondary mb-1">When to Feed</label><input type="text" id="sitter-feed-${p.__id}" value="${escHtml(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
-          <div><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><textarea rows="2" id="sitter-food-${p.__id}" placeholder="e.g., 1 cup Royal Canin, soak in warm water">${escHtml(sitterData['sitter-food-'+p.__id]||'')}</textarea></div>
-          <div><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${escHtml(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
+        <p class="pf-sec-label">What to include for ${escHtml(p.name || 'this pet')}</p>
+        <div class="pf-sec-chips" role="group" aria-label="Sections to include for ${escHtml(p.name || 'this pet')}">${chips}</div>
+        <p class="pf-sec-hint">Applies to the printed sheet, the shared link and Send to a Pawfolio sitter. Turning a section off keeps what you typed.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+          <div data-sec="feed"${hid('feed')}><label class="block font-body text-xs text-secondary mb-1">When to Feed</label><input type="text" id="sitter-feed-${p.__id}" value="${escHtml(sitterData['sitter-feed-'+p.__id]||'')}" placeholder="e.g., 1 cup twice daily at 7am & 6pm"></div>
+          <div data-sec="feed"${hid('feed')}><label class="block font-body text-xs text-secondary mb-1">Feeding Instructions</label><textarea rows="2" id="sitter-food-${p.__id}" placeholder="e.g., 1 cup Royal Canin, soak in warm water">${escHtml(sitterData['sitter-food-'+p.__id]||'')}</textarea></div>
+          <div data-sec="walk"${hid('walk')}><label class="block font-body text-xs text-secondary mb-1">Walk Schedule</label><input type="text" id="sitter-walk-${p.__id}" value="${escHtml(sitterData['sitter-walk-'+p.__id]||'')}" placeholder="e.g., 3x daily, 15 min each"></div>
         </div>
-        <div style="margin-top:10px;">
+        <div data-sec="meds"${hid('meds')} style="margin-top:10px;">
           <label class="block font-body text-xs text-secondary mb-1">Medications</label>
           ${sitterMedPickerHTML(p, sitterData, 'medication')}
         </div>
-        <div style="margin-top:10px;">
+        <div data-sec="meds"${hid('meds')} style="margin-top:10px;">
           <label class="block font-body text-xs text-secondary mb-1">Supplements</label>
           ${sitterMedPickerHTML(p, sitterData, 'supplement')}
         </div>
+        ${SITTER_TEXT_SECTIONS.map(textSec).join('')}
         <div style="margin-top:10px;"><label class="block font-body text-xs text-secondary mb-1">Additional Notes</label><textarea id="sitter-behavior-${p.__id}" rows="2" placeholder="Fears, quirks, commands they know, do not feed..."></textarea></div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     // Restore values
     setTimeout(() => {
       pets.forEach(p => {
-        ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].forEach(prefix => {
+        ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].concat(SITTER_TEXT_SECTIONS.map(k => 'sitter-' + k + '-')).forEach(prefix => {
           const el = document.getElementById(prefix + p.__id);
           if(el && sitterData[prefix + p.__id]) el.value = sitterData[prefix + p.__id];
         });
       });
     }, 50);
+    // v3.45.0: toggle a section on/off for one pet. Hides its fields; keeps the text.
+    section.querySelectorAll('.pf-sec-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const onNow = chip.getAttribute('aria-pressed') !== 'true';
+        chip.setAttribute('aria-pressed', String(onNow));
+        const card = chip.closest('.card');
+        if (card) card.querySelectorAll('[data-sec="' + chip.getAttribute('data-sec-chip') + '"]').forEach(el => { el.hidden = !onNow; });
+        autoSaveSitter();
+      });
+    });
     // Reveal each med's instructions input only while its checkbox is ticked.
     section.querySelectorAll('input[type="checkbox"][data-medins]').forEach(chk => {
       chk.addEventListener('change', () => {
@@ -3850,12 +3938,17 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
     // Preserve any sitter-selmeds-* that were saved previously; only the pets
     // whose med pickers are currently in the DOM get their selections rebuilt.
     const prior = JSON.parse(localStorage.getItem('petSitterInfo') || '{}');
-    Object.keys(prior).forEach(k => { if(k.indexOf('sitter-selmeds-') === 0) data[k] = prior[k]; });
+    Object.keys(prior).forEach(k => { if(k.indexOf('sitter-selmeds-') === 0 || k.indexOf('sitter-sections-') === 0) data[k] = prior[k]; });
+    // v3.45.0: keep section text for pets whose fields aren't rendered right now.
+    SITTER_TEXT_SECTIONS.forEach(sk => Object.keys(prior).forEach(k => { if(k.indexOf('sitter-' + sk + '-') === 0) data[k] = prior[k]; }));
     pets.forEach(p => {
-      ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].forEach(prefix => {
+      ['sitter-feed-','sitter-food-','sitter-walk-','sitter-behavior-'].concat(SITTER_TEXT_SECTIONS.map(k => 'sitter-' + k + '-')).forEach(prefix => {
         const el = document.getElementById(prefix + p.__id);
         if(el) data[prefix + p.__id] = el.value;
       });
+      // v3.45.0: which sections are switched on, if this pet's chips are rendered.
+      const chips = document.querySelectorAll('.pf-sec-chip[data-pet="' + p.__id + '"]');
+      if(chips.length) data['sitter-sections-' + p.__id] = Array.prototype.filter.call(chips, c => c.getAttribute('aria-pressed') === 'true').map(c => c.getAttribute('data-sec-chip'));
       // Gather med checkbox selections if this pet's picker is rendered.
       const meds = getList('medications').filter(m => m.petId === p.__id);
       const anyChk = meds.length && document.getElementById('sitter-medchk-'+p.__id+'-'+meds[0].__id);
@@ -4067,13 +4160,17 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
         if (!p.microchip && !showVet) return '';
         return `<div class="grid" style="margin-bottom:8px;">${p.microchip ? `<div class="field"><div class="label">Microchip</div><div class="value">${escHtml(p.microchip)}</div></div>` : ''}${showVet ? `<div class="field"><div class="label" style="white-space:nowrap;">Vet (different from above)</div><div class="value">${escHtml(sitterVetDisplay(p.vet, p.vetPerson))}</div></div>` : ''}</div>`;
       })()}
-      <div class="grid">
-        <div class="field"><div class="label">When to Feed</div><div class="value">${escHtml(data['sitter-feed-'+p.__id]||'')}</div></div>
-        <div class="field"><div class="label">Feeding Instructions</div><div class="value">${escHtml(data['sitter-food-'+p.__id]||'')}</div></div>
-        <div class="field"><div class="label">Walk Schedule</div><div class="value">${escHtml(data['sitter-walk-'+p.__id]||'')}</div></div>
-        ${sitterPrintField('Medications', sitterSelectedMeds(p.__id, data, 'medication'))}
-        ${sitterPrintField('Supplements', sitterSelectedMeds(p.__id, data, 'supplement'))}
-      </div>
+      ${(() => {
+        // v3.45.0: only the sections chosen for this pet, and only ones with something in them.
+        const inc = k => sitterIncludes(p, data, k);
+        const f = (label, v) => String(v || '').trim() ? `<div class="field"><div class="label">${escHtml(label)}</div><div class="value">${escHtml(String(v).trim())}</div></div>` : '';
+        let g = '';
+        if (inc('feed')) g += f('When to Feed', data['sitter-feed-'+p.__id]) + f('Feeding Instructions', data['sitter-food-'+p.__id]);
+        if (inc('walk')) g += f('Walk Schedule', data['sitter-walk-'+p.__id]);
+        if (inc('meds')) g += sitterPrintField('Medications', sitterSelectedMeds(p.__id, data, 'medication')) + sitterPrintField('Supplements', sitterSelectedMeds(p.__id, data, 'supplement'));
+        SITTER_TEXT_SECTIONS.forEach(k => { if (inc(k)) g += f(sitterSectionLabel(k, p), data['sitter-'+k+'-'+p.__id]); });
+        return g ? `<div class="grid">${g}</div>` : '';
+      })()}
       ${data['sitter-behavior-'+p.__id] ? `<div class="field" style="margin-top:8px;"><div class="label">Additional Notes</div><div class="value">${escHtml(data['sitter-behavior-'+p.__id])}</div></div>` : ''}
     </div>`).join('')}
     ${data['sitter-instructions'] ? `<h2>Additional Instructions/Notes</h2><p>${escHtml(data['sitter-instructions'])}</p>` : ''}
@@ -4200,11 +4297,17 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
       n: p.name || '',
       sp: p.species || '',
       br: p.breed || '',
-      feed: d['sitter-feed-'+p.__id] || '',
-      food: d['sitter-food-'+p.__id] || '',
-      walk: d['sitter-walk-'+p.__id] || '',
-      meds: sitterSelectedMeds(p.__id, d, 'medication').map(sitterMedLine).join('\n'),
-      supps: sitterSelectedMeds(p.__id, d, 'supplement').map(sitterMedLine).join('\n'),
+      // v3.45.0: sections switched off for this pet are left out of the link.
+      feed: sitterIncludes(p, d, 'feed') ? (d['sitter-feed-'+p.__id] || '') : '',
+      food: sitterIncludes(p, d, 'feed') ? (d['sitter-food-'+p.__id] || '') : '',
+      walk: sitterIncludes(p, d, 'walk') ? (d['sitter-walk-'+p.__id] || '') : '',
+      meds: sitterIncludes(p, d, 'meds') ? sitterSelectedMeds(p.__id, d, 'medication').map(sitterMedLine).join('\n') : '',
+      supps: sitterIncludes(p, d, 'meds') ? sitterSelectedMeds(p.__id, d, 'supplement').map(sitterMedLine).join('\n') : '',
+      potty: sitterIncludes(p, d, 'potty') ? (d['sitter-potty-'+p.__id] || '') : '',
+      hab: sitterIncludes(p, d, 'habitat') ? (d['sitter-habitat-'+p.__id] || '') : '',
+      sleep: sitterIncludes(p, d, 'sleep') ? (d['sitter-sleep-'+p.__id] || '') : '',
+      groom: sitterIncludes(p, d, 'groom') ? (d['sitter-groom-'+p.__id] || '') : '',
+      play: sitterIncludes(p, d, 'play') ? (d['sitter-play-'+p.__id] || '') : '',
       beh: d['sitter-behavior-'+p.__id] || '',
       chip: p.microchip || '',
       allergies: p.allergies || '',
@@ -15169,13 +15272,20 @@ try {
   function derivedPet(p){
     var si = readJSON('petSitterInfo', {}), id = p.__id;
     var feed = trim(si['sitter-feed-' + id]), food = trim(si['sitter-food-' + id]);
+    var inc = function(k){ return typeof window.sitterIncludes === 'function' ? window.sitterIncludes(p, si, k) : true; };
+    var textSecs = window.SITTER_TEXT_SECTIONS || [];
+    var secLabel = function(k){ return typeof window.sitterSectionLabel === 'function' ? window.sitterSectionLabel(k, p) : k; };
     return {
       name: trim(p.name),
       kind: [trim(p.species), trim(p.breed)].filter(Boolean).join(', '),
       age: ageText(p.dob), weight: latestWeight(id), sex: trim(p.sex), chip: trim(p.microchip), desc: trim(p.color),
-      food: [feed, food].filter(Boolean).join('. '), treats: '',
+      // v3.45.0: follows the pet's "What to include" sections in Pet Sitter Info.
+      food: inc('feed') ? [feed, food].filter(Boolean).join('. ') : '', treats: '',
       health: trim(p.allergies) ? 'Allergies: ' + trim(p.allergies) : '',
-      walk: trim(si['sitter-walk-' + id]), behave: trim(si['sitter-behavior-' + id]), notes: trim(p.notes),
+      walk: inc('walk') ? trim(si['sitter-walk-' + id]) : '', behave: trim(si['sitter-behavior-' + id]),
+      notes: [trim(p.notes)].concat(textSecs.filter(inc).map(function(k){
+        var v = trim(si['sitter-' + k + '-' + id]); return v ? secLabel(k) + ': ' + v : '';
+      })).filter(Boolean).join('\n'),
       rabies: rabiesText(id), insurance: insuranceText(p)
     };
   }
@@ -15303,10 +15413,11 @@ try {
         '<div class="pf-sm-status" aria-live="polite"></div></div>';
     }).join('');
     host.innerHTML =
-      '<h3 class="pf-sm-h3">Send to a sitter</h3>' +
-      '<p class="pf-sm-p">If your sitter uses Pawfolio, send your pets\' details straight to their phone. Paste the intake link they gave you or type their sitter code. Part of Pawfolio Free.</p>' +
+      '<h3 class="pf-sm-h3">Send to a Pawfolio sitter</h3>' +
+      '<p class="pf-sm-p">For a sitter who uses Pawfolio. Your pets\' details go straight into their Clients list, and you can send updates later with one tap. Paste the intake link they gave you or type their sitter code. Part of Pawfolio Free.</p>' +
+      '<p class="pf-sm-small" style="margin-top:6px;">Sitter doesn\'t use Pawfolio? Use <strong>Share as a link</strong> at the top instead.</p>' +
       (list.length ? '<h4 class="pf-sm-h4" style="margin-top:14px;">My sitters</h4>' + rows : '') +
-      '<button type="button" class="' + (list.length ? 'pf-sm-btn2' : 'pf-sm-btn') + '" id="pf-send-new" style="margin-top:12px;width:100%;">' + (list.length ? 'Add another sitter' : 'Send to a sitter') + '</button>' +
+      '<button type="button" class="' + (list.length ? 'pf-sm-btn2' : 'pf-sm-btn') + '" id="pf-send-new" style="margin-top:12px;width:100%;">' + (list.length ? 'Add another Pawfolio sitter' : 'Send to a Pawfolio sitter') + '</button>' +
       '<p class="pf-sm-small" style="margin-top:8px;">' + esc(PRIVACY) + '</p>';
     host.querySelector('#pf-send-new').onclick = function(){ startAdd(); };
     host.querySelectorAll('.pf-sm-sitter').forEach(function(row){
@@ -15354,7 +15465,7 @@ try {
   }
 
   function startAdd(){
-    var s = setSheet('Send to a sitter',
+    var s = setSheet('Send to a Pawfolio sitter',
       '<div class="pf-sm-section"><h3 class="pf-sm-h3">Add your sitter</h3>' +
       '<p class="pf-sm-p">Paste the intake link your sitter sent you, or type their sitter code. It looks like ABCD-EFGH.</p>' +
       '<label class="pf-sm-label" for="pf-send-target">Sitter link or code</label>' +
@@ -15862,7 +15973,7 @@ try {
         '<p class="pf-sm-small" style="text-align:center;margin-top:6px;">Clients can scan this with their phone camera.</p>' +
         '<hr class="pf-sm-divider"><p class="pf-sm-small" style="text-align:center;">Sitter code, for clients who already use Pawfolio</p>' +
         '<p class="pf-sm-code" id="pf-cl-code">' + esc(code) + '</p>' +
-        '<p class="pf-sm-small" style="text-align:center;">They tap Send to a sitter in Pet Sitter Info and type this code.</p>' +
+        '<p class="pf-sm-small" style="text-align:center;">They tap Send to a Pawfolio sitter in Pet Sitter Info and type this code.</p>' +
         '<hr class="pf-sm-divider"><p class="pf-sm-small">' + esc(PRIVACY_SITTER) + '</p>' +
         '<div class="pf-sm-note"><strong>Keep a backup.</strong> Your inbox keys are saved on this phone and in your Save My Data backups. If they are lost, new forms can\'t be opened and you would need to send clients a new link. Your backup file holds these keys, so keep it somewhere private.</div>' +
         '<div class="pf-sm-row" style="margin-top:10px;"><span class="pf-sm-small pf-sm-grow">' + esc((m.profile || {}).name || '') + '</span><button type="button" class="pf-sm-link" id="pf-cl-editprof">Edit business info</button></div>'
