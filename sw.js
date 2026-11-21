@@ -1,6 +1,6 @@
 // Only this app's own caches. Every CleartrackApps app shares cleartrackapps.com, so they all share one cache store.
 const isOwnCache = k => k.startsWith('pet-care-planner-') && !k.startsWith('pet-care-planner-demo');
-const CACHE_NAME = 'pet-care-planner-225';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-226';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -92,7 +92,9 @@ self.addEventListener('push', event => {
       url: payload.url || './index.html',
       source: payload.source || null,
       sourceId: payload.sourceId || null,
-      doseEventId: payload.doseEventId || null
+      doseEventId: payload.doseEventId || null,
+      // v3.44.0: a combined "N doses due" push lists every dose it covers.
+      doseEventIds: Array.isArray(payload.doseEventIds) ? payload.doseEventIds : null
     }
   };
   // v3.43.0 — "✓ … given" replaces the "Dose due" reminder. iPhones don't replace by

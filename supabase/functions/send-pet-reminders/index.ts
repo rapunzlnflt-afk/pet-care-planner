@@ -102,6 +102,31 @@ async function sweepDoses(): Promise<Record<string, unknown>> {
 // still reads "Due 6:00 PM". Doses can be given up to 90 minutes early.
 const DOSE_EARLY_MS = 30 * 60 * 1000;
 
+// v3.44.0: iPhones can drop some of several pushes that arrive in the same
+// second, so doses that come due together go out as ONE push.
+interface DoseItem { id: string; label: string; pet: string; when: string }
+
+/** One combined "N doses due" push for doses that came due together. */
+export function combinedDoseText(items: DoseItem[]): { title: string; body: string } {
+  const pets: string[] = [];
+  const byPet = new Map<string, string[]>();
+  for (const it of items) {
+    const pet = it.pet.trim();
+    if (!byPet.has(pet)) { byPet.set(pet, []); pets.push(pet); }
+    byPet.get(pet)!.push(it.label.trim() || "medication");
+  }
+  const parts = pets.map((p) => (p ? `${p}: ` : "") + byPet.get(p)!.join(", "));
+  const whens = [...new Set(items.map((it) => it.when.trim()).filter(Boolean))];
+  let body: string;
+  if (pets.length === 1) {
+    body = (pets[0] ? `${pets[0]} — ` : "") + byPet.get(pets[0])!.join(", ");
+  } else {
+    body = parts.join(" · ");
+  }
+  if (whens.length === 1) body += ` · ${whens[0]}`;
+  return { title: `💊 ${items.length} doses due`, body };
+}
+
 async function materializeDoseReminders(now: Date): Promise<{ created: number; skipped: number; errors: string[] }> {
   const errors: string[] = [];
   let created = 0;
@@ -135,24 +160,45 @@ async function materializeDoseReminders(now: Date): Promise<{ created: number; s
     if (!deviceByUser.has(d.user_id)) deviceByUser.set(d.user_id, d.device_id);
   }
 
+  // Shared medication: sitters get the push straight away (they have no
+  // pawfolio_reminders rows of their own). Runs once, since notified_at is
+  // stamped below. v3.44.0: one push per owner, combining doses due together.
+  const sitterDoses = new Map<string, DoseItem[]>();
+  for (const row of rows) {
+    const schedule = row.pawfolio_dose_schedules;
+    if (!schedule.shared) continue;
+    const timeZone = isValidTimeZone(schedule.timezone) ? schedule.timezone : "UTC";
+    const list = sitterDoses.get(schedule.user_id) ?? [];
+    list.push({ id: row.id, label: schedule.label, pet: schedule.subject_name ?? "", when: `Due ${formatLocalClock(new Date(row.due_at), timeZone)}` });
+    sitterDoses.set(schedule.user_id, list);
+  }
+  for (const [owner, items] of sitterDoses) {
+    if (items.length === 1) {
+      const it = items[0];
+      await sendToMembers(owner, null, JSON.stringify({
+        title: `💊 Dose due: ${it.label}`,
+        body: (it.pet ? `${it.pet} — ` : "") + it.when,
+        tag: `dose-${it.id}`,
+        url: `./doses.html#dose=${it.id}`,
+        source: "dose",
+        doseEventId: it.id,
+      }));
+    } else {
+      const t = combinedDoseText(items);
+      await sendToMembers(owner, null, JSON.stringify({
+        ...t,
+        tag: `doses-${items[0].id}`,
+        url: "./doses.html",
+        source: "dose",
+        doseEventIds: items.map((it) => it.id),
+      }));
+    }
+  }
+
   for (const row of rows) {
     const schedule = row.pawfolio_dose_schedules;
     const deviceId = deviceByUser.get(schedule.user_id);
     const timeZone = isValidTimeZone(schedule.timezone) ? schedule.timezone : "UTC";
-
-    // Shared medication: sitters get the push straight away (they have no
-    // pawfolio_reminders rows of their own). Runs once, since notified_at is
-    // stamped below.
-    if (schedule.shared) {
-      await sendToMembers(schedule.user_id, null, JSON.stringify({
-        title: `💊 Dose due: ${schedule.label}`,
-        body: (schedule.subject_name ? `${schedule.subject_name} — ` : "") + `Due ${formatLocalClock(new Date(row.due_at), timeZone)}`,
-        tag: `dose-${row.id}`,
-        url: `./doses.html#dose=${row.id}`,
-        source: "dose",
-        doseEventId: row.id,
-      }));
-    }
 
     if (!deviceId) {
       // Owner's phone reminders are off. The dose is still tracked in the app.
@@ -308,15 +354,26 @@ function dosePayload(reminder: ReminderRow): string {
   });
 }
 
-async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?: string }> {
-  // A user may install the PWA on several phones — deliver to all of them.
-  const { data: devices, error: devErr } = await supabase
-    .from("pawfolio_devices")
-    .select("device_id, endpoint, p256dh, auth")
-    .eq("user_id", reminder.user_id);
-  if (devErr) return { ok: false, error: `device lookup failed: ${devErr.message}` };
-  if (!devices || devices.length === 0) return { ok: false, error: "no devices for user" };
+/** v3.44.0: one push for several dose reminders that are due together. */
+function combinedDosePayload(reminders: ReminderRow[]): string {
+  const items: DoseItem[] = reminders.map((r) => ({
+    id: r.dose_event_id ?? String(r.source_id),
+    label: r.title?.trim() || "medication",
+    pet: r.pet_name?.trim() ?? "",
+    when: r.body?.trim() ?? "",
+  }));
+  const t = combinedDoseText(items);
+  return JSON.stringify({
+    ...t,
+    tag: `doses-${items[0].id}`,
+    // No #dose= here: opening the app shows the "doses due" popup with all of them.
+    url: "./index.html",
+    source: "dose",
+    doseEventIds: reminders.map((r) => r.dose_event_id).filter(Boolean),
+  });
+}
 
+async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?: string }> {
   // Title and body are pre-rendered by the client in the user's local timezone;
   // the worker delivers them as-is and never re-formats dates server-side.
   const payload = reminder.source === "dose" ? dosePayload(reminder) : JSON.stringify({
@@ -327,6 +384,17 @@ async function deliverOne(reminder: ReminderRow): Promise<{ ok: boolean; error?:
     source: reminder.source,
     sourceId: reminder.source_id,
   });
+  return deliverPayload(reminder.user_id, payload);
+}
+
+async function deliverPayload(userId: string, payload: string): Promise<{ ok: boolean; error?: string }> {
+  // A user may install the PWA on several phones — deliver to all of them.
+  const { data: devices, error: devErr } = await supabase
+    .from("pawfolio_devices")
+    .select("device_id, endpoint, p256dh, auth")
+    .eq("user_id", userId);
+  if (devErr) return { ok: false, error: `device lookup failed: ${devErr.message}` };
+  if (!devices || devices.length === 0) return { ok: false, error: "no devices for user" };
 
   const results = await Promise.allSettled(
     (devices as DeviceRow[]).map(async (d) => {
@@ -381,6 +449,23 @@ Deno.serve(async (_req) => {
   let delivered = 0;
   let failed = 0;
   let superseded = 0;
+  const doseByUser = new Map<string, ReminderRow[]>();
+  async function stamp(list: ReminderRow[], result: { ok: boolean; error?: string }) {
+    const ids = list.map((r) => r.id);
+    if (result.ok) {
+      delivered += list.length;
+      await supabase
+        .from("pawfolio_reminders")
+        .update({ delivered_at: new Date().toISOString(), delivery_error: null })
+        .in("id", ids);
+    } else {
+      failed += list.length;
+      await supabase
+        .from("pawfolio_reminders")
+        .update({ delivery_error: result.error ?? "unknown" })
+        .in("id", ids);
+    }
+  }
   for (const reminder of due as ReminderRow[]) {
     // A queued dose push is only valid while the dose is still pending. If it
     // was given, skipped or missed between ticks, don't tell anyone to give it.
@@ -400,20 +485,17 @@ Deno.serve(async (_req) => {
         continue;
       }
     }
-    const result = await deliverOne(reminder);
-    if (result.ok) {
-      delivered++;
-      await supabase
-        .from("pawfolio_reminders")
-        .update({ delivered_at: new Date().toISOString(), delivery_error: null })
-        .eq("id", reminder.id);
-    } else {
-      failed++;
-      await supabase
-        .from("pawfolio_reminders")
-        .update({ delivery_error: result.error ?? "unknown" })
-        .eq("id", reminder.id);
+    // v3.44.0: hold dose reminders back so ones due together go out as one push.
+    if (reminder.source === "dose") {
+      const list = doseByUser.get(reminder.user_id) ?? [];
+      list.push(reminder);
+      doseByUser.set(reminder.user_id, list);
+      continue;
     }
+    await stamp([reminder], await deliverOne(reminder));
+  }
+  for (const list of doseByUser.values()) {
+    await stamp(list, list.length === 1 ? await deliverOne(list[0]) : await deliverPayload(list[0].user_id, combinedDosePayload(list)));
   }
 
   return new Response(JSON.stringify({ delivered, failed, superseded, considered: due.length, sweep, doses, followups }), {
