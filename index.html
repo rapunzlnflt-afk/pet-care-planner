@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.51.0">
+                          <meta name="app-version" content="3.52.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4497,12 +4497,32 @@ body.pf-ho-lock{overflow:hidden;}
       return cv;
     }).catch(function() { return null; });
   }
+  // v3.52.0: the picture-maker ignores object-fit, so round pet photos were
+  // squeezed to fit instead of cropped. Swap each cropped photo for a box with
+  // the same size and the photo as a cover-sized background, which it does crop.
+  function pfCoverImgs(doc, id) {
+    var root = id && doc.getElementById(id); if (!root) return;
+    [].forEach.call(root.querySelectorAll('img'), function(im) {
+      var cs = doc.defaultView.getComputedStyle(im);
+      if (cs.objectFit !== 'cover') return;
+      var src = im.currentSrc || im.src; if (!src) return;
+      var r = im.getBoundingClientRect(), d = doc.createElement('div');
+      d.style.cssText = im.style.cssText;
+      ['float','margin','borderRadius','border','verticalAlign','flexShrink'].forEach(function(k) { d.style[k] = cs[k]; });
+      d.style.display = cs.display === 'inline' ? 'inline-block' : cs.display;
+      d.style.boxSizing = 'border-box'; d.style.width = r.width + 'px'; d.style.height = r.height + 'px';
+      d.style.backgroundImage = 'url("' + src.replace(/"/g, '%22') + '")';
+      d.style.backgroundSize = 'cover'; d.style.backgroundPosition = cs.objectPosition || 'center'; d.style.backgroundRepeat = 'no-repeat';
+      d.setAttribute('role', 'img');
+      im.parentNode.replaceChild(d, im);
+    });
+  }
   function pfMakePdf(src, onclone) {
     var CSSW = 760;
     return pfLoadH2c().then(function(h2c) {
       return h2c(src, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 816,
-        onclone: function(doc) { onclone(doc, CSSW); }
+        onclone: function(doc) { onclone(doc, CSSW); pfCoverImgs(doc, src.id); }
       });
     }).then(function(canvas) {
       var k0 = canvas.width / CSSW;
