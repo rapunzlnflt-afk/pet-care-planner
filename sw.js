@@ -1,6 +1,6 @@
 // Only this app's own caches. Every CleartrackApps app shares cleartrackapps.com, so they all share one cache store.
 const isOwnCache = k => k.startsWith('pet-care-planner-') && !k.startsWith('pet-care-planner-demo');
-const CACHE_NAME = 'pet-care-planner-231';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-232';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
@@ -20,7 +20,9 @@ const CACHE_NAME = 'pet-care-planner-231';const ASSETS = [
   './vendor/leaflet/images/marker-icon-2x.png',
   './vendor/leaflet/images/marker-shadow.png',
   './vendor/leaflet/images/layers.png',
-  './vendor/leaflet/images/layers-2x.png'
+  './vendor/leaflet/images/layers-2x.png',
+  // v3.49.0: html2canvas for the sitter-sheet PDF (loaded only when needed)
+  './vendor/html2canvas/html2canvas.min.js'
 ];
 
 self.addEventListener('install', event => {

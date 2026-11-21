@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.48.0">
+                          <meta name="app-version" content="3.49.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -730,6 +730,20 @@
 }
 
 /* ===== In-app printable sitter overlay ===== */
+/* v3.49.0: PDF fallback sheet over the print view */
+#pf-pdf-sheet{position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center;font-family:Arial,sans-serif;}
+#pf-pdf-sheet .pf-pdf-panel{background:#fff;color:#1e293b;width:100%;max-width:440px;border-radius:16px 16px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.25);}
+@media (min-width:640px){#pf-pdf-sheet{align-items:center;}#pf-pdf-sheet .pf-pdf-panel{border-radius:16px;}}
+#pf-pdf-sheet h3{margin:0 0 6px;font-size:18px;font-weight:700;}
+#pf-pdf-sheet p{margin:0 0 14px;font-size:15px;line-height:1.45;color:#475569;}
+#pf-pdf-sheet .pf-pdf-btns{display:flex;flex-direction:column;gap:8px;}
+#pf-pdf-sheet .pf-pdf-go,#pf-pdf-sheet .pf-pdf-alt{display:block;text-align:center;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;padding:12px 14px;cursor:pointer;border:1px solid transparent;font-family:inherit;}
+#pf-pdf-sheet .pf-pdf-go{background:#5B5BD6;color:#fff;}
+#pf-pdf-sheet .pf-pdf-alt{background:transparent;color:#5B5BD6;border-color:rgba(91,91,214,.35);}
+[data-theme="dark"] #pf-pdf-sheet .pf-pdf-panel{background:#1e2732;color:#e8e6f0;}
+[data-theme="dark"] #pf-pdf-sheet p{color:#9b98b0;}
+[data-theme="dark"] #pf-pdf-sheet .pf-pdf-alt{color:#c4b5fd;border-color:rgba(139,124,248,.35);}
+@media print{#pf-pdf-sheet{display:none !important;}}
 #sitter-print-overlay {
   display: none;
   position: fixed;
@@ -4366,15 +4380,145 @@ body.pf-ho-lock{overflow:hidden;}
     const doBtn = document.getElementById('sitter-print-do-btn');
     if (closeBtn) closeBtn.addEventListener('click', () => closeSitterPrintOverlay(false));
     if (doBtn) doBtn.addEventListener('click', () => {
+      // v3.49.0: iOS 27 Home Screen apps silently ignore window.print() (WebKit
+      // bug 327504; Safari tabs still print). There, make a PDF of the sheet and
+      // hand it to the share sheet, which has Print and Save to Files.
+      if (pfPrintBlocked()) { pfSitterPdf(); return; }
       // Scopes the sitter print stylesheet to this view so it cannot bleed
       // into the timeline print, and vice versa.
       document.body.classList.add('sitter-printing');
       const undo = () => document.body.classList.remove('sitter-printing');
+      let began = false;
+      const mark = () => { began = true; };
+      try { window.addEventListener('beforeprint', mark, { once: true }); } catch (e) {}
       try { window.addEventListener('afterprint', undo, { once: true }); } catch (e) {}
       try { window.print(); } catch (e) {}
       setTimeout(undo, 1500);
+      // Anywhere else print quietly fails, offer the PDF instead of doing nothing.
+      setTimeout(() => { try { window.removeEventListener('beforeprint', mark); } catch (e) {} if (!began && !(window.matchMedia && matchMedia('print').matches)) pfSitterPdf(true); }, 1200);
     });
   }
+
+  // ---------- v3.49.0: PDF fallback for the sitter print view ----------
+  function pfPrintBlocked() {
+    var ua = navigator.userAgent || '';
+    var ios = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    return ios && standalone;
+  }
+  var pfH2cPromise = null;
+  function pfLoadH2c() {
+    if (window.html2canvas) return Promise.resolve(window.html2canvas);
+    if (pfH2cPromise) return pfH2cPromise;
+    pfH2cPromise = new Promise(function(res, rej) {
+      var sc = document.createElement('script');
+      sc.src = 'vendor/html2canvas/html2canvas.min.js';
+      sc.onload = function() { window.html2canvas ? res(window.html2canvas) : rej(new Error('html2canvas missing')); };
+      sc.onerror = function() { pfH2cPromise = null; rej(new Error('Could not load the PDF maker')); };
+      document.head.appendChild(sc);
+    });
+    return pfH2cPromise;
+  }
+  // A small PDF writer: one JPEG per US Letter page, half-inch margins.
+  function pfBuildPdf(pages) {
+    var enc = new TextEncoder(), parts = [], len = 0, offs = [];
+    function add(x) { var b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; }
+    function obj(n, body) { offs[n] = len; add(n + ' 0 obj\n'); body(); add('\nendobj\n'); }
+    var W = 612, H = 792, M = 36, n = pages.length, kids = [];
+    for (var i = 0; i < n; i++) kids.push((3 + i * 3) + ' 0 R');
+    add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    obj(1, function() { add('<< /Type /Catalog /Pages 2 0 R >>'); });
+    obj(2, function() { add('<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>'); });
+    pages.forEach(function(pg, i) {
+      var po = 3 + i * 3, co = po + 1, io = po + 2;
+      var w = W - 2 * M, h = w * pg.h / pg.w;
+      var cs = 'q ' + w.toFixed(2) + ' 0 0 ' + h.toFixed(2) + ' ' + M + ' ' + (H - M - h).toFixed(2) + ' cm /Im0 Do Q';
+      obj(po, function() { add('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + '] /Resources << /XObject << /Im0 ' + io + ' 0 R >> >> /Contents ' + co + ' 0 R >>'); });
+      obj(co, function() { add('<< /Length ' + cs.length + ' >>\nstream\n' + cs + '\nendstream'); });
+      obj(io, function() { add('<< /Type /XObject /Subtype /Image /Width ' + pg.w + ' /Height ' + pg.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + pg.jpg.length + ' >>\nstream\n'); add(pg.jpg); add('\nendstream'); });
+    });
+    var total = 3 + n * 3, xref = len, x = 'xref\n0 ' + total + '\n0000000000 65535 f \n';
+    for (var k = 1; k < total; k++) x += String(offs[k]).padStart(10, '0') + ' 00000 n \n';
+    add(x + 'trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  function pfDataUrlBytes(u) { var b = atob(u.split(',')[1]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function pfMakeSitterPdf() {
+    var src = document.getElementById('sitter-print-content');
+    var CSSW = 760;
+    return pfLoadH2c().then(function(h2c) {
+      return h2c(src, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 816,
+        onclone: function(doc) {
+          var ov = doc.getElementById('sitter-print-overlay'), c = doc.getElementById('sitter-print-content'), bar = doc.getElementById('sitter-print-bar');
+          if (bar) bar.style.display = 'none';
+          if (ov) ov.style.cssText = 'display:block;position:absolute;top:0;left:0;width:' + CSSW + 'px;height:auto;background:#fff;';
+          c.style.cssText = 'display:block;overflow:visible;height:auto;max-height:none;flex:none;width:' + CSSW + 'px;max-width:none;margin:0;';
+        }
+      });
+    }).then(function(canvas) {
+      var k = canvas.width / CSSW, pageCss = CSSW * 720 / 540, total = canvas.height / k, pages = [], y = 0;
+      var ctx0 = canvas.getContext('2d');
+      // New pages start on a run of blank rows in the picture itself, so a line
+      // of text is never cut in half.
+      function blankRow(py, data, w) { var ink = 0; for (var x = 0; x < w; x += 3) { var i = x * 4; if (data[i] + data[i+1] + data[i+2] < 600) { if (++ink > 2) return false; } } return true; }
+      function findBreak(from, to) {
+        var py0 = Math.round(from * k), py1 = Math.round(to * k), w = canvas.width;
+        var img = ctx0.getImageData(0, py0, w, py1 - py0).data, run = 0;
+        for (var r = py1 - py0 - 1; r >= 0; r--) {
+          if (blankRow(r, img.subarray(r * w * 4, (r + 1) * w * 4), w)) { if (++run >= 8) return (py0 + r + 4) / k; } else run = 0;
+        }
+        return 0;
+      }
+      while (y < total - 1) {
+        var end = Math.min(total, y + pageCss);
+        if (end < total) { var best = findBreak(y + pageCss * 0.5, end); if (best) end = best; }
+        var hpx = Math.max(1, Math.round((end - y) * k)), pc = document.createElement('canvas');
+        pc.width = canvas.width; pc.height = hpx;
+        var cx = pc.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, pc.width, hpx);
+        cx.drawImage(canvas, 0, Math.round(y * k), canvas.width, hpx, 0, 0, canvas.width, hpx);
+        pages.push({ w: pc.width, h: hpx, jpg: pfDataUrlBytes(pc.toDataURL('image/jpeg', 0.9)) });
+        y = end;
+      }
+      return pfBuildPdf(pages);
+    });
+  }
+  function pfPdfName() {
+    var t = (document.getElementById('sitter-print-title') || {}).textContent || 'Pet Sitter Instructions';
+    return t.replace(/[\\/:*?"<>|]+/g, '').trim() + '.pdf';
+  }
+  function pfPdfSheet(html) {
+    var ov = document.getElementById('pf-pdf-sheet');
+    if (!ov) {
+      ov = document.createElement('div'); ov.id = 'pf-pdf-sheet';
+      ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-labelledby', 'pf-pdf-h');
+      ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+      document.getElementById('sitter-print-overlay').appendChild(ov);
+    }
+    ov.innerHTML = '<div class="pf-pdf-panel">' + html + '</div>';
+    return ov;
+  }
+  function pfSitterPdf(afterFail) {
+    pfPdfSheet('<h3 id="pf-pdf-h">Making a PDF\u2026</h3><p>' + (afterFail ? 'Printing didn\u2019t open here, so I\u2019m making a PDF you can print or save.' : 'Printing from the Home Screen app goes through a PDF on iPhone.') + '</p>');
+    pfMakeSitterPdf().then(function(blob) {
+      var file = null; try { file = new File([blob], pfPdfName(), { type: 'application/pdf' }); } catch (e) {}
+      var canShare = !!(file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+      var url = URL.createObjectURL(blob);
+      var ov = pfPdfSheet('<h3 id="pf-pdf-h">Your PDF is ready</h3><p>' + (canShare ? 'Tap below, then choose <strong>Print</strong>, or Save to Files to keep a copy.' : 'Open it, then print or save it from there.') + '</p>' +
+        '<div class="pf-pdf-btns">' + (canShare ? '<button type="button" class="pf-pdf-go" id="pf-pdf-share">Print or save PDF</button>' : '') +
+        '<a class="' + (canShare ? 'pf-pdf-alt' : 'pf-pdf-go') + '" id="pf-pdf-open" href="' + url + '" download="' + pfPdfName().replace(/"/g, '') + '" target="_blank" rel="noopener">' + (canShare ? 'Open PDF instead' : 'Open PDF') + '</a>' +
+        '<button type="button" class="pf-pdf-alt" id="pf-pdf-cancel">Cancel</button></div>');
+      var sh = document.getElementById('pf-pdf-share');
+      if (sh) sh.addEventListener('click', function() {
+        navigator.share({ files: [file], title: pfPdfName().replace(/\.pdf$/, '') }).then(function() { ov.remove(); }).catch(function() {});
+      });
+      document.getElementById('pf-pdf-cancel').addEventListener('click', function() { ov.remove(); });
+    }).catch(function(err) {
+      var ov = pfPdfSheet('<h3 id="pf-pdf-h">Couldn\u2019t make the PDF</h3><p>' + (err && err.message ? String(err.message).replace(/[<>&]/g, '') : 'Something went wrong.') + ' You can open Pawfolio in Safari and print from there.</p><div class="pf-pdf-btns"><button type="button" class="pf-pdf-alt" id="pf-pdf-cancel">Close</button></div>');
+      document.getElementById('pf-pdf-cancel').addEventListener('click', function() { ov.remove(); });
+    });
+  }
+  window.pfSitterPdf = pfSitterPdf;
 
   if (document.getElementById('sitter-print-close-btn')) {
     wireSitterOverlayButtons();
