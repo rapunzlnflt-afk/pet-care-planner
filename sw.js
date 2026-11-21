@@ -1,6 +1,6 @@
 // Only this app's own caches. Every CleartrackApps app shares cleartrackapps.com, so they all share one cache store.
 const isOwnCache = k => k.startsWith('pet-care-planner-') && !k.startsWith('pet-care-planner-demo');
-const CACHE_NAME = 'pet-care-planner-228';const ASSETS = [
+const CACHE_NAME = 'pet-care-planner-230';const ASSETS = [
   './',
   './index.html',
   './sitter.html',
