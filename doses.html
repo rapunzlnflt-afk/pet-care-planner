@@ -224,7 +224,12 @@
         navigator.serviceWorker.ready.then(function(reg){
           if(!reg.getNotifications) return;
           return reg.getNotifications().then(function(list){
-            (list || []).forEach(function(n){ if(n && want[n.tag]) { try { n.close(); } catch(e){} } });
+            (list || []).forEach(function(n){
+            // v3.44.0: a combined reminder goes once every dose in it is recorded.
+            var all = n && n.data && Array.isArray(n.data.doseEventIds) && n.data.doseEventIds.length &&
+              n.data.doseEventIds.every(function(id){ return want['dose-' + id]; });
+            if(n && (want[n.tag] || all)) { try { n.close(); } catch(e){} }
+          });
           });
         }).catch(function(){});
       } catch(e){}
