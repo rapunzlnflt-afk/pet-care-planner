@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.45.1">
+                          <meta name="app-version" content="3.46.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -944,8 +944,15 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 .pf-sec-chip:focus-visible{outline:2px solid var(--accent-color);outline-offset:2px;}
 .pf-sec-hint{font-size:11.5px;color:var(--text-secondary);margin:0 0 12px;}
 [data-sec][hidden]{display:none !important;}
-.pf-handoff-note{font-size:12.5px;color:var(--text-secondary);margin:-8px 0 16px;line-height:1.45;}
-.pf-handoff-note strong{color:var(--text-primary);font-weight:600;}
+/* v3.46.0: "Give it to your sitter" card, three matching rows */
+.pf-ho-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--border-color,rgba(0,0,0,0.08));}
+.pf-ho h3 + .pf-ho-row{border-top:none;padding-top:10px;}
+.pf-ho-text{flex:1;min-width:0;}
+.pf-ho-title{font-size:14.5px;font-weight:700;color:var(--text-primary);line-height:1.3;}
+.pf-ho-desc{font-size:13px;color:var(--text-secondary);line-height:1.4;margin-top:2px;}
+.pf-ho-btn{flex-shrink:0;min-width:92px;padding:8px 14px;font-size:14px;border-radius:10px;text-align:center;}
+.pf-ho-sitters{margin-top:2px;}
+.pf-ho-privacy{font-size:11.5px;color:var(--text-secondary);line-height:1.4;margin:4px 0 0;padding-top:10px;border-top:1px solid var(--border-color,rgba(0,0,0,0.08));}
 </style>
 </head>
  <body class="h-full">
@@ -1776,18 +1783,22 @@ input[type="date"], input[type="time"], input[type="datetime-local"], input[type
 
     <!-- PET SITTER INFO TAB -->
     <section id="tab-pet-sitter" class="tab-content">
-     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <h2 class="font-heading text-2xl font-bold text-primary">Pet Sitter Info</h2>
-      <div style="display:flex;gap:8px;">
-       <button id="share-sitter-btn" class="btn-primary px-4 py-2 text-sm" style="background:var(--accent-color);" title="Text or email a link that opens in any phone's browser. No app needed.">Share as a link</button>
-       <button id="print-sitter-btn" class="btn-primary px-4 py-2 text-sm">Print / Export</button>
+     <h2 class="font-heading text-2xl font-bold text-primary" style="margin-bottom:4px;">Pet Sitter Info</h2>
+     <p class="font-body text-sm text-secondary mb-4">Everything your sitter needs to know. Fill it out once; changes save automatically.</p>
+     <!-- v3.46.0: one card for the three ways to hand this off, each a matching row -->
+     <div class="card p-5 mb-4 pf-ho" style="border-top:4px solid var(--accent-color);">
+      <h3 class="font-heading text-sm font-bold text-primary">Give it to your sitter</h3>
+      <div class="pf-ho-row">
+       <div class="pf-ho-text"><div class="pf-ho-title">Print / Export</div><div class="pf-ho-desc">A paper copy, or save it as a PDF.</div></div>
+       <button id="print-sitter-btn" type="button" class="btn-primary pf-ho-btn">Print</button>
       </div>
+      <div class="pf-ho-row">
+       <div class="pf-ho-text"><div class="pf-ho-title">Share as a link</div><div class="pf-ho-desc">Text or email it. Opens in any browser, no app needed.</div></div>
+       <button id="share-sitter-btn" type="button" class="btn-primary pf-ho-btn">Share</button>
+      </div>
+      <!-- Send to a Pawfolio sitter (v3.40.0): rendered by the Sitter mode script -->
+      <div id="pf-send-sitter-card"></div>
      </div>
-     <p class="font-body text-sm text-secondary mb-4">Everything your pet sitter needs to know — fill this out once and print before any trip (changes save automatically).</p>
-     <!-- v3.45.0: the three ways to hand this off, so Share as a link and Send to a Pawfolio sitter don't read as the same thing -->
-     <p class="pf-handoff-note"><strong>Print / Export</strong> makes a paper copy. <strong>Share as a link</strong> texts or emails a link any sitter can open, no app needed. <strong>Send to a Pawfolio sitter</strong> (below) is for sitters who use Pawfolio — it goes into their Clients list.</p>
-     <!-- Send to a sitter (v3.40.0): rendered by the Sitter mode script -->
-     <div id="pf-send-sitter-card" class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);"></div>
      <div class="card p-5 mb-4" style="border-top:4px solid var(--accent-color);">
       <h3 class="font-heading text-sm font-bold text-primary mb-3">Owner Contact Info</h3>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -15422,13 +15433,13 @@ try {
         '<button type="button" class="pf-sm-btn2 pf-sm-grow" data-act="edit">Review and edit</button></div>' +
         '<div class="pf-sm-status" aria-live="polite"></div></div>';
     }).join('');
+    // v3.46.0: rendered as the third row of the "Give it to your sitter" card.
     host.innerHTML =
-      '<h3 class="pf-sm-h3">Send to a Pawfolio sitter</h3>' +
-      '<p class="pf-sm-p">For a sitter who uses Pawfolio. Your pets\' details go straight into their Clients list, and you can send updates later with one tap. Paste the intake link they gave you or type their sitter code. Part of Pawfolio Free.</p>' +
-      '<p class="pf-sm-small" style="margin-top:6px;">Sitter doesn\'t use Pawfolio? Use <strong>Share as a link</strong> at the top instead.</p>' +
-      (list.length ? '<h4 class="pf-sm-h4" style="margin-top:14px;">My sitters</h4>' + rows : '') +
-      '<button type="button" class="' + (list.length ? 'pf-sm-btn2' : 'pf-sm-btn') + '" id="pf-send-new" style="margin-top:12px;width:100%;">' + (list.length ? 'Add another Pawfolio sitter' : 'Send to a Pawfolio sitter') + '</button>' +
-      '<p class="pf-sm-small" style="margin-top:8px;">' + esc(PRIVACY) + '</p>';
+      '<div class="pf-ho-row"><div class="pf-ho-text"><div class="pf-ho-title">Send to a Pawfolio sitter</div>' +
+      '<div class="pf-ho-desc">For sitters who use Pawfolio. Goes into their Clients list, and you can send updates later.</div></div>' +
+      '<button type="button" class="btn-primary pf-ho-btn" id="pf-send-new">' + (list.length ? 'Add sitter' : 'Send') + '</button></div>' +
+      (list.length ? '<div class="pf-ho-sitters"><h4 class="pf-sm-h4">My sitters</h4>' + rows + '</div>' : '') +
+      '<p class="pf-ho-privacy">Sending to a Pawfolio sitter: ' + esc(PRIVACY.charAt(0).toLowerCase() + PRIVACY.slice(1)) + '</p>';
     host.querySelector('#pf-send-new').onclick = function(){ startAdd(); };
     host.querySelectorAll('.pf-sm-sitter').forEach(function(row){
       var sid = row.getAttribute('data-sid');
