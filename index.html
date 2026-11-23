@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.52.0">
+                          <meta name="app-version" content="3.53.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -3475,6 +3475,9 @@ body.pf-ho-lock{overflow:hidden;}
         : '';
       el.innerHTML = group('Medications', meds) + group('Supplements', supps);
     }
+    // v3.53.0: say which time zone dose times are in while the phone is elsewhere.
+    const zoneNote = typeof window.pfDoseZoneNote === 'function' ? window.pfDoseZoneNote() : '';
+    if(zoneNote) el.insertAdjacentHTML('afterbegin', zoneNote);
   }
 
   window.pfRenderMedications = renderMedications;
@@ -13798,19 +13801,89 @@ try {
   function doseOn(){ return typeof window.pfGetNotifOn === 'function' && window.pfGetNotifOn('dose'); }
   function active(){ return pushOn() && doseOn() && typeof window.isSupabaseConfigured === 'function' && !!window.isSupabaseConfigured(); }
   function tz(){ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch(e){ return 'UTC'; } }
+  // v3.53.0: dose times belong to where the pets are, not wherever the
+  // owner's phone happens to be. The "dose time zone" is the one the
+  // schedules on the server have (cached here); new accounts start with the
+  // phone's. Traveling no
+  // longer moves a 6:00 PM dose to 6:00 PM in the new time zone; cards show
+  // times in the dose time zone, with its abbreviation, while away.
+  var KEY_TZ = 'pawfolioDoseTZ', KEY_TZ_MOVE = 'pawfolioDoseTZMove';
+  function validTz(z){ if(!z) return false; try { new Intl.DateTimeFormat('en-US', { timeZone: z }); return true; } catch(e){ return false; } }
+  function homeTz(){ var z = null; try { z = localStorage.getItem(KEY_TZ); } catch(e){} return validTz(z) ? z : tz(); }
+  function setHomeTz(z){ try { localStorage.setItem(KEY_TZ, z); } catch(e){} }
+  function wall(d, z){
+    var o = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: z || homeTz(), hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+      .formatToParts(d).forEach(function(p){ o[p.type] = +p.value; });
+    return { y: o.year, mo: o.month, d: o.day, h: o.hour % 24, mi: o.minute };
+  }
+  function wallKey(d, z){ var w = wall(d, z); return [w.y, w.mo, w.d, w.h, w.mi].join('-'); }
+  // The phone's clock differs from the dose time zone's right now.
+  function away(){
+    var z = homeTz(); if(z === tz()) return false;
+    var n = new Date(); return wallKey(n, z) !== wallKey(n, tz());
+  }
+  // The instant a wall-clock time happens in the dose time zone (days may overflow).
+  function zoned(y, mo, d, h, mi){
+    var guess = Date.UTC(y, mo - 1, d, h, mi), t = guess;
+    for(var i = 0; i < 2; i++){ var w = wall(new Date(t)); t = guess - (Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi) - t); }
+    return new Date(t);
+  }
+  function zoneName(z){
+    try {
+      var n = new Intl.DateTimeFormat('en-US', { timeZone: z, timeZoneName: 'longGeneric' }).formatToParts(new Date()).filter(function(p){ return p.type === 'timeZoneName'; })[0];
+      if(n && n.value) return n.value;
+    } catch(e){}
+    return z.replace(/_/g, ' ');
+  }
+  function zoneAbbr(d){
+    try {
+      var n = new Intl.DateTimeFormat('en-US', { timeZone: homeTz(), timeZoneName: 'short' }).formatToParts(d).filter(function(p){ return p.type === 'timeZoneName'; })[0];
+      return n ? n.value : '';
+    } catch(e){ return ''; }
+  }
+  // Take the dose time zone from the schedules on the server (the most common
+  // one), unless this phone is in the middle of moving them to another.
+  function adoptServerTz(list){
+    var count = {}, best = null, moveTo = null;
+    (list || []).forEach(function(r){ if(validTz(r.timezone)){ count[r.timezone] = (count[r.timezone] || 0) + 1; if(!best || count[r.timezone] > count[best]) best = r.timezone; } });
+    try { moveTo = localStorage.getItem(KEY_TZ_MOVE); } catch(e){}
+    setHomeTz(validTz(moveTo) ? moveTo : (best || homeTz()));
+  }
+  // Shown above the medication list while the phone is in another time zone.
+  window.pfDoseZoneNote = function(){
+    if(!active() || !away()) return '';
+    return '<div class="pf-dose-zone" style="border:1px solid var(--border-color,#ddd);border-radius:12px;padding:10px 12px;margin-bottom:12px;">' +
+      '<p class="font-body text-sm" style="margin:0;">Dose times are in <strong>' + esc(zoneName(homeTz())) + '</strong>. Your phone is on ' + esc(zoneName(tz())) + '.</p>' +
+      '<button type="button" class="pf-dose-early" style="display:block;" onclick="pfDoseUsePhoneZone()">Use ' + esc(zoneName(tz())) + ' for doses</button></div>';
+  };
+  window.pfDoseUsePhoneZone = function(){
+    var to = zoneName(tz());
+    if(!confirm('Move every dose time to ' + to + '? A 6:00 PM dose will be due at 6:00 PM ' + to + '. Only do this if your pets are in ' + to + ' now.')) return;
+    try { localStorage.setItem(KEY_TZ_MOVE, tz()); } catch(e){}
+    // Fixed-time doses get re-queued at the new times; "every N hours" doses
+    // count from the last one given, so they stay as they are.
+    var sigs = readSigs(); meds().forEach(function(m){ if(!everyOf(m)) delete sigs[m.__id]; });
+    setHomeTz(tz()); writeSigs(sigs);
+    var go = typeof window.getSupabase === 'function' ? window.getSupabase() : Promise.resolve(null);
+    go.then(function(sb){ if(sb) return doseSync(sb); }).then(rerender, rerender);
+  };
   function meds(){ return (typeof getList === 'function' ? getList('medications') : []) || []; }
   function timesOf(m){ return typeof window.medDoseTimes === 'function' ? window.medDoseTimes(m) : []; }
   function isSupp(m){ return typeof window.isSupplement === 'function' && window.isSupplement(m); }
 
-  function clock(d){ return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function clock(d){
+    var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: homeTz() });
+    if(away()){ var ab = zoneAbbr(d); if(ab) t += ' ' + ab; }
+    return t;
+  }
+  function dayNum(d){ var w = wall(d); return Date.UTC(w.y, w.mo - 1, w.d) / 86400000; }
   function dayWord(d){
-    var a = new Date(); a.setHours(0,0,0,0);
-    var b = new Date(d); b.setHours(0,0,0,0);
-    var diff = Math.round((b - a) / 86400000);
+    var diff = dayNum(d) - dayNum(new Date());
     if(diff === 0) return 'Today';
     if(diff === 1) return 'Tomorrow';
     if(diff === -1) return 'Yesterday';
-    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', timeZone: homeTz() });
   }
   function when(d){ var w = dayWord(d); return (w === 'Today' ? 'today' : w === 'Tomorrow' ? 'tomorrow' : w === 'Yesterday' ? 'yesterday' : w) + ' at ' + clock(d); }
 
@@ -13827,7 +13900,7 @@ try {
     return Math.max(15, best);
   }
 
-  function ymdOf(c){ return c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0'); }
+  function ymdOf(c){ var w = wall(c); return w.y + '-' + String(w.mo).padStart(2,'0') + '-' + String(w.d).padStart(2,'0'); }
   // Next fixed dose time after `from` (local clock), honouring start/end dates.
   // v3.36.0: for "every N hours", a first-dose time earlier today still counts
   // while it's less than N hours ago (firstPast) — set up at 2:30 AM with a
@@ -13837,19 +13910,19 @@ try {
     var times = timesOf(m); if(!times.length) return null;
     var every = everyOf(m);
     if(every && firstPast){
-      var fp = times[0].split(':'), c0 = new Date(from); c0.setHours(+fp[0], +fp[1], 0, 0);
+      var fp = times[0].split(':'), f0 = wall(from), c0 = zoned(f0.y, f0.mo, f0.d, +fp[0], +fp[1]);
       var y0 = ymdOf(c0);
       if(c0 <= from && from - c0 < every * 3600000 && (!m.start || y0 >= m.start) && (!m.doseEnd || y0 <= m.doseEnd)) return c0;
     }
     var base = new Date(from);
-    if(m.start){ var st = new Date(m.start + 'T00:00:00'); if(st > base) base = new Date(st.getTime() - 1000); }
+    if(m.start){ var sp = m.start.split('-'), st = zoned(+sp[0], +sp[1], +sp[2], 0, 0); if(st > base) base = new Date(st.getTime() - 1000); }
+    var b0 = wall(base);
     for(var day = 0; day < 3; day++){
-      var d = new Date(base); d.setHours(0,0,0,0); d.setDate(d.getDate() + day);
       for(var i = 0; i < times.length; i++){
         var p = times[i].split(':');
-        var c = new Date(d); c.setHours(+p[0], +p[1], 0, 0);
+        var c = zoned(b0.y, b0.mo, b0.d + day, +p[0], +p[1]);
         if(c > base){
-          var ymd = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
+          var ymd = ymdOf(c);
           if(m.doseEnd && ymd > m.doseEnd) return null;
           return c;
         }
@@ -13897,7 +13970,7 @@ try {
           anchor: every ? 'from_last_dose' : 'fixed', fixed_times: times,
           starts_on: m.start || null, ends_on: m.doseEnd || null,
           // Archived medications keep their history but stop here.
-          enabled: live, timezone: tz(),
+          enabled: live, timezone: homeTz(),
           missed_rule: m.missedRule || null,
           missed_note: m.missedRule === 'note' ? (m.missedNote || '').slice(0, 300) || null : null,
           // Pawfolio Complete only: a sitter sees this medication's doses.
@@ -13905,8 +13978,12 @@ try {
         };
       });
       var keep = list.map(function(m){ return m.__id; });
-      return supabase.from('pawfolio_dose_schedules').select('id, source_id').then(function(cur){
+      return supabase.from('pawfolio_dose_schedules').select('id, source_id, timezone').then(function(cur){
         if(cur.error) throw cur.error;
+        // The schedules on the server say which time zone doses are in; this
+        // phone only changes it when the owner asks (pfDoseUsePhoneZone).
+        adoptServerTz(cur.data);
+        rows.forEach(function(r){ r.timezone = homeTz(); });
         var gone = (cur.data || []).filter(function(r){ return keep.indexOf(Number(r.source_id)) === -1; }).map(function(r){ return r.id; });
         var del = gone.length ? supabase.from('pawfolio_dose_schedules').delete().in('id', gone) : Promise.resolve({});
         var up = rows.length
@@ -13944,7 +14021,7 @@ try {
             }
             work.push(p);
           });
-          return Promise.all(work).then(function(){ writeSigs(nextSigs); });
+          return Promise.all(work).then(function(){ writeSigs(nextSigs); try { localStorage.removeItem(KEY_TZ_MOVE); } catch(e){} });
         });
       }).then(function(){ return refresh(supabase); });
     }).catch(function(err){ try { console.warn('[dose] sync failed', err); } catch(e){} })
@@ -13963,8 +14040,9 @@ try {
     var go = supabase ? Promise.resolve(supabase) : (typeof window.getSupabase === 'function' ? window.getSupabase() : Promise.resolve(null));
     return go.then(function(sb){
       if(!sb || !active()) return;
-      return sb.from('pawfolio_dose_schedules').select('id, source_id').eq('enabled', true).then(function(s){
+      return sb.from('pawfolio_dose_schedules').select('id, source_id, timezone').eq('enabled', true).then(function(s){
         if(s.error || !s.data) return;
+        adoptServerTz(s.data);
         var ids = s.data.map(function(r){ return r.id; });
         var bySched = {}; s.data.forEach(function(r){ bySched[r.id] = Number(r.source_id); });
         if(!ids.length){ state = {}; loaded = true; rerender(); return; }
@@ -14207,14 +14285,16 @@ try {
   };
 
   // ---- change the time a dose was given (latest dose, 30 minutes) ----
-  function hhmm(d){ return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function hhmm(d){ var w = wall(d); return ('0' + w.h).slice(-2) + ':' + ('0' + w.mi).slice(-2); }
+  // Today (or `back` days ago) at a typed clock time, in the dose time zone.
+  function atClock(hh, mm, back){ var w = wall(new Date()); return zoned(w.y, w.mo, w.d - (back || 0), hh, mm); }
   // A clock time typed in means its most recent occurrence: today, or
   // yesterday when today's would still be in the future (just after midnight).
   function pickedTime(v){
     var m = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!m) return null;
-    var d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
+    var d = atClock(+m[1], +m[2]);
     if(d.getTime() > Date.now() + 2 * 60000){
-        d.setDate(d.getDate() - 1);
+        d = atClock(+m[1], +m[2], 1);
         // Yesterday's would be too old to mean anything: it's a time still ahead today.
         if(d.getTime() < Date.now() - 12 * 3600000) return 'future';
       }
@@ -14353,8 +14433,8 @@ try {
   // when today's is still ahead.
   function pickedPast(v){
     var m = /^(\d{2}):(\d{2})$/.exec(v || ''); if(!m) return null;
-    var d = new Date(); d.setHours(+m[1], +m[2], 0, 0);
-    if(d.getTime() > Date.now() + 2 * 60000) d.setDate(d.getDate() - 1);
+    var d = atClock(+m[1], +m[2]);
+    if(d.getTime() > Date.now() + 2 * 60000) d = atClock(+m[1], +m[2], 1);
     return d;
   }
   window.pfDoseTimeParts.pickedPast = pickedPast;
