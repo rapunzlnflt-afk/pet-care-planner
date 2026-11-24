@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.53.1">
+                          <meta name="app-version" content="3.54.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -14244,7 +14244,7 @@ try {
         return res;
       }
       if(res.outcome === 'already_logged'){
-        toast(res.status === 'taken' && res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
+        toast(res.status === 'taken' && res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : res.status === 'missed' ? 'This dose wasn\u2019t recorded in time' : 'This dose was already recorded');
       }
       // A logged dose shows its own "Given 2:14 PM · Undo" bar on the card.
       return refresh().then(function(){ return res; });
@@ -14576,7 +14576,7 @@ try {
         window.pfDoseLog(x.ev.id, taken).then(function(res){
           if(res.outcome === 'too_soon'){ closeSheet(); return; }
           var msg = res.outcome === 'already_logged'
-            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : 'Already recorded')
+            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) : res.status === 'missed' ? 'Not recorded in time' : 'Already recorded')
             : (taken ? '\u2713 Given ' + clock(new Date(res.taken_at)) : 'Skipped');
           btns.outerHTML = '<p class="pf-dose-status" style="margin-top:6px;">' + msg + '</p>';
           left--;
@@ -14659,7 +14659,7 @@ try {
         window.pfDoseLog(ev.id, taken).then(function(res){
           if(res.outcome === 'too_soon'){ closeSheet(); return; }
           var msg = res.outcome === 'already_logged'
-            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) + '.' : 'This dose was already recorded.')
+            ? (res.taken_at ? 'Already given ' + when(new Date(res.taken_at)) + '.' : res.status === 'missed' ? 'This dose wasn\u2019t recorded in time.' : 'This dose was already recorded.')
             : (taken ? 'Given ' + clock(new Date(res.taken_at)) + '.' : 'Skipped.');
           var nxt = res.next_due_at ? '<p class="pf-dose-muted">Next dose ' + when(new Date(res.next_due_at)) + '</p>' : '';
           var canUndo = res.outcome === 'logged';
