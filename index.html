@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.53.0">
+                          <meta name="app-version" content="3.53.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -13660,7 +13660,7 @@ try {
       if (/rate_limited/i.test(err))
         return 'Too many tries in a row. Wait 10 minutes, then try again.';
       if (/activation limit/i.test(err))
-        return 'This key is already in use on 3 devices. Remove one from My Orders at app.lemonsqueezy.com, then try again.';
+        return 'This key is already in use on 3 devices. Email cleartrackapps@gmail.com and we\u2019ll free one up.';
       if (/not found|invalid/i.test(err))
         return 'That key was not recognised. Copy it again from your receipt email.';
       return err || 'That key was not recognised.';
@@ -13674,7 +13674,7 @@ try {
       if (l.key === key && l.instanceId) {
         return revalidate(true).then(function(){
           return isPaid() ? { ok:true }
-            : { ok:false, message:'This subscription isn\u2019t active. Renew it from My Orders at app.lemonsqueezy.com, then tap Activate again.' };
+            : { ok:false, message:'This subscription isn\u2019t active. Renew it from the link in your receipt email, or email cleartrackapps@gmail.com, then tap Activate again.' };
         });
       }
       return lsPost('activate', { license_key:key, instance_name:deviceName() })
@@ -13687,7 +13687,7 @@ try {
           }
           record(key, (d.instance || {}).id || null, d);
           return isPaid() ? { ok:true }
-            : { ok:false, message:'This subscription isn\u2019t active. Renew it from My Orders at app.lemonsqueezy.com.' };
+            : { ok:false, message:'This subscription isn\u2019t active. Renew it from the link in your receipt email, or email cleartrackapps@gmail.com.' };
         })
         .catch(function(){
           return { ok:false, message:'Couldn\u2019t reach the license server. Check your connection and try again.' };
