@@ -517,7 +517,7 @@
           return res;
         }
         if(res.outcome === 'already_logged'){
-          toast(res.status === 'taken' && res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + res.actor_label : '') + ' ' + when(new Date(res.taken_at)) : 'This dose was already recorded');
+          toast(res.status === 'taken' && res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + res.actor_label : '') + ' ' + when(new Date(res.taken_at)) : res.status === 'missed' ? 'This dose wasn\u2019t recorded in time' : 'This dose was already recorded');
         } else if(r.error){
           toast('Could not record the dose. Try again.');
         }
@@ -555,7 +555,7 @@
         log(ev.id, taken, false).then(function(res){
           if(!res || res.outcome === 'too_soon'){ closeSheet(); return; }
           var msg = res.outcome === 'already_logged'
-            ? (res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + esc(res.actor_label) : '') + ' ' + esc(when(new Date(res.taken_at))) + '.' : 'This dose was already recorded.')
+            ? (res.taken_at ? 'Already given' + (res.actor_label ? ' by ' + esc(res.actor_label) : '') + ' ' + esc(when(new Date(res.taken_at))) + '.' : res.status === 'missed' ? 'This dose wasn\u2019t recorded in time.' : 'This dose was already recorded.')
             : (taken ? 'Given ' + esc(clock(new Date(res.taken_at))) + '.' : 'Skipped.');
           var nxt = res.next_due_at ? '<p class="muted">Next dose ' + esc(when(new Date(res.next_due_at))) + '</p>' : '';
           var s2 = sheet(head + '<p class="status">' + msg + '</p>' + nxt + '<button type="button" class="secondary" data-close>Done</button>' +
