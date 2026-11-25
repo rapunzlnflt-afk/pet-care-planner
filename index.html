@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.54.0">
+                          <meta name="app-version" content="3.54.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -4521,11 +4521,14 @@ body.pf-ho-lock{overflow:hidden;}
     });
   }
   function pfMakePdf(src, onclone) {
-    var CSSW = 760;
+    var CSSW = 760, breaks = null;
     return pfLoadH2c().then(function(h2c) {
       return h2c(src, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 816,
-        onclone: function(doc) { onclone(doc, CSSW); pfCoverImgs(doc, src.id); }
+        // v3.54.1: an onclone may return the y positions (CSS px from the top
+        // of the sheet) where a page may break. The Timeline returns the gaps
+        // between its entries, so an entry is never split across two pages.
+        onclone: function(doc) { var b = onclone(doc, CSSW); breaks = Array.isArray(b) && b.length ? b : null; pfCoverImgs(doc, src.id); }
       });
     }).then(function(canvas) {
       var k0 = canvas.width / CSSW;
@@ -4536,6 +4539,13 @@ body.pf-ho-lock{overflow:hidden;}
       // of text is never cut in half.
       function blankRow(py, data, w) { var ink = 0; for (var x = 0; x < w; x += 3) { var i = x * 4; if (data[i] + data[i+1] + data[i+2] < 600) { if (++ink > 2) return false; } } return true; }
       function findBreak(from, to) {
+        if (breaks) {
+          // Last allowed break that fits on this page; an entry taller than
+          // the lower half of a page falls back to the blank-row search.
+          var pick = 0;
+          for (var bi = 0; bi < breaks.length; bi++) { if (breaks[bi] > from && breaks[bi] <= to) pick = breaks[bi]; }
+          if (pick) return pick;
+        }
         var py0 = Math.round(from * k), py1 = Math.round(to * k), w = canvas.width;
         var img = ctx0.getImageData(0, py0, w, py1 - py0).data, run = 0;
         for (var r = py1 - py0 - 1; r >= 0; r--) {
@@ -11276,6 +11286,16 @@ try {
         });
         var ov = doc.getElementById('tl-print-overlay');
         if (ov) ov.style.setProperty('width', W + 'px', 'important');
+        // v3.54.1: page breaks go only in the gap between two entries. A blank
+        // run between wrapped lines of one entry used to count as a break.
+        var top = c ? c.getBoundingClientRect().top : 0, out = [];
+        var vis = [].filter.call(doc.querySelectorAll('#tl-print-content .tl-print-row'), function(li){ return !li.classList.contains('tl-off') && li.offsetHeight; });
+        vis.forEach(function(li, i){
+          var b = li.getBoundingClientRect().bottom - top;
+          var next = vis[i + 1] ? vis[i + 1].getBoundingClientRect().top - top : b + 8;
+          out.push((b + next) / 2);
+        });
+        return out;
       }
     });
   }
