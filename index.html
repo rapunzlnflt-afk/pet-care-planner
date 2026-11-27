@@ -24,7 +24,7 @@
   <link rel="canonical" href="https://cleartrackapps.com/pet-care-planner/">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#5B5BD6">
-                          <meta name="app-version" content="3.54.1">
+                          <meta name="app-version" content="3.55.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pawfolio">
@@ -1693,6 +1693,7 @@ body.pf-ho-lock{overflow:hidden;}
          <select id="med-frequency">
           <option value="Once daily">Once daily</option>
           <option value="Twice daily">Twice daily</option>
+          <option value="Three times daily">Three times daily</option>
           <option value="Every 8 hours">Every 8 hours</option>
           <option value="Weekly">Weekly</option>
           <option value="Monthly">Monthly</option>
@@ -3004,6 +3005,43 @@ body.pf-ho-lock{overflow:hidden;}
   }
   window.medDoseTimes = medDoseTimes;
 
+  // v3.55.0: "Twice daily" and "Three times daily" need that many dose times.
+  // The frequency is still only a label, so when set times fall short the
+  // form fills the rest in, and the form and card warn about any left short.
+  const FREQ_DOSE_COUNT = { 'Twice daily': 2, 'Three times daily': 3 };
+  function freqDoseCount(freq) { return FREQ_DOSE_COUNT[freq] || 0; }
+  // How many set times are missing (0 when fine, or when no times are set).
+  function missingDoseTimes(freq, rolling, n) {
+    const need = freqDoseCount(freq);
+    return !rolling && need && n > 0 && n < need ? need - n : 0;
+  }
+  function doseShortText(freq, n, noun) {
+    const need = freqDoseCount(freq);
+    return `${freq} needs ${need} ${noun} times, but only ${n} ${n === 1 ? 'is' : 'are'} set.`;
+  }
+  // Add the missing times, spread through the day from the earliest one
+  // (8:00 AM becomes 8:00 AM and 8:00 PM, or 8:00 AM, 2:00 PM and 8:00 PM).
+  // "Add the missing time" on a card: open it for editing with the times filled in.
+  window.pfFillDoseTimes = () => {
+    const freq = document.getElementById('med-frequency').value;
+    const have = readDoseTimes();
+    if(document.getElementById('med-dose-mode').value !== 'rolling' && missingDoseTimes(freq, false, have.length)) renderDoseTimes(fillDoseTimes(freq, have));
+  };
+  function fillDoseTimes(freq, times) {
+    const need = freqDoseCount(freq);
+    if(!need || !times.length || times.length >= need) return times;
+    const sugg = DOSE_TIME_SUGGESTIONS[freq] || [];
+    if(times.every(t => sugg.includes(t))) return sugg.slice();
+    const [h, mm] = times[0].split(':').map(Number);
+    const step = need === 2 ? 12 : 6;
+    const out = times.slice();
+    for(let k = 1; out.length < need && k < need + 2; k++) {
+      const t = String((h + k * step) % 24).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+      if(!out.includes(t)) out.push(t);
+    }
+    return out.sort();
+  }
+
   // v3.33.0: "Every N hours from the last dose". Returns N, or 0 for set times.
   function medDoseEvery(m) {
     if(!m || m.doseMode !== 'rolling') return 0;
@@ -3047,6 +3085,7 @@ body.pf-ho-lock{overflow:hidden;}
   const DOSE_TIME_SUGGESTIONS = {
     'Once daily': ['08:00'],
     'Twice daily': ['08:00', '20:00'],
+    'Three times daily': ['08:00', '14:00', '20:00'],
     'Every 8 hours': ['06:00', '14:00', '22:00'],
   };
 
@@ -3080,6 +3119,7 @@ body.pf-ho-lock{overflow:hidden;}
     const n = readDoseTimes().length;
     const noun = document.getElementById('med-type').value === 'supplement' ? 'serving' : 'dose';
     if(document.getElementById('med-dose-mode').value === 'rolling') {
+      hint.classList.remove('pf-dose-short');
       const h = parseInt(document.getElementById('med-dose-every').value, 10);
       hint.textContent = !(h >= 1 && h <= 72)
         ? `Enter how many hours apart each ${noun} should be.`
@@ -3088,6 +3128,10 @@ body.pf-ho-lock{overflow:hidden;}
           : `Add when the first ${noun} is due. After that, each one is due ${h} hour${h === 1 ? '' : 's'} after the last.`;
       return;
     }
+    const freq = document.getElementById('med-frequency').value;
+    const short = missingDoseTimes(freq, false, n);
+    hint.classList.toggle('pf-dose-short', !!short);
+    if(short) { hint.textContent = doseShortText(freq, n, noun) + ` Tap + Add dose time so each ${noun} gets a reminder.`; return; }
     hint.textContent = n
       ? `${n} ${noun} reminder${n === 1 ? '' : 's'} a day. Turn on Dose reminders at the top of this tab to receive them.`
       : `Optional. Add a time to be reminded when each ${noun} is due — separate from the refill reminder.`;
@@ -3114,13 +3158,19 @@ body.pf-ho-lock{overflow:hidden;}
       updateDoseHint();
       return;
     }
-    if(readDoseTimes().length) return;
+    const have = readDoseTimes();
+    if(have.length) {
+      // v3.55.0: Twice / Three times daily with too few times: add the rest.
+      if(missingDoseTimes(e.target.value, false, have.length)) renderDoseTimes(fillDoseTimes(e.target.value, have));
+      else updateDoseHint();
+      return;
+    }
     const suggested = DOSE_TIME_SUGGESTIONS[e.target.value];
     if(suggested) renderDoseTimes(suggested.slice());
   });
 
   // v3.33.0: dose timing and the missed-dose instruction.
-  const EVERY_SUGGESTIONS = { 'Once daily': 24, 'Twice daily': 12, 'Every 8 hours': 8 };
+  const EVERY_SUGGESTIONS = { 'Once daily': 24, 'Twice daily': 12, 'Three times daily': 8, 'Every 8 hours': 8 };
   function applyDoseModeUI() {
     const rolling = document.getElementById('med-dose-mode').value === 'rolling';
     const supp = document.getElementById('med-type').value === 'supplement';
@@ -3209,6 +3259,11 @@ body.pf-ho-lock{overflow:hidden;}
         ev.reportValidity();
         return;
       }
+    }
+    {
+      const freq = document.getElementById('med-frequency').value, n = readDoseTimes().length;
+      const noun = document.getElementById('med-type').value === 'supplement' ? 'serving' : 'dose';
+      if(missingDoseTimes(freq, rolling, n) && !confirm(doseShortText(freq, n, noun) + ` Only the ${noun} time${n === 1 ? '' : 's'} you set will be tracked and reminded.\n\nSave anyway? Choose Cancel to add the missing time.`)) return;
     }
     const fields = {
       petId, petName: pet ? pet.name : '', type,
@@ -3350,6 +3405,10 @@ body.pf-ho-lock{overflow:hidden;}
           ${archived ? '<span class="type-badge editing">ARCHIVED</span>' : ''}
         </div>
         <p class="font-body text-sm text-secondary">${escHtml(m.petName)}${m.dosage ? ' · ' + escHtml(m.dosage) : ''}${m.frequency ? ' · ' + escHtml(m.frequency) : ''}</p>
+        ${!archived && missingDoseTimes(m.frequency, !!medDoseEvery(m), medDoseTimes(m).length)
+          ? `<p class="pf-dose-missed" style="margin-top:8px;">${escHtml(doseShortText(m.frequency, medDoseTimes(m).length, supp ? 'serving' : 'dose'))} Only ${escHtml(medDoseTimes(m).map(fmtDoseTime).join(', '))} ${medDoseTimes(m).length === 1 ? 'is' : 'are'} scheduled.</p>
+             <button type="button" class="pf-dose-early" style="display:block;margin-bottom:4px;" onclick="editMed(${m.__id}); pfFillDoseTimes()">Add the missing time</button>`
+          : ''}
         ${refillLine && refillSoon ? refillLine + refillBtn : ''}
         ${!archived && typeof window.pfDoseCardHTML === 'function' ? window.pfDoseCardHTML(m) : ''}
       </div>
@@ -14735,6 +14794,10 @@ try {
   .pf-dose-given { background: #5B5BD6; color: #fff; border: 1px solid #5B5BD6; }
   .pf-dose-skip { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
   #med-dose-times.pf-rolling .dose-time-remove { display: none; }
+  .pf-dose-short { color: #b45309 !important; font-style: normal !important; }
+  [data-theme="dark"] .pf-dose-short { color: #f6c177 !important; }
+  [data-theme="dark"] .pf-dose-missed { background: rgba(246,166,35,0.12); border-color: rgba(246,166,35,0.35); color: #f6c177; }
+  [data-theme="dark"] .pf-dose-early { color: #a5b4fc; }
   .pf-dose-missed { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: rgba(180,83,9,0.08); border: 1px solid rgba(180,83,9,0.25); color: #7c2d12; font-family: 'Karla', sans-serif; font-size: 14px; line-height: 1.4; }
   .pf-dose-early { display: inline-block; margin-top: 6px; background: none; border: none; padding: 4px 0; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; color: #4338ca; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .pf-dose-undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #1f2937; color: #fff; border-radius: 8px; padding: 6px 6px 6px 12px; margin-bottom: 8px; font-family: 'Karla', sans-serif; font-size: 14px; font-weight: 700; }
