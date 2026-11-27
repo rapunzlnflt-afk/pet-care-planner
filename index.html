@@ -3032,13 +3032,11 @@ body.pf-ho-lock{overflow:hidden;}
     if(!need || !times.length || times.length >= need) return times;
     const sugg = DOSE_TIME_SUGGESTIONS[freq] || [];
     if(times.every(t => sugg.includes(t))) return sugg.slice();
-    const [h, mm] = times[0].split(':').map(Number);
-    const step = need === 2 ? 12 : 6;
-    const out = times.slice();
-    for(let k = 1; out.length < need && k < need + 2; k++) {
-      const t = String((h + k * step) % 24).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-      if(!out.includes(t)) out.push(t);
-    }
+    const [h, mm] = times.slice().sort()[0].split(':').map(Number);
+    // Evenly spaced from the earliest time: 12 hours apart for two, 8 for three.
+    const step = 24 / need;
+    const out = [];
+    for(let k = 0; k < need; k++) out.push(String((h + k * step) % 24).padStart(2, '0') + ':' + String(mm).padStart(2, '0'));
     return out.sort();
   }
 
@@ -3085,7 +3083,7 @@ body.pf-ho-lock{overflow:hidden;}
   const DOSE_TIME_SUGGESTIONS = {
     'Once daily': ['08:00'],
     'Twice daily': ['08:00', '20:00'],
-    'Three times daily': ['08:00', '14:00', '20:00'],
+    'Three times daily': ['06:00', '14:00', '22:00'],
     'Every 8 hours': ['06:00', '14:00', '22:00'],
   };
 
